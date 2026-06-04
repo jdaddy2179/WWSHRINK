@@ -8,6 +8,7 @@ Test strategy and test cases validating the AWS onboarding / Windward tenant-cre
 | [`TestStrategy.md`](TestStrategy.md) | Master strategy: scope, approach, environments, roles, risk, defects, gaps |
 | [`TraceabilityMatrix.md`](TraceabilityMatrix.md) | Phase → test-case coverage across the full playbook |
 | [`TestCases.csv`](TestCases.csv) | All 180 test cases as a flat, importable grid (ID, workstream, phase, priority, environments, title, steps, pass/fail) |
+| [`TestCases_StepLevel.csv`](TestCases_StepLevel.csv) | Same 180 cases expanded to **one row per step** (398 step rows) in Azure DevOps Test Plans import layout (Title / Test Step / Step Action / Step Expected Result) |
 | [`TestEstimates.md`](TestEstimates.md) | Per-phase testing effort (person-days **and hours**) across all 4 environments, workstream rollups, schedule (DEV by Aug 2026), and resource justification |
 | [`DocumentationFixes.md`](DocumentationFixes.md) | Consolidated, actionable list of playbook documentation defects (broken links, missing AC, contradictions, gaps) with severities and recommended fixes |
 | [`templates/TestCaseTemplate.md`](templates/TestCaseTemplate.md) | Reusable test-case format |
