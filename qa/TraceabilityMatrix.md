@@ -2,24 +2,24 @@
 
 Maps every playbook phase to its planned/authored test coverage. `Authored` = detailed cases exist in `test-cases/`. `Pending Content` = phase markdown not yet provided; coverage is drafted against the phase's standard sections and will be authored on content delivery.
 
-Workstream and phase list per `Introduction.md`.
+Workstream and phase list per `Introduction.md`. Hand-off phases (ticket → specialist team) reuse the shared cases `TC-HO-01..09` defined in [`test-cases/TC_PATTERN_JiraHandoffPhase.md`](test-cases/TC_PATTERN_JiraHandoffPhase.md) (shown as "+ HO" below).
 
 | Phase | Title | WS | Priority | Risk focus | Test Case ID(s) | Status |
 |-------|-------|----|----------|-----------|-----------------|--------|
 | 1 | Gather Client & AWS Account Info | 1 | P1 | Input accuracy, Tier calc, PHI provenance | `TC-P1-01..11` | **Authored** |
 | — | ClientMemCount.sql | — | P1 | Count accuracy → Tier; PROD/PHI safety | `TC-SQL-01..10` | **Authored** |
-| 2 | Request AWS Accounts | 1 | P2 | Correct ServiceNow ticket, account spec | `TC-P2-*` | Pending Content |
+| 2 | Request AWS Accounts | 1 | P2 | REF substitution, ticket accuracy | `TC-P2-01..08` | **Authored** |
 | 2.1 | Test AWS Accounts | 1 | P2 | Access, region, naming convention | `TC-P2.1-01..10` | **Authored** |
-| 3 | Provision Tenant Infrastructure | 1 | P2 | Tier-correct sizing, naming | `TC-P3-*` | Pending Content |
-| 3.1 | Kerberos Setup | 1 | P3 | Auth config | `TC-P3.1-*` | Pending Content |
-| 3.2 | Load Balancers | 1 | P3 | LB config, DNS CNAME aliases | `TC-P3.2-*` | Pending Content |
-| 3.3 | Attach SSL/TLS Certificates | 1 | P2 | Cert validity, expiry, binding | `TC-P3.3-*` | Pending Content |
-| 3.4 | Infrastructure-level Security | 1 | P1 | Least privilege, exposure, PHI boundary | `TC-P3.4-*` | Pending Content |
+| 3 | Provision Tenant Infrastructure | 1 | P2 | Tier-correct sizing, naming, seq order | `TC-P3-01..07` | **Authored** |
+| 3.1 | Kerberos Setup | 1 | P3 | Auth config (hand-off) | `TC-P3.1-*` + HO | **Authored** |
+| 3.2 | Load Balancers | 1 | P3 | LB config, DNS CNAME, rollback | `TC-P3.2-*` + HO | **Authored** |
+| 3.3 | Attach SSL/TLS Certificates | 1 | P2 | Cert validity, binding, 3.2 dependency | `TC-P3.3-*` + HO | **Authored** |
+| 3.4 | Infrastructure-level Security | 1 | P1 | IT-Intake decision table, PHI gate | `TC-P3.4-01..08` | **Authored** |
 | 4 | Setup SQL Servers & DB Config | 1 | P1 | DB sizing, config, access | `TC-P4-*` | Pending Content |
-| 4.1 | Bring COM DB Offline (PROD ONLY) | 1 | **P1** | Irreversible/PROD, rollback, change ctrl | `TC-P4.1-*` | Pending Content |
-| 4.2 | Database Backup & Restore | 1 | P1 | Backup integrity, restore verification | `TC-P4.2-*` | Pending Content |
-| 4.3 | WW Shrink (WW1.0) & Config | 1 | P1 | Data shrink correctness, no loss | `TC-P4.3-*` | Pending Content |
-| 4.4 | WW Shrink (WW Payment) | 2 | P1 | Payment data integrity post-shrink | `TC-P4.4-*` | Pending Content |
+| 4.1 | Bring COM DB Offline (PROD/HFX) | 1 | **P1** | Irreversible/PROD, change ctrl, env gate | `TC-P4.1-01..07` | **Authored** |
+| 4.2 | Database Backup & Restore | 1 | P1 | Backup/restore integrity, seq env | `TC-P4.2-01..08` | **Authored** |
+| 4.3 | WW Shrink (WW1.0) & Config | 1 | P1 | Scoping IDs, no data loss, backup safety | `TC-P4.3-01..09` | **Authored** |
+| 4.4 | WW Shrink (WW Payment) | 2 | P1 | Payment integrity, scoping, backup safety | `TC-P4.4-01..07` | **Authored** |
 | 4.5 | Database Replication | 1 | P2 | Replication consistency/lag | `TC-P4.5-*` | Pending Content |
 | 5 | Deploy WW1.0 & Config | 1 | P2 | Deployment correctness | `TC-P5-*` | Pending Content |
 | 5.1 | App Security: WW1.0 & Config | 1 | P1 | AuthZ, secrets, PHI access | `TC-P5.1-*` | Pending Content |

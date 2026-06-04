@@ -10,11 +10,26 @@ Test strategy and test cases validating the AWS onboarding / Windward tenant-cre
 | [`templates/TestCaseTemplate.md`](templates/TestCaseTemplate.md) | Reusable test-case format |
 | [`test-cases/`](test-cases/) | Executable, detailed test cases |
 
+## Reusable pattern
+| File | Purpose |
+|------|---------|
+| [`test-cases/TC_PATTERN_JiraHandoffPhase.md`](test-cases/TC_PATTERN_JiraHandoffPhase.md) | Shared cases `TC-HO-01..09` for every "create Jira ticket → hand off to specialist team" phase. Hand-off phase suites reference these instead of duplicating them. |
+
 ## Authored detailed test cases
 | File | Covers |
 |------|--------|
 | [`test-cases/TC_Phase01_GatherClientAndAWSAccountInfo.md`](test-cases/TC_Phase01_GatherClientAndAWSAccountInfo.md) | Phase 1 incl. **Tier boundary** and PHI-provenance cases |
+| [`test-cases/TC_Phase02_RequestAWSAccounts.md`](test-cases/TC_Phase02_RequestAWSAccounts.md) | Phase 2 ServiceNow request, REF[] substitution |
 | [`test-cases/TC_Phase02.1_TestAWSAccounts.md`](test-cases/TC_Phase02.1_TestAWSAccounts.md) | Phase 2.1 access + AWS account/naming validation |
+| [`test-cases/TC_Phase03_Infrastructure.md`](test-cases/TC_Phase03_Infrastructure.md) | Phase 3 provisioning + server naming + sequential env |
+| [`test-cases/TC_Phase03.1_KerberosSetup.md`](test-cases/TC_Phase03.1_KerberosSetup.md) | Phase 3.1 Kerberos (hand-off) |
+| [`test-cases/TC_Phase03.2_LoadBalancers.md`](test-cases/TC_Phase03.2_LoadBalancers.md) | Phase 3.2 LB + DNS CNAME + rollback |
+| [`test-cases/TC_Phase03.3_Certificates.md`](test-cases/TC_Phase03.3_Certificates.md) | Phase 3.3 SSL/TLS certs + 3.2 dependency |
+| [`test-cases/TC_Phase03.4_Infrastructure_Security.md`](test-cases/TC_Phase03.4_Infrastructure_Security.md) | Phase 3.4 InfoSec **decision table** + PHI gate |
+| [`test-cases/TC_Phase04.1_BringComDBOfflinePROD.md`](test-cases/TC_Phase04.1_BringComDBOfflinePROD.md) | Phase 4.1 PROD/HFX offline, change control, env gate |
+| [`test-cases/TC_Phase04.2_BackupRestore.md`](test-cases/TC_Phase04.2_BackupRestore.md) | Phase 4.2 backup/restore integrity, sequential env |
+| [`test-cases/TC_Phase04.3_WWShrinkWW1.0AndConfig.md`](test-cases/TC_Phase04.3_WWShrinkWW1.0AndConfig.md) | Phase 4.3 **WW Shrink** scoping/no-loss/backup safety |
+| [`test-cases/TC_Phase04.4_WWShrinkPayment.md`](test-cases/TC_Phase04.4_WWShrinkPayment.md) | Phase 4.4 **WW Payment Shrink** integrity/scoping |
 | [`test-cases/TC_SQL_ClientMemCount.md`](test-cases/TC_SQL_ClientMemCount.md) | `ClientMemCount.sql` accuracy, safety, definition gaps |
 
 ## How to use
