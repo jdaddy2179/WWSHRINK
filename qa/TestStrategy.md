@@ -57,10 +57,14 @@ Detailed, executable test cases exist today only for the phases whose full conte
 
 | Phase | Content available | Test cases |
 |-------|------------------|-----------|
-| Phase 1 — Gather Client & AWS Info | Yes | Detailed (`TC_Phase01_*`) |
-| Phase 2.1 — Test AWS Accounts | Yes | Detailed (`TC_Phase02.1_*`) |
-| ClientMemCount.sql | Yes | Detailed (`TC_SQL_ClientMemCount_*`) |
-| Phase 2, 3.x, 4.x, 5.x, 6.x, 7.x, 8, 9.x, 10, 11, 12, X | Not yet provided | Planned (matrix) |
+| 1, 2, 2.1, 3, 3.1–3.4 | Yes | Detailed suites authored |
+| 4, 4.1–4.5 (incl. WW Shrink) | Yes | Detailed suites authored |
+| 5, 5.1–5.3, 6, 6.1 | Yes | Detailed suites authored |
+| 7, 9, 9.1, 9.2, 10, 11, X | Yes | Detailed suites authored |
+| `ClientMemCount.sql` | Yes | Detailed (`TC_SQL_ClientMemCount`) |
+| 7.1, 7.2, 7.3, 7.4, 7.5, 8, 12 | Received as empty templates | **Not QA-ready** — blocked (Gap G7) |
+
+The full playbook has been delivered; the only gap is the placeholder-template phases above, which must be authored and passed before Phase X go-live.
 
 ## 3.4 Workstream Test Breakdown
 
@@ -141,16 +145,16 @@ TBD  (9.1, 9.2, 10, 11, 12, X) — cleanup, PROD cutover, DR, and final E2E/UAT
 ---
 
 ### Per-Workstream coverage status
-| Workstream | Phases | Detailed suites authored | Pending content |
-|-----------|--------|--------------------------|-----------------|
-| WS1 | 16 | 1, 2, 2.1, 3, 3.1, 3.2, 3.3, 3.4, 4.1, 4.2, 4.3 | 4, 4.5, 5, 5.1, 6 |
-| WS2 | 4 | 4.4 | 5.2, 5.3, 8 |
+| Workstream | Phases | Detailed suites authored | Not QA-ready (placeholder) |
+|-----------|--------|--------------------------|----------------------------|
+| WS1 | 16 | 1, 2, 2.1, 3, 3.1, 3.2, 3.3, 3.4, 4, 4.1, 4.2, 4.3, 4.5, 5, 5.1, 6 | — |
+| WS2 | 4 | 4.4, 5.2, 5.3 | 8 |
 | WS3 | 2 | — | 7.2, 7.3 |
-| WS4 | 3 | — | 7, 7.1, 9 |
-| WS5 | 3 | — | 6.1, 7.4, 7.5 |
-| TBD | 6 | — | 9.1, 9.2, 10, 11, 12, X |
+| WS4 | 3 | 7, 9 | 7.1 |
+| WS5 | 3 | 6.1 | 7.4, 7.5 |
+| TBD | 6 | 9.1, 9.2, 10, 11, X | 12 |
 
-> Hand-off phases in WS2–WS5 reuse `TC-HO-01..09` from `test-cases/TC_PATTERN_JiraHandoffPhase.md`; concise per-phase suites are being authored (per agreed approach).
+> Hand-off phases reuse `TC-HO-01..09` from `test-cases/TC_PATTERN_JiraHandoffPhase.md`. All content-bearing phases are authored; the only remaining gap is the placeholder-template phases (7.1, 7.2, 7.3, 7.4, 7.5, 8, 12 — Gap G7).
 
 ## 4. Test Approach
 
@@ -254,7 +258,7 @@ All requirements (every documented input, output, validation check, and completi
 | G4 | Tier assumption: based **strictly** on member count, ignoring provider/claims volume | Phase01 Step2 | Under/over-sizing for atypical clients | Documented assumption; revisit per architecture |
 | G5 | Many phases have `Target Future State = To be determined` | Multiple | Future-state validation undefined | Track; not a release blocker for pilot |
 | G6 | PROD account may need a separate request via InfoSec (Phase 2.1 #10a) | Phase02.1 | Delay/missed account | Negative test + checklist item |
-| G7 | Phases 7.1, 7.2, 7.3, 7.4, 7.5, 8 are **unfilled placeholder templates** (no titles/AC/owners/links) | Phase07.x, 08 | Not testable; high latent risk (EDI/EE PHI routing; portal/mobile external PHI exposure) | Blocked for QA authoring until real content supplied; must not be marked COMPLETE on an empty template |
+| G7 | Phases 7.1, 7.2, 7.3, 7.4, 7.5, 8, **12** are **unfilled placeholder templates** (no titles/AC/owners/links) | Phase07.x, 08, 12 | Not testable; high latent risk (EDI/EE PHI routing; portal/mobile external PHI exposure; **DR failover/restore integrity**) | Blocked for QA authoring until real content supplied; must not be marked COMPLETE on an empty template |
 | G8 | Workstream ownership for Phases 9.1, 9.2, 10, 11, 12, X marked **TBD** in Introduction | Introduction | Unowned testing for irreversible PROD steps (10/11) | Confirm QA ownership with QA Lead before execution |
 | G9 | Recurring playbook doc defects: broken cross-links (5.2→`Phase05_DeployWWApplications.md`; 4.3→`Phase03.3_Infosec_IT_Intake.md`; 6.1→`Phase03.1_Infosec.md`), missing AC (5.1/5.3), "reduce EBS size" vs AWS limit (9.2), 4.1 PROD-vs-HFX inconsistency | Multiple | Operator confusion, wrong refs | Logged per-suite as `D-*`; batch-fix recommended |
 

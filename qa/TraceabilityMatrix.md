@@ -15,17 +15,17 @@ Workstream and phase list per `Introduction.md`. Hand-off phases (ticket → spe
 | 3.2 | Load Balancers | 1 | P3 | LB config, DNS CNAME, rollback | `TC-P3.2-*` + HO | **Authored** |
 | 3.3 | Attach SSL/TLS Certificates | 1 | P2 | Cert validity, binding, 3.2 dependency | `TC-P3.3-*` + HO | **Authored** |
 | 3.4 | Infrastructure-level Security | 1 | P1 | IT-Intake decision table, PHI gate | `TC-P3.4-01..08` | **Authored** |
-| 4 | Setup SQL Servers & DB Config | 1 | P1 | DB sizing, config, access | `TC-P4-*` | Pending Content |
+| 4 | Setup SQL Servers & DB Config | 1 | P1 | DB sizing/config, SSMS connectivity (comma-port) | `TC-P4-*` + HO | **Authored** |
 | 4.1 | Bring COM DB Offline (PROD/HFX) | 1 | **P1** | Irreversible/PROD, change ctrl, env gate | `TC-P4.1-01..07` | **Authored** |
 | 4.2 | Database Backup & Restore | 1 | P1 | Backup/restore integrity, seq env | `TC-P4.2-01..08` | **Authored** |
 | 4.3 | WW Shrink (WW1.0) & Config | 1 | P1 | Scoping IDs, no data loss, backup safety | `TC-P4.3-01..09` | **Authored** |
 | 4.4 | WW Shrink (WW Payment) | 2 | P1 | Payment integrity, scoping, backup safety | `TC-P4.4-01..07` | **Authored** |
-| 4.5 | Database Replication | 1 | P2 | Replication consistency/lag | `TC-P4.5-*` | Pending Content |
+| 4.5 | Database Replication | 1 | P2 | Replica=source consistency, AG failover, on-prem perf | `TC-P4.5-*` + HO | **Authored** |
 | 5 | Deploy WW1.0 & Config | 1 | P2 | Deploy + functional (Citrix), seq env | `TC-P5-*` + HO | **Authored** |
 | 5.1 | App Security: WW1.0 & Config | 1 | P1 | Okta SSO, auth, ForcePoint DSS PHI | `TC-P5.1-*` | **Authored** |
 | 5.2 | Deploy WW Payments | 2 | P1 | Payment deploy + functional, Tier file | `TC-P5.2-*` + HO | **Authored** |
 | 5.3 | App Security: WW Payments | 2 | P1 | Payment SSO/auth, PHI, correct instance | `TC-P5.3-*` | **Authored** |
-| 6 | Deploy Domain Services | 1 | P2 | Service health | `TC-P6-*` | Pending Content |
+| 6 | Deploy Domain Services | 1 | P2 | 4 services deployed, health, smoke | `TC-P6-*` + HO | **Authored** |
 | 6.1 | Deploy Business Service | 5 | P2 | All-env deploy, smoke, rollback | `TC-P6.1-*` + HO | **Authored** |
 | 7 | TWS Jobs Setup | 4 | P2 | Conn-strings (cross-tenant), SSIS, BU, jobs | `TC-P7-*` + HO | **Authored** |
 | 7.1 | Correspondence Letter Setup | 4 | P3 | Letter generation (PHI output) | `TC-P7.1-*` | **Not QA-ready** (placeholder) |
@@ -37,14 +37,14 @@ Workstream and phase list per `Introduction.md`. Hand-off phases (ticket → spe
 | 9 | Trusted View Setup | 4 | **P1** | Rebuild integrity, all tables populated | `TC-P9-*` + HO | **Authored** |
 | 9.1 | Provider Copy Job | TBD | P2 | Provider sync completeness, cross-tenant | `TC-P9.1-*` + HO | **Authored** |
 | 9.2 | Remove Extra Disk & CPUs | TBD | **P1** | Irreversible resize, snapshot, perf | `TC-P9.2-*` + HO | **Authored** |
-| 10 | Remove SLE Data from COM DB | TBD | **P1** | Irreversible data removal, scope | `TC-P10-*` | Pending Content |
-| 11 | Bring COM DB Online (PROD ONLY) | TBD | **P1** | PROD restore, integrity, change ctrl | `TC-P11-*` | Pending Content |
-| 12 | Disaster Recovery Setup | TBD | P1 | DR failover/restore drill | `TC-P12-*` | Pending Content |
-| X | End-to-End Test & UAT | TBD | P1 | Full onboarding acceptance + functional/perf gate | `TC-PX-*` | Pending Content |
+| 10 | Remove SLE Data from COM DB | TBD | **P1** | Irreversible deletion: backup, scope, before/after counts | `TC-P10-*` + HO | **Authored** |
+| 11 | Bring COM DB Online (PROD ONLY) | TBD | **P1** | PROD cutover, Phase-10 gate, app connectivity | `TC-P11-*` + HO | **Authored** |
+| 12 | Disaster Recovery Setup | TBD | P1 | DR failover/restore drill | `TC-P12-*` | **Not QA-ready** (placeholder) |
+| X | End-to-End Test & UAT | TBD | **P1** | Full onboarding acceptance + functional/perf gate, bug-resolution exit | `TC-PX-*` + HO | **Authored** |
 
 **Status legend:** **Authored** = detailed suite in `test-cases/`. **Pending Content** = phase markdown not yet provided. **Not QA-ready (placeholder)** = phase file received but is an unfilled template (no titles, acceptance criteria, owners, or reference links) — nothing testable yet; see Gap Register **G7**.
 
-> **Placeholder phases (7.1, 7.2, 7.3, 7.4, 7.5, 8):** received as empty templates. These are **blocked for QA authoring** until real content (titles, steps, acceptance criteria, owners, links) is supplied. Their latent risk is high — EDI (7.2) and Eligibility (7.3) carry PHI/claims routing; Member Portal (7.4) and Mobile App (7.5) are externally exposed member-PHI surfaces (WS5) and will be **P1 for exposure** once authored. They must not be marked COMPLETE on the strength of an empty template.
+> **Placeholder phases (7.1, 7.2, 7.3, 7.4, 7.5, 8, 12):** received as empty templates. These are **blocked for QA authoring** until real content (titles, steps, acceptance criteria, owners, links) is supplied. Their latent risk is high — EDI (7.2) and Eligibility (7.3) carry PHI/claims routing; Member Portal (7.4) and Mobile App (7.5) are externally exposed member-PHI surfaces (WS5) and will be **P1 for exposure** once authored; **Disaster Recovery (12) is P1** (failover/restore integrity). They must not be marked COMPLETE on the strength of an empty template.
 
 ## Cross-cutting coverage (applies across phases)
 | Concern | Where validated |
