@@ -6,7 +6,7 @@
 | Priority | P2 (HTTPS / encryption in transit) | Type | Jira hand-off + security validation |
 | Owner | SQA (ticket QA); Application & Network + Infra teams execute/validate |
 
-**Applies `TC-HO-01..09`** from [`TC_PATTERN_JiraHandoffPhase.md`](TC_PATTERN_JiraHandoffPhase.md):
+**Applies `TC-HO-01..09`** from [`TC_PATTERN_JiraHandoffPhase.md`](../_shared/TC_PATTERN_JiraHandoffPhase.md):
 - **Title:** `Certificate Setup - REF[Tenant Name]`.
 - **Links:** architecture folder, windward-1.0/2.0, Env Variables, **Certificate Setup steps** (`/architecture/certificates`, incl. CSR & renewal), **Security Requirements** (`/architecture/infosec`).
 - **Acceptance Criteria:** "SSL/TLS certificates should be generated and applied to AWS servers and load balancers".

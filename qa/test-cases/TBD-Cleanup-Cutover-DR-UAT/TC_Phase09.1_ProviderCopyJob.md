@@ -6,7 +6,7 @@
 | Priority | P2 (provider data sync) | Type | Jira hand-off + data sync |
 | Owner | DBA Team executes/validates |
 
-**Applies `TC-HO-01..06,08,09`** from [`TC_PATTERN_JiraHandoffPhase.md`](TC_PATTERN_JiraHandoffPhase.md):
+**Applies `TC-HO-01..06,08,09`** from [`TC_PATTERN_JiraHandoffPhase.md`](../_shared/TC_PATTERN_JiraHandoffPhase.md):
 - **Title:** `Configure Provider Copy Job - REF[Tenant Name]`.
 - **AC:** "Provider Copy Job configured with correct database connection strings, scheduled at appropriate intervals, and validate successful execution with provider data synchronization confirmed".
 - **Assignee:** DBA Team (Vasudha, Anthony, Nabeel; mgr TBD). **Single ticket per tenant.**

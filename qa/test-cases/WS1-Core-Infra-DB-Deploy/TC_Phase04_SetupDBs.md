@@ -6,7 +6,7 @@
 | Priority | P1 (DB foundation for all data phases) | Type | Jira hand-off + connectivity validation |
 | Owner | DBA Team creates/configures; SQA validates connectivity |
 
-**Applies `TC-HO-01..06,08,09`** from [`TC_PATTERN_JiraHandoffPhase.md`](TC_PATTERN_JiraHandoffPhase.md):
+**Applies `TC-HO-01..06,08,09`** from [`TC_PATTERN_JiraHandoffPhase.md`](../_shared/TC_PATTERN_JiraHandoffPhase.md):
 - **Title:** `Database Setup - REF[Tenant Name]`.
 - **AC:** "Databases created and configured on all SQL Server instances, database details (names, sizes, configurations) documented in Environment Variables spreadsheet, and database connectivity validated".
 - **Links:** windward-1.0, windward-2.0, **Costing.xlsx**.

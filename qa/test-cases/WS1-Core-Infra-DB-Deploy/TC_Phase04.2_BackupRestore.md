@@ -7,7 +7,7 @@
 | Type | Jira hand-off + data integrity + sequential env |
 | Owner | SQA (connectivity validation); DBA Team executes |
 
-**Applies `TC-HO-01..09`** from [`TC_PATTERN_JiraHandoffPhase.md`](TC_PATTERN_JiraHandoffPhase.md), per step:
+**Applies `TC-HO-01..09`** from [`TC_PATTERN_JiraHandoffPhase.md`](../_shared/TC_PATTERN_JiraHandoffPhase.md), per step:
 - **Step 1 Title:** `Database Backup from Production - REF[Tenant Name] [ENVIRONMENT]`; AC: "All three DBs (Config, Payment, Windward) backed up from production, integrity validated, file locations documented".
 - **Step 2 Title:** `Database Restore to windward-database-server - REF[Tenant Name] [ENVIRONMENT]`; AC: "All three DBs restored to windward-database-server, integrity validated, permissions configured".
 - **Assignee:** DBA Team (Vasudha, Anthony; mgr Chris Jones). **TC-HO-07 sequential env applies (DEV→QAR→PROD→HFX, one ticket per env, wait between).**

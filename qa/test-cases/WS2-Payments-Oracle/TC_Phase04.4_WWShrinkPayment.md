@@ -9,7 +9,7 @@
 
 > Mirrors Phase 4.3 but targets the **Payment** database. Financial/payment data — integrity and correct client scoping are paramount.
 
-**Applies `TC-HO-01..09`** from [`TC_PATTERN_JiraHandoffPhase.md`](TC_PATTERN_JiraHandoffPhase.md):
+**Applies `TC-HO-01..09`** from [`TC_PATTERN_JiraHandoffPhase.md`](../_shared/TC_PATTERN_JiraHandoffPhase.md):
 - **Step 1 Title:** `WW Payment Database Shrinking - REF[Tenant Name]`; AC: "WW Payment Database Shrinker executed successfully for REF[Environment], size reduced per specs, validation completed".
 - **Step 2 Title:** `Validate WW Payment Database Shrink Results - REF[Tenant Name] [ENVIRONMENT]`.
 - **Step 1 → DBA (Vasudha); Step 2 → SQA (Joshua, Keerthan; mgr Arun Pant).** TC-HO-07 sequential env applies.

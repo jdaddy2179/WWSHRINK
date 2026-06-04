@@ -6,7 +6,7 @@
 | Priority | P3 | Type | Jira hand-off |
 | Owner | SQA (ticket QA); Kerberos Team (Brian Hughes) executes & validates |
 
-**Applies `TC-HO-01..09`** from [`TC_PATTERN_JiraHandoffPhase.md`](TC_PATTERN_JiraHandoffPhase.md), instantiated with:
+**Applies `TC-HO-01..09`** from [`TC_PATTERN_JiraHandoffPhase.md`](../_shared/TC_PATTERN_JiraHandoffPhase.md), instantiated with:
 - **Backlog:** client-specific Jira backlog (e.g., CCP).
 - **Title:** `Kerberos Setup - REF[Tenant Name]`.
 - **Description links:** architecture folder, windward-1.0, windward-2.0, **Kerberos Setup documentation** (`/architecture/kerberos-setup`), Env Variables.

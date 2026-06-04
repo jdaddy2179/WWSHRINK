@@ -8,7 +8,7 @@
 
 > The joint exit gate. Phase X is where the **functional + performance** scope (now in-scope per `TestStrategy.md` §3.1) is consolidated and where critical/high bugs must be resolved before production go-live. **This QA artifact set (`qa/`) IS the deliverable Phase X references** — the playbook expects a Test Strategy / Testing folder (it links `/Testing/TestStrategy.md` on ADO); `qa/TestStrategy.md`, the suites, and the traceability matrix are that body of work.
 
-**Applies `TC-HO-01,04,06,08,09`** from [`TC_PATTERN_JiraHandoffPhase.md`](TC_PATTERN_JiraHandoffPhase.md):
+**Applies `TC-HO-01,04,06,08,09`** from [`TC_PATTERN_JiraHandoffPhase.md`](../_shared/TC_PATTERN_JiraHandoffPhase.md):
 - **Artifact type:** Jira **Feature** (not User Story).
 - **Title:** `End to end integration Testing and UAT - REF[Tenant Name]`.
 - **AC:** "End-to-end Testing & UAT represented as dedicated feature, where feature covers planning and readiness for end-to-end validation".

@@ -6,7 +6,7 @@
 | Priority | P2 (replication consistency; on-prem reporting) + performance in scope | Type | Jira hand-off + data consistency |
 | Owner | DBA Team executes; SQA validates read-only replica |
 
-**Applies `TC-HO-01..09`** from [`TC_PATTERN_JiraHandoffPhase.md`](TC_PATTERN_JiraHandoffPhase.md):
+**Applies `TC-HO-01..09`** from [`TC_PATTERN_JiraHandoffPhase.md`](../_shared/TC_PATTERN_JiraHandoffPhase.md):
 - **Titles:** Step 1 `Database Replication Setup and AG Configuration - REF[Tenant Name] [ENVIRONMENT]`; Step 2 `Replication to On-Prem Reporting Servers - REF[Tenant Name] [ENVIRONMENT]`.
 - **AC Step 1:** transactional replication source→read-only via distribution server, AG configured (if applicable), validated/synchronized, documented. **AC Step 2:** AWS→on-prem reporting replication validated/synchronized, performance impact acceptable, documented.
 - **Assignee:** DBA Team (Vasudha, Anthony; mgr Chris Jones) + Infra/Network for on-prem connectivity. **TC-HO-07 sequential env applies.**

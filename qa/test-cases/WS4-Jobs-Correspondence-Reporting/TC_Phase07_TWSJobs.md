@@ -6,7 +6,7 @@
 | Priority | P2 (batch/integration; data-movement heavy) + functional in scope | Type | Jira hand-off + functional |
 | Owner | TWS Team + DBA Team execute/validate |
 
-**Applies `TC-HO-01..06,08,09`** from [`TC_PATTERN_JiraHandoffPhase.md`](TC_PATTERN_JiraHandoffPhase.md):
+**Applies `TC-HO-01..06,08,09`** from [`TC_PATTERN_JiraHandoffPhase.md`](../_shared/TC_PATTERN_JiraHandoffPhase.md):
 - **Title:** `TWS Jobs Configuration - REF[Tenant Name]`.
 - **AC:** "All TWS jobs configured with correct database connection strings, business unit entries added to configuration tables, batch scripts updated with tenant-specific parameters, and automated job executions validated for the new tenant".
 - **Links:** **tws-jobs** (`/architecture/job-execution-tier/tws-jobs`).

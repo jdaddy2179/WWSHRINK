@@ -6,7 +6,7 @@
 | Priority | P2 (core app deploy) + **functional + performance in scope** | Type | Jira hand-off + functional validation |
 | Owner | SQA / executor (Citrix validation); Application Services Team deploys |
 
-**Applies `TC-HO-01..09`** from [`TC_PATTERN_JiraHandoffPhase.md`](TC_PATTERN_JiraHandoffPhase.md):
+**Applies `TC-HO-01..09`** from [`TC_PATTERN_JiraHandoffPhase.md`](../_shared/TC_PATTERN_JiraHandoffPhase.md):
 - **Titles:** Step 1 `Windward 1.0 Application Deployment - REF[Tenant Name]`; Step 2 `Windward Config Module Deployment - REF[Tenant Name]`.
 - **AC:** "...deployed successfully to REF[Environment], application/Configuration module is accessible and running".
 - **Links:** windward-1.0, windward-2.0, **applications-deployment-WW** (`/architecture/applications-deployment-WW`).

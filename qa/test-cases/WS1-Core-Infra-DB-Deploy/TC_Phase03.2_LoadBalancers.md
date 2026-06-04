@@ -6,7 +6,7 @@
 | Priority | P2/P3 | Type | Jira hand-off + config validation |
 | Owner | SQA (ticket QA); Cloud Infra + Application & Network Team execute/validate |
 
-**Applies `TC-HO-01..09`** from [`TC_PATTERN_JiraHandoffPhase.md`](TC_PATTERN_JiraHandoffPhase.md):
+**Applies `TC-HO-01..09`** from [`TC_PATTERN_JiraHandoffPhase.md`](../_shared/TC_PATTERN_JiraHandoffPhase.md):
 - **Title:** `Load Balancer and DNS Alias Setup - REF[Tenant Name]`.
 - **Links:** architecture folder, windward-1.0/2.0, Env Variables, **Load Balancer Setup Steps** (`/architecture/load-balancers/LoadBalancerSetupSteps.md`).
 - **Acceptance Criteria:** "Load balancer setup must be complete, DNS CNAME records configured for all servers and load balancers, and infrastructure details documented".

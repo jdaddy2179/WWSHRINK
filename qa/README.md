@@ -10,42 +10,70 @@ Test strategy and test cases validating the AWS onboarding / Windward tenant-cre
 | [`templates/TestCaseTemplate.md`](templates/TestCaseTemplate.md) | Reusable test-case format |
 | [`test-cases/`](test-cases/) | Executable, detailed test cases |
 
-## Reusable pattern
+## Test cases — organized by Workstream
+Suites live in workstream folders under [`test-cases/`](test-cases/), matching the Workstream tags in the playbook Introduction. The shared hand-off pattern lives in [`test-cases/_shared/`](test-cases/_shared/). Each folder has its own `README.md` index.
+
+### [`_shared/`](test-cases/_shared/) — cross-workstream
 | File | Purpose |
 |------|---------|
-| [`test-cases/TC_PATTERN_JiraHandoffPhase.md`](test-cases/TC_PATTERN_JiraHandoffPhase.md) | Shared cases `TC-HO-01..09` for every "create Jira ticket → hand off to specialist team" phase. Hand-off phase suites reference these instead of duplicating them. |
+| [`TC_PATTERN_JiraHandoffPhase.md`](test-cases/_shared/TC_PATTERN_JiraHandoffPhase.md) | Shared cases `TC-HO-01..09` for every "create Jira ticket → hand off to specialist team" phase. Hand-off suites reference these instead of duplicating them. |
 
-## Authored detailed test cases
+### [`WS1-Core-Infra-DB-Deploy/`](test-cases/WS1-Core-Infra-DB-Deploy/) — backbone (infra → security → DB → core deploy)
 | File | Covers |
 |------|--------|
-| [`test-cases/TC_Phase01_GatherClientAndAWSAccountInfo.md`](test-cases/TC_Phase01_GatherClientAndAWSAccountInfo.md) | Phase 1 incl. **Tier boundary** and PHI-provenance cases |
-| [`test-cases/TC_Phase02_RequestAWSAccounts.md`](test-cases/TC_Phase02_RequestAWSAccounts.md) | Phase 2 ServiceNow request, REF[] substitution |
-| [`test-cases/TC_Phase02.1_TestAWSAccounts.md`](test-cases/TC_Phase02.1_TestAWSAccounts.md) | Phase 2.1 access + AWS account/naming validation |
-| [`test-cases/TC_Phase03_Infrastructure.md`](test-cases/TC_Phase03_Infrastructure.md) | Phase 3 provisioning + server naming + sequential env |
-| [`test-cases/TC_Phase03.1_KerberosSetup.md`](test-cases/TC_Phase03.1_KerberosSetup.md) | Phase 3.1 Kerberos (hand-off) |
-| [`test-cases/TC_Phase03.2_LoadBalancers.md`](test-cases/TC_Phase03.2_LoadBalancers.md) | Phase 3.2 LB + DNS CNAME + rollback |
-| [`test-cases/TC_Phase03.3_Certificates.md`](test-cases/TC_Phase03.3_Certificates.md) | Phase 3.3 SSL/TLS certs + 3.2 dependency |
-| [`test-cases/TC_Phase03.4_Infrastructure_Security.md`](test-cases/TC_Phase03.4_Infrastructure_Security.md) | Phase 3.4 InfoSec **decision table** + PHI gate |
-| [`test-cases/TC_Phase04.1_BringComDBOfflinePROD.md`](test-cases/TC_Phase04.1_BringComDBOfflinePROD.md) | Phase 4.1 PROD/HFX offline, change control, env gate |
-| [`test-cases/TC_Phase04_SetupDBs.md`](test-cases/TC_Phase04_SetupDBs.md) | Phase 4 DB setup + SSMS connectivity (comma-port) |
-| [`test-cases/TC_Phase04.2_BackupRestore.md`](test-cases/TC_Phase04.2_BackupRestore.md) | Phase 4.2 backup/restore integrity, sequential env |
-| [`test-cases/TC_Phase04.3_WWShrinkWW1.0AndConfig.md`](test-cases/TC_Phase04.3_WWShrinkWW1.0AndConfig.md) | Phase 4.3 **WW Shrink** scoping/no-loss/backup safety |
-| [`test-cases/TC_Phase04.4_WWShrinkPayment.md`](test-cases/TC_Phase04.4_WWShrinkPayment.md) | Phase 4.4 **WW Payment Shrink** integrity/scoping |
-| [`test-cases/TC_Phase04.5_Replication.md`](test-cases/TC_Phase04.5_Replication.md) | Phase 4.5 replication consistency, AG failover, on-prem |
-| [`test-cases/TC_Phase05_DeployWW1.0AndConfig.md`](test-cases/TC_Phase05_DeployWW1.0AndConfig.md) | Phase 5 deploy + functional (Citrix) + performance |
-| [`test-cases/TC_Phase05.1_AppSecurity_WW1_Config.md`](test-cases/TC_Phase05.1_AppSecurity_WW1_Config.md) | Phase 5.1 Okta SSO/auth/ForcePoint DSS PHI |
-| [`test-cases/TC_Phase05.2_DeployWWPayments.md`](test-cases/TC_Phase05.2_DeployWWPayments.md) | Phase 5.2 payments deploy + functional + Tier file |
-| [`test-cases/TC_Phase05.3_AppSecurity_Payments.md`](test-cases/TC_Phase05.3_AppSecurity_Payments.md) | Phase 5.3 payments security (correct instance) |
-| [`test-cases/TC_Phase06_DeployDomainServices.md`](test-cases/TC_Phase06_DeployDomainServices.md) | Phase 6 four NextGen domain services deploy/health |
-| [`test-cases/TC_Phase06.1_DeployBusinessService.md`](test-cases/TC_Phase06.1_DeployBusinessService.md) | Phase 6.1 business service (all-env, smoke, rollback) |
-| [`test-cases/TC_Phase07_TWSJobs.md`](test-cases/TC_Phase07_TWSJobs.md) | Phase 7 TWS jobs (conn-strings, SSIS, BU, job runs) |
-| [`test-cases/TC_Phase09_TrustedView.md`](test-cases/TC_Phase09_TrustedView.md) | Phase 9 Trusted View rebuild integrity |
-| [`test-cases/TC_Phase09.1_ProviderCopyJob.md`](test-cases/TC_Phase09.1_ProviderCopyJob.md) | Phase 9.1 provider sync completeness |
-| [`test-cases/TC_Phase09.2_RemoveExtraResources.md`](test-cases/TC_Phase09.2_RemoveExtraResources.md) | Phase 9.2 irreversible resize, snapshot, performance |
-| [`test-cases/TC_Phase10_RemoveSLEData.md`](test-cases/TC_Phase10_RemoveSLEData.md) | Phase 10 **irreversible SLE removal**: backup/scope/counts |
-| [`test-cases/TC_Phase11_BringComDBOnlinePROD.md`](test-cases/TC_Phase11_BringComDBOnlinePROD.md) | Phase 11 PROD cutover, Phase-10 gate, app connectivity |
-| [`test-cases/TC_PhaseX_EndToEndTest_UAT.md`](test-cases/TC_PhaseX_EndToEndTest_UAT.md) | Phase X E2E/UAT acceptance gate + bug-resolution exit |
-| [`test-cases/TC_SQL_ClientMemCount.md`](test-cases/TC_SQL_ClientMemCount.md) | `ClientMemCount.sql` accuracy, safety, definition gaps |
+| `TC_Phase01_GatherClientAndAWSAccountInfo.md` | Phase 1 incl. **Tier boundary** and PHI-provenance cases |
+| `TC_Phase02_RequestAWSAccounts.md` | Phase 2 ServiceNow request, REF[] substitution |
+| `TC_Phase02.1_TestAWSAccounts.md` | Phase 2.1 access + AWS account/naming validation |
+| `TC_Phase03_Infrastructure.md` | Phase 3 provisioning + server naming + sequential env |
+| `TC_Phase03.1_KerberosSetup.md` | Phase 3.1 Kerberos (hand-off) |
+| `TC_Phase03.2_LoadBalancers.md` | Phase 3.2 LB + DNS CNAME + rollback |
+| `TC_Phase03.3_Certificates.md` | Phase 3.3 SSL/TLS certs + 3.2 dependency |
+| `TC_Phase03.4_Infrastructure_Security.md` | Phase 3.4 InfoSec **decision table** + PHI gate |
+| `TC_Phase04_SetupDBs.md` | Phase 4 DB setup + SSMS connectivity (comma-port) |
+| `TC_Phase04.1_BringComDBOfflinePROD.md` | Phase 4.1 PROD/HFX offline, change control, env gate |
+| `TC_Phase04.2_BackupRestore.md` | Phase 4.2 backup/restore integrity, sequential env |
+| `TC_Phase04.3_WWShrinkWW1.0AndConfig.md` | Phase 4.3 **WW Shrink** scoping/no-loss/backup safety |
+| `TC_Phase04.5_Replication.md` | Phase 4.5 replication consistency, AG failover, on-prem |
+| `TC_Phase05_DeployWW1.0AndConfig.md` | Phase 5 deploy + functional (Citrix) + performance |
+| `TC_Phase05.1_AppSecurity_WW1_Config.md` | Phase 5.1 Okta SSO/auth/ForcePoint DSS PHI |
+| `TC_Phase06_DeployDomainServices.md` | Phase 6 four NextGen domain services deploy/health |
+| `TC_SQL_ClientMemCount.md` | `ClientMemCount.sql` accuracy, safety, definition gaps (feeds Phase 1) |
+
+### [`WS2-Payments-Oracle/`](test-cases/WS2-Payments-Oracle/) — payments & Oracle
+| File | Covers |
+|------|--------|
+| `TC_Phase04.4_WWShrinkPayment.md` | Phase 4.4 **WW Payment Shrink** integrity/scoping |
+| `TC_Phase05.2_DeployWWPayments.md` | Phase 5.2 payments deploy + functional + Tier file |
+| `TC_Phase05.3_AppSecurity_Payments.md` | Phase 5.3 payments security (correct instance) |
+| *(Phase 8 Oracle — placeholder, not QA-ready)* | — |
+
+### [`WS3-EDI-Eligibility/`](test-cases/WS3-EDI-Eligibility/) — inbound/outbound data
+| File | Covers |
+|------|--------|
+| *(Phase 7.2 EDI, 7.3 Eligibility — placeholders, not QA-ready)* | — |
+
+### [`WS4-Jobs-Correspondence-Reporting/`](test-cases/WS4-Jobs-Correspondence-Reporting/) — batch, correspondence, reporting
+| File | Covers |
+|------|--------|
+| `TC_Phase07_TWSJobs.md` | Phase 7 TWS jobs (conn-strings, SSIS, BU, job runs) |
+| `TC_Phase09_TrustedView.md` | Phase 9 Trusted View rebuild integrity |
+| *(Phase 7.1 Correspondence — placeholder, not QA-ready)* | — |
+
+### [`WS5-Member-Facing/`](test-cases/WS5-Member-Facing/) — externally exposed services
+| File | Covers |
+|------|--------|
+| `TC_Phase06.1_DeployBusinessService.md` | Phase 6.1 business service (all-env, smoke, rollback) |
+| *(Phase 7.4 Member Portal, 7.5 Mobile App — placeholders, not QA-ready)* | — |
+
+### [`TBD-Cleanup-Cutover-DR-UAT/`](test-cases/TBD-Cleanup-Cutover-DR-UAT/) — cleanup, PROD cutover, DR, acceptance
+| File | Covers |
+|------|--------|
+| `TC_Phase09.1_ProviderCopyJob.md` | Phase 9.1 provider sync completeness |
+| `TC_Phase09.2_RemoveExtraResources.md` | Phase 9.2 irreversible resize, snapshot, performance |
+| `TC_Phase10_RemoveSLEData.md` | Phase 10 **irreversible SLE removal**: backup/scope/counts |
+| `TC_Phase11_BringComDBOnlinePROD.md` | Phase 11 PROD cutover, Phase-10 gate, app connectivity |
+| `TC_PhaseX_EndToEndTest_UAT.md` | Phase X E2E/UAT acceptance gate + bug-resolution exit |
+| *(Phase 12 Disaster Recovery — placeholder, not QA-ready)* | — |
 
 ## How to use
 1. Read `TestStrategy.md` for approach and quality gates.

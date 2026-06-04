@@ -2,7 +2,7 @@
 
 Maps every playbook phase to its planned/authored test coverage. `Authored` = detailed cases exist in `test-cases/`. `Pending Content` = phase markdown not yet provided; coverage is drafted against the phase's standard sections and will be authored on content delivery.
 
-Workstream and phase list per `Introduction.md`. Hand-off phases (ticket → specialist team) reuse the shared cases `TC-HO-01..09` defined in [`test-cases/TC_PATTERN_JiraHandoffPhase.md`](test-cases/TC_PATTERN_JiraHandoffPhase.md) (shown as "+ HO" below).
+Workstream and phase list per `Introduction.md`. Hand-off phases (ticket → specialist team) reuse the shared cases `TC-HO-01..09` defined in [`test-cases/_shared/TC_PATTERN_JiraHandoffPhase.md`](test-cases/_shared/TC_PATTERN_JiraHandoffPhase.md) (shown as "+ HO" below). Suites are organized into workstream folders under `test-cases/` (see README).
 
 | Phase | Title | WS | Priority | Risk focus | Test Case ID(s) | Status |
 |-------|-------|----|----------|-----------|-----------------|--------|

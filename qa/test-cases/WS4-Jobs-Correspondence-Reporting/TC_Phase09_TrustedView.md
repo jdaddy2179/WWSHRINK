@@ -6,7 +6,7 @@
 | Priority | **P1 — Step 2 rebuild repopulates member/provider-derived tables (data integrity, potentially irreversible)** | Type | Jira hand-off + data integrity |
 | Owner | DBA Team executes/validates |
 
-**Applies `TC-HO-01..06,08,09`** from [`TC_PATTERN_JiraHandoffPhase.md`](TC_PATTERN_JiraHandoffPhase.md):
+**Applies `TC-HO-01..06,08,09`** from [`TC_PATTERN_JiraHandoffPhase.md`](../_shared/TC_PATTERN_JiraHandoffPhase.md):
 - **Titles:** Step 1 `Configure Trusted View Jobs - REF[Tenant Name]`; Step 2 `Rebuild Trusted View - REF[Tenant Name]`.
 - **AC Step 1:** "...configured with correct database connection strings, scheduled at appropriate intervals, validate successful execution with data refresh confirmation". **AC Step 2:** "...rebuilt successfully with all tables populated, data integrity validated, and rebuild completion documented".
 - **Assignee:** DBA Team (Vasudha, Anthony, Nabeel; mgr TBD). **Single ticket per step; Step 2 depends on Step 1.**

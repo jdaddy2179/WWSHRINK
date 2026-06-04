@@ -154,7 +154,7 @@ TBD  (9.1, 9.2, 10, 11, 12, X) — cleanup, PROD cutover, DR, and final E2E/UAT
 | WS5 | 3 | 6.1 | 7.4, 7.5 |
 | TBD | 6 | 9.1, 9.2, 10, 11, X | 12 |
 
-> Hand-off phases reuse `TC-HO-01..09` from `test-cases/TC_PATTERN_JiraHandoffPhase.md`. All content-bearing phases are authored; the only remaining gap is the placeholder-template phases (7.1, 7.2, 7.3, 7.4, 7.5, 8, 12 — Gap G7).
+> Hand-off phases reuse `TC-HO-01..09` from `test-cases/_shared/TC_PATTERN_JiraHandoffPhase.md`. Suites are filed under per-workstream folders in `test-cases/`. All content-bearing phases are authored; the only remaining gap is the placeholder-template phases (7.1, 7.2, 7.3, 7.4, 7.5, 8, 12 — Gap G7).
 
 ## 4. Test Approach
 

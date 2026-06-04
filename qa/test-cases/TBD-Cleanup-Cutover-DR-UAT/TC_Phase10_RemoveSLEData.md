@@ -8,7 +8,7 @@
 
 > Removes the migrated tenant's (SLE/Selector) data from the **original COM** databases after the tenant is live on AWS. Deletion from production source-of-truth — the single most dangerous data operation in the playbook. Over-deletion = other clients' data loss; under-deletion = residual tenant data left in COM.
 
-**Applies `TC-HO-01..06,08,09`** from [`TC_PATTERN_JiraHandoffPhase.md`](TC_PATTERN_JiraHandoffPhase.md), once per step (4 sequential tickets):
+**Applies `TC-HO-01..06,08,09`** from [`TC_PATTERN_JiraHandoffPhase.md`](../_shared/TC_PATTERN_JiraHandoffPhase.md), once per step (4 sequential tickets):
 | Step | Target DB | Title |
 |------|-----------|-------|
 | 1 | Original Windward DB | `Remove SLE Data from Original Windward DB - REF[Tenant Name]` |

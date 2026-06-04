@@ -9,7 +9,7 @@
 | Requires PHI access | DBA-privileged |
 | Owner | SQA (process QA); DBA Team executes; PM/BA coordinates window |
 
-**Applies `TC-HO-01..09`** from [`TC_PATTERN_JiraHandoffPhase.md`](TC_PATTERN_JiraHandoffPhase.md):
+**Applies `TC-HO-01..09`** from [`TC_PATTERN_JiraHandoffPhase.md`](../_shared/TC_PATTERN_JiraHandoffPhase.md):
 - **Title:** `Bring COM Database Offline - REF[Tenant Name] PROD`.
 - **Acceptance Criteria:** "COM database successfully brought offline in PRODUCTION during approved maintenance window, all active connections terminated, database status confirmed offline".
 - **Assignee:** DBA Team (Vasudha Ramakrishnan, Anthony Kearney; mgr Chris Jones).

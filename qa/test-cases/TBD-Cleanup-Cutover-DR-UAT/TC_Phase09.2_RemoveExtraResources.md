@@ -6,7 +6,7 @@
 | Priority | **P1 — destructive/irreversible production infra change** + performance in scope | Type | Jira hand-off + safety + performance |
 | Owner | Infrastructure Team executes/validates |
 
-**Applies `TC-HO-01..06,08,09`** from [`TC_PATTERN_JiraHandoffPhase.md`](TC_PATTERN_JiraHandoffPhase.md):
+**Applies `TC-HO-01..06,08,09`** from [`TC_PATTERN_JiraHandoffPhase.md`](../_shared/TC_PATTERN_JiraHandoffPhase.md):
 - **Title:** `Remove Extra Disk & CPUs - REF[Tenant Name]`.
 - **AC:** "Extra disk space and CPU resources identified and removed while maintaining adequate performance, with cost savings documented and new configurations validated".
 - **Tools:** AWS CloudWatch (metrics) + AWS Console. **Assignee:** Infrastructure Team (TBD). **Single ticket.**

@@ -6,7 +6,7 @@
 | Priority | **P1 — app security + PHI (ForcePoint DSS)** | Type | Jira backlog hand-off + security |
 | Owner | SQA (process QA); InfoSec + Identity teams execute/validate |
 
-**Applies `TC-HO-01,04,06,08,09`** from [`TC_PATTERN_JiraHandoffPhase.md`](TC_PATTERN_JiraHandoffPhase.md) (backlog of user stories; no per-env, no single title — TC-HO-02/03/05/07 adapted below).
+**Applies `TC-HO-01,04,06,08,09`** from [`TC_PATTERN_JiraHandoffPhase.md`](../_shared/TC_PATTERN_JiraHandoffPhase.md) (backlog of user stories; no per-env, no single title — TC-HO-02/03/05/07 adapted below).
 - **User Stories:** US1 Okta SSO / Portal Integration; US2 Authentication Testing & Sign-Off; US3 ForcePoint DSS PHI Data Configuration.
 - **Reference files:** `infosec/windward-okta-sso-integration.md`, `infosec/integrate-to-existing-gov-com-portal.md`, `infosec/forcepoint-dss-fingerprinting.md`.
 - **Assignee:** story creation Jamie Smith (mgr Elie Abouzeid); execution InfoSec + Identity (US1/US2), InfoSec (US3).

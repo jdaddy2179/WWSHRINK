@@ -6,7 +6,7 @@
 | Priority | **P1 — financial module** + functional in scope | Type | Jira hand-off + functional |
 | Owner | SQA / executor (Citrix validation); Application Services Team deploys |
 
-**Applies `TC-HO-01..09`** from [`TC_PATTERN_JiraHandoffPhase.md`](TC_PATTERN_JiraHandoffPhase.md):
+**Applies `TC-HO-01..09`** from [`TC_PATTERN_JiraHandoffPhase.md`](../_shared/TC_PATTERN_JiraHandoffPhase.md):
 - **Title:** `Windward Payments Module Deployment - REF[Tenant Name]`.
 - **AC:** "Windward Payments module deployed successfully to REF[Environment], Payment module is accessible and running".
 - **Links:** windward-2.0, **applications-deployment-WW**.

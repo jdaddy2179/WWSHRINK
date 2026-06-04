@@ -6,7 +6,7 @@
 | Priority | P2 (NextGen domain services) + functional in scope | Type | Jira hand-off + smoke validation |
 | Owner | NextGen Services Deployment Team deploys + validates with SQA |
 
-**Applies `TC-HO-01..06,08,09`** from [`TC_PATTERN_JiraHandoffPhase.md`](TC_PATTERN_JiraHandoffPhase.md), once per service (4 independent tickets, any order):
+**Applies `TC-HO-01..06,08,09`** from [`TC_PATTERN_JiraHandoffPhase.md`](../_shared/TC_PATTERN_JiraHandoffPhase.md), once per service (4 independent tickets, any order):
 | Step | Service | Title | Doc link |
 |------|---------|-------|----------|
 | 1 | Member Domain Service | `Member Domain Service Deployment - REF[Tenant Name]` | `next-gen-deployments/MemberDomainService.md` |

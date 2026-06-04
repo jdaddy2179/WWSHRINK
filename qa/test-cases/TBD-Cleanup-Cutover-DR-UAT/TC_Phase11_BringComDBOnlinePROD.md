@@ -9,7 +9,7 @@
 
 > Final cutover: brings the original COM database back online after Phase 10 removals. Until this completes, COM is offline — business-critical. Inverse of Phase 4.1.
 
-**Applies `TC-HO-01..06,08,09`** from [`TC_PATTERN_JiraHandoffPhase.md`](TC_PATTERN_JiraHandoffPhase.md):
+**Applies `TC-HO-01..06,08,09`** from [`TC_PATTERN_JiraHandoffPhase.md`](../_shared/TC_PATTERN_JiraHandoffPhase.md):
 - **Title:** `Bring COM Database Back Online - REF[Tenant Name] PROD`.
 - **AC:** "COM database successfully brought back online in PRODUCTION, connectivity validated, services running properly, and application teams notified".
 - **DB:** Windward_Commercial (COM). **Assignee:** DBA Team (Vasudha, Anthony; mgr Chris Jones) + SQA (Joshua, Keerthan; mgr Arun Pant).

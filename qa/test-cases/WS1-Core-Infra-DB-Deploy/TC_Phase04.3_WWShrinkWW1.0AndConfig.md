@@ -9,7 +9,7 @@
 
 > **Core of the WWSHRINK effort.** The shrinker reduces the Windward DB to a single client's data using Purchaser/Parent-Group/Sub-Group IDs. Wrong IDs → wrong data kept or **client data loss**. The original DB is **replaced** — backups (Phase 4.2) are the only safety net.
 
-**Applies `TC-HO-01..09`** from [`TC_PATTERN_JiraHandoffPhase.md`](TC_PATTERN_JiraHandoffPhase.md):
+**Applies `TC-HO-01..09`** from [`TC_PATTERN_JiraHandoffPhase.md`](../_shared/TC_PATTERN_JiraHandoffPhase.md):
 - **Step 1 Title:** `Windward Database Shrinking - REF[Tenant Name]`; AC: "Windward Database Shrinker executed successfully for REF[Environment], size reduced per specs, validation completed".
 - **Step 2 Title:** `Validate Windward Database Shrink Results - REF[Tenant Name] [ENVIRONMENT]`.
 - **Step 1 assignee:** DBA Team (Vasudha). **Step 2 assignee:** SQA (Joshua, Keerthan; mgr Arun Pant).

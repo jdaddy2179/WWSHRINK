@@ -6,7 +6,7 @@
 | Priority | P2 (core NextGen service) + functional in scope | Type | Jira hand-off + smoke validation |
 | Owner | NextGen Services Deployment Team deploys + validates **with** SQA |
 
-**Applies `TC-HO-01..06,08,09`** from [`TC_PATTERN_JiraHandoffPhase.md`](TC_PATTERN_JiraHandoffPhase.md):
+**Applies `TC-HO-01..06,08,09`** from [`TC_PATTERN_JiraHandoffPhase.md`](../_shared/TC_PATTERN_JiraHandoffPhase.md):
 - **Title:** `Business Service Deployment - REF[Tenant Name]`.
 - **AC:** "Business Service deployed successfully on AWS Environment, service is running and validated".
 - **Links:** **BusinessService.md** (`/architecture/next-gen-deployments/BusinessService.md`).
