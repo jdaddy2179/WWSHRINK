@@ -7,6 +7,7 @@ Test strategy and test cases validating the AWS onboarding / Windward tenant-cre
 |----------|---------|
 | [`TestStrategy.md`](TestStrategy.md) | Master strategy: scope, approach, environments, roles, risk, defects, gaps |
 | [`TraceabilityMatrix.md`](TraceabilityMatrix.md) | Phase → test-case coverage across the full playbook |
+| [`TestEstimates.md`](TestEstimates.md) | Per-phase testing effort across all 4 environments, schedule (DEV by Aug 2026), and resource justification |
 | [`templates/TestCaseTemplate.md`](templates/TestCaseTemplate.md) | Reusable test-case format |
 | [`test-cases/`](test-cases/) | Executable, detailed test cases |
 
