@@ -43,12 +43,14 @@ We are testing three layers:
 - Tier classification logic.
 - Access/permission prerequisites (SharePoint, Azure DevOps, Jira, ServiceNow, SailPoint, AWS).
 - Documentation quality (links, cross-references, glossary alignment, screenshots present).
+- **Functional testing of the Windward application's business features** for the onboarded tenant — including claims adjudication, payments/financial transactions, eligibility, EDI exchange, correspondence output, reporting (Trusted View), and member-facing portal/mobile flows. Functional testing confirms the deployed tenant behaves correctly end-to-end, not just that components were provisioned. (Aligns with and feeds Phase X UAT.)
+- **Performance and load testing of the provisioned tenant infrastructure** — validating that the Tier-sized environment (servers, DB, load balancers) sustains expected member/claims volume within acceptable response times and resource thresholds, including the WW-Shrink-reduced databases. Covers Tier-sizing correctness *and* runtime performance under load.
 
 ### 3.2 Out of Scope
-- Functional testing of the Windward application's business features (claims adjudication logic, etc.) beyond what PhaseX UAT covers at an onboarding level.
-- Performance/load testing of provisioned infrastructure (covered separately by architecture/perf teams) except Tier-sizing *correctness*.
 - Penetration testing of AWS accounts (owned by InfoSec).
 - Third-party tool internals (SailPoint, Okta, ServiceNow platform behavior).
+
+> **Scope change (2026-06-04):** Functional testing of Windward and performance/load testing were moved from Out of Scope into In Scope at stakeholder request. See §4.1 (Functional, Performance/Load test types) and §4.3 entry/exit updates.
 
 ### 3.3 Phase Coverage Status
 Detailed, executable test cases exist today only for the phases whose full content is available. The rest are covered by the **Traceability Matrix** with planned test-case IDs and `Pending Content` status; they are drafted against each phase's standard sections (`Prerequisites`, `Instructions`, `How to validate`, `Output`, `Completion Checklist`) as content is delivered.
@@ -60,6 +62,96 @@ Detailed, executable test cases exist today only for the phases whose full conte
 | ClientMemCount.sql | Yes | Detailed (`TC_SQL_ClientMemCount_*`) |
 | Phase 2, 3.x, 4.x, 5.x, 6.x, 7.x, 8, 9.x, 10, 11, 12, X | Not yet provided | Planned (matrix) |
 
+## 3.4 Workstream Test Breakdown
+
+The Introduction assigns every phase to a **Workstream**. Workstreams run partly in parallel once the Workstream 1 backbone is in place, so testing is planned per workstream: each has its own theme, risk profile, environment/PHI exposure, specialist owners, and entry dependencies. The phase-by-phase coverage lives in `TraceabilityMatrix.md` (which carries a `WS` column); this section is the **workstream lens** over that matrix.
+
+### Workstream dependency model
+```
+WS1 (backbone: accounts → infra → security → DB → core deploy)
+ ├─► WS2  (payments + Oracle)        depends on WS1 DB + core deploy
+ ├─► WS3  (EDI + Eligibility Engine) depends on WS1 core app deployed
+ ├─► WS4  (TWS jobs, correspondence, Trusted View) depends on WS1 core app + DB
+ └─► WS5  (business service, member portal, mobile app) depends on WS1 core app
+TBD  (9.1, 9.2, 10, 11, 12, X) — cleanup, PROD cutover, DR, and final E2E/UAT
+```
+**Testing rule:** no downstream workstream (WS2–WS5) exits until the WS1 phases it depends on are COMPLETE and their test cases pass. Phase X (E2E/UAT) is the joint exit gate across all workstreams.
+
+---
+
+### Workstream 1 — Core Infrastructure, Database & Base Deployment
+**Phases:** 1, 2, 2.1, 3, 3.1, 3.2, 3.3, 3.4, 4, 4.1, 4.2, 4.3, 4.5, 5, 5.1, 6
+**Theme:** The backbone — gather inputs, stand up AWS accounts/infra/security, build & seed the database (including WW Shrink for WW1.0/Config), and deploy core Windward 1.0 + config + domain services.
+**Risk profile:** **Highest.** Contains every P1 driver: Tier derivation (Phase 1), naming conventions, PHI provenance, PROD-only/irreversible steps (4.1 offline), backup/restore integrity (4.2), destructive WW Shrink (4.3), and app security (5.1).
+**Environments / PHI:** All four (DEV/QAR/PROD/HFX); PROD + HFX carry PHI; member data enters the DB here.
+**Test priorities:** boundary (Tier), data validation (member count, naming), security/compliance (PHI, least privilege, region pinning), change-controlled PROD execution, backup-before-destructive enforcement, repeatability.
+**Specialist owners:** Cloud Infra, Kerberos Team, App & Network, InfoSec, DBA, App deploy.
+**Entry:** project approved. **Exit gate:** all WS1 phases COMPLETE + passing — this unblocks WS2–WS5.
+**Detailed suites today:** 1, 2, 2.1, 3, 3.1, 3.2, 3.3, 3.4, 4.1, 4.2, 4.3 (4, 4.5, 5, 5.1, 6 pending content).
+
+### Workstream 2 — Payments & Oracle Financial Integration
+**Phases:** 4.4 (WW Payment Shrink), 5.2 (Deploy WW Payments), 5.3 (App Security: Payments), 8 (Oracle Integration)
+**Theme:** Everything money — reduce/scope the Payment DB, deploy the Payments app, secure it, and integrate with Oracle financials.
+**Risk profile:** **P1 — financial integrity.** Wrong client scoping or lost/duplicated payment records have financial and compliance impact; payment app security guards PHI + financial data.
+**Environments / PHI:** DEV→QAR→PROD→HFX; PROD/HFX hold real payment + PHI data.
+**Test priorities:** payment-data integrity & reconciliation (4.4), correct client scoping consistent with WS1 (same Purchaser/Group IDs), payment app authZ/secrets (5.3), Oracle data-flow correctness & reconciliation (8), sequential-env order.
+**Specialist owners:** DBA (4.4), App deploy (5.2), InfoSec/App security (5.3), Integration/Oracle (8).
+**Entry:** WS1 DB + core deploy COMPLETE; **4.4 entry = 4.3 COMPLETE.** **Exit gate:** payments deployed, secured, reconcile with Oracle.
+**Detailed suites today:** 4.4 (5.2, 5.3, 8 pending content).
+
+### Workstream 3 — Inbound/Outbound Data (EDI & Eligibility)
+**Phases:** 7.2 (EDI Setup), 7.3 (Eligibility Engine Setup)
+**Theme:** Claims/eligibility data exchange with external trading partners and the eligibility engine.
+**Risk profile:** **P2 — routing & data accuracy.** Mis-routed claims (wrong Payor ID / Trading Partner ID) or wrong eligibility responses affect external partners and members.
+**Environments / PHI:** QAR/PROD carry PHI in transit; external boundary increases exposure.
+**Test priorities:** Payor ID / Trading Partner ID routing correctness (per Glossary relationships), EDI file round-trips, eligibility response accuracy, error/rejection handling, and security of data in transit.
+**Specialist owners:** EDI/Integration team, Eligibility team.
+**Entry:** WS1 core app + DB deployed. **Exit gate:** EDI round-trips and eligibility responses validated.
+**Detailed suites:** pending content.
+
+### Workstream 4 — Batch Jobs, Correspondence & Reporting
+**Phases:** 7 (TWS Jobs), 7.1 (Correspondence Letters), 9 (Trusted View)
+**Theme:** Scheduled batch processing (TWS), member/provider correspondence generation, and Trusted View reporting/analytics.
+**Risk profile:** **P3 — operational/output correctness.** Failures degrade operations and member communications; correspondence + reporting may expose PHI in generated output.
+**Environments / PHI:** QAR/PROD; generated letters and reports can contain PHI → output-handling checks.
+**Test priorities:** job scheduling/run/restart & dependency chains (TWS), correct letter templates/data merge and delivery (7.1), report/view accuracy and access control (9), and PHI in generated artifacts.
+**Specialist owners:** TWS/Scheduling team, Correspondence team, Reporting/Trusted View team.
+**Entry:** WS1 core app + DB deployed. **Exit gate:** jobs run on schedule, correct correspondence, accurate reports.
+**Detailed suites:** pending content.
+
+### Workstream 5 — Member-Facing Services
+**Phases:** 6.1 (Business Service), 7.4 (Member Portal), 7.5 (Mobile App)
+**Theme:** Services and apps members/providers use directly — the externally exposed surface.
+**Risk profile:** **P2–P1 for exposure.** Highest *external* PHI exposure: authentication, authorization, session handling, and data isolation must be airtight; a defect here is internet-facing.
+**Environments / PHI:** QAR/PROD; member PHI exposed to end users → strongest security testing.
+**Test priorities:** authN/authZ, member data isolation (no cross-client/cross-member leakage), session/security headers, portal+mobile parity, accessibility, and business-service health/contracts.
+**Specialist owners:** Business Service team, Member Portal team, Mobile App team (+ InfoSec review).
+**Entry:** WS1 core app deployed (and business service for portal/mobile). **Exit gate:** secure, isolated member access validated.
+**Detailed suites:** pending content.
+
+### TBD — Cleanup, PROD Cutover, DR & Final Acceptance
+**Phases:** 9.1 (Provider Copy Job), 9.2 (Remove Extra Disk/CPU), 10 (Remove SLE Data from COM), 11 (Bring COM DB Online — PROD), 12 (Disaster Recovery), X (End-to-End Test & UAT)
+**Theme:** Final right-sizing, **irreversible** SLE-data removal from the original COM DB, PROD cutover back online, DR readiness, and the joint end-to-end/UAT gate.
+**Risk profile:** **P1 — irreversible + production cutover.** Phase 10 (data removal) and Phase 11 (bring PROD online) are the riskiest non-recoverable actions; Phase X is the cross-workstream acceptance gate.
+**Environments / PHI:** PROD-critical; PHI throughout.
+**Test priorities:** scope/correctness of SLE removal (no over-deletion, backups verified), right-size with no service impact (9.2), PROD online integrity + change control (11), DR failover/restore drill (12), and full onboarding acceptance (X).
+**Workstream note:** the Introduction marks these **TBD** for workstream ownership — an open assignment gap; testing ownership for 10/11 (irreversible PROD) should be confirmed with the QA Lead before execution (see Gap Register).
+**Detailed suites:** pending content.
+
+---
+
+### Per-Workstream coverage status
+| Workstream | Phases | Detailed suites authored | Pending content |
+|-----------|--------|--------------------------|-----------------|
+| WS1 | 16 | 1, 2, 2.1, 3, 3.1, 3.2, 3.3, 3.4, 4.1, 4.2, 4.3 | 4, 4.5, 5, 5.1, 6 |
+| WS2 | 4 | 4.4 | 5.2, 5.3, 8 |
+| WS3 | 2 | — | 7.2, 7.3 |
+| WS4 | 3 | — | 7, 7.1, 9 |
+| WS5 | 3 | — | 6.1, 7.4, 7.5 |
+| TBD | 6 | — | 9.1, 9.2, 10, 11, 12, X |
+
+> Hand-off phases in WS2–WS5 reuse `TC-HO-01..09` from `test-cases/TC_PATTERN_JiraHandoffPhase.md`; concise per-phase suites are being authored (per agreed approach).
+
 ## 4. Test Approach
 
 ### 4.1 Test Types
@@ -69,6 +161,8 @@ Detailed, executable test cases exist today only for the phases whose full conte
 | **Procedure execution (dynamic, dry-run)** | Steps can be followed end-to-end in a non-prod environment | DEV/QAR phases |
 | **Procedure execution (production)** | PROD-only steps (e.g., Phase 4.1 offline, Phase 11 online) under change control | PROD-only phases |
 | **Data validation** | Inputs match stakeholder source; generated values match rules | Phase 1, 2.1, naming |
+| **Functional testing** | Deployed tenant behaves correctly end-to-end: claims adjudication, payments, eligibility, EDI, correspondence, reporting, member portal/mobile flows | Post-deploy (WS2–WS5), consolidated at Phase X |
+| **Performance / load testing** | Tier-sized environment sustains expected member/claims volume within response-time & resource thresholds (incl. WW-Shrink-reduced DBs) | Phase 3/4 sizing, post-deploy, Phase X |
 | **Boundary & equivalence** | Tier thresholds, member-count edges | Phase 1 (Tier), SQL |
 | **Negative / error-path** | Missing prereqs, wrong inputs, access denied, wrong region | All phases with prereqs |
 | **Security / compliance** | PHI handling, US-based access, least privilege, region pinning | Phase 1, 2.1, 4.x |
@@ -87,6 +181,8 @@ Detailed, executable test cases exist today only for the phases whose full conte
 **Entry:** all `Prerequisites` met and verified; required access granted (per Introduction access matrix); prior phase `Completion Checklist` is COMPLETE; test data/environment available.
 
 **Exit:** all in-scope test cases executed; all `How to validate` checks pass; `Completion Checklist` deliverables COMPLETE; defects either fixed-and-retested or formally risk-accepted; results recorded.
+
+**Functional & performance gates (deployment and post-deployment phases):** for any phase that deploys or configures a runnable component (WS1 Phase 5/6; WS2 Phase 5.2/8; WS3 EDI/EE; WS4 jobs/correspondence/reporting; WS5 business service/portal/mobile), the phase additionally exits only when its **functional** test cases pass for the tenant, and the environment meets its **performance/load** thresholds for the Tier. These culminate in **Phase X (E2E/UAT)** as the joint functional + performance acceptance gate across all workstreams.
 
 ## 5. Test Environments & Data
 
