@@ -176,5 +176,102 @@ Phase X (E2E+perf+UAT)        ░░▓▓▓▓▓▓▓▓▓▓░  (QAR/PROD
 - PROD/irreversible phases (4.1, 10, 11) are effort-light but **risk-heavy** — they warrant senior review time disproportionate to their PD.
 - Re-baseline after the first real DEV pass: actuals from DEV should be fed back to tune the QAR/PROD/HFX multipliers.
 
+## 9. Hours breakdown (per playbook item & workstream)
+
+**Conversion basis:** 1 person-day (PD) = **6.5 focused hours**. Figures below are SQA test-execution hours per environment; `—` = phase does not run in that environment; *(P)* = provisional/ROM placeholder phase.
+
+### Workstream 1 — Core Infra, DB & Base Deployment
+| Phase | DEV h | QAR h | PROD h | HFX h | **Total h** |
+|-------|------:|------:|-------:|------:|------------:|
+| 1 Gather Client & Tier | 6.5 | — | — | — | **6.5** |
+| `ClientMemCount.sql` | — | — | 3.3 | — | **3.3** |
+| 2 Request AWS Accounts | 3.3 | — | — | — | **3.3** |
+| 2.1 Test AWS Accounts | 3.3 | 3.3 | 3.3 | 3.3 | **13.0** |
+| 3 Provision Infrastructure | 9.8 | 5.9 | 6.8 | 4.9 | **27.3** |
+| 3.1 Kerberos | 3.3 | 2.0 | 2.3 | 1.6 | **9.1** |
+| 3.2 Load Balancers / DNS | 6.5 | 3.9 | 4.6 | 3.3 | **18.2** |
+| 3.3 Certificates | 6.5 | 3.9 | 4.6 | 3.3 | **18.2** |
+| 3.4 Infrastructure Security | 9.8 | 5.9 | 6.8 | 4.9 | **27.3** |
+| 4 Setup Databases | 9.8 | 5.9 | 6.8 | 4.9 | **27.3** |
+| 4.1 Bring COM DB Offline | — | — | 13.0 | 6.5 | **19.5** |
+| 4.2 Backup & Restore | 13.0 | 7.8 | 9.1 | 6.5 | **36.4** |
+| 4.3 **WW Shrink (WW1.0/Config)** | 19.5 | 11.7 | 13.7 | 9.8 | **54.6** |
+| 4.5 Replication | 13.0 | 7.8 | 9.1 | 6.5 | **36.4** |
+| 5 Deploy WW1.0 & Config | 16.3 | 9.8 | 11.4 | 8.1 | **45.5** |
+| 5.1 App Security WW1.0/Config | 13.0 | 7.8 | 9.1 | 6.5 | **36.4** |
+| 6 Deploy Domain Services | 16.3 | 9.8 | 11.4 | 8.1 | **45.5** |
+| **WS1 subtotal** | **149.9** | **91.1** | **116.4** | **70.3** | **≈ 427.7** |
+
+### Workstream 2 — Payments & Oracle
+| Phase | DEV h | QAR h | PROD h | HFX h | **Total h** |
+|-------|------:|------:|-------:|------:|------------:|
+| 4.4 **WW Payment Shrink** | 16.3 | 9.8 | 11.4 | 8.1 | **45.5** |
+| 5.2 Deploy WW Payments | 13.0 | 7.8 | 9.1 | 6.5 | **36.4** |
+| 5.3 App Security Payments | 9.8 | 5.9 | 6.8 | 4.9 | **27.3** |
+| 8 Oracle Integration *(P)* | 13.0 | 7.8 | 9.1 | 6.5 | **36.4** |
+| **WS2 subtotal** | **52.1** | **31.3** | **36.4** | **26.0** | **≈ 145.6** |
+
+### Workstream 3 — EDI & Eligibility *(both placeholder)*
+| Phase | DEV h | QAR h | PROD h | HFX h | **Total h** |
+|-------|------:|------:|-------:|------:|------------:|
+| 7.2 EDI Setup *(P)* | 19.5 | 11.7 | 13.7 | 9.8 | **54.6** |
+| 7.3 Eligibility Engine *(P)* | 16.3 | 9.8 | 11.4 | 8.1 | **45.5** |
+| **WS3 subtotal** *(all ROM)* | **35.8** | **21.5** | **25.0** | **17.9** | **≈ 100.1** |
+
+### Workstream 4 — Jobs, Correspondence & Reporting
+| Phase | DEV h | QAR h | PROD h | HFX h | **Total h** |
+|-------|------:|------:|-------:|------:|------------:|
+| 7 TWS Jobs | 13.0 | 7.8 | 9.1 | 6.5 | **36.4** |
+| 7.1 Correspondence Letters *(P)* | 9.8 | 5.9 | 6.8 | 4.9 | **27.3** |
+| 9 Trusted View | 13.0 | 7.8 | 9.1 | 6.5 | **36.4** |
+| **WS4 subtotal** | **35.8** | **21.5** | **25.0** | **17.9** | **≈ 100.1** |
+
+### Workstream 5 — Member-Facing
+| Phase | DEV h | QAR h | PROD h | HFX h | **Total h** |
+|-------|------:|------:|-------:|------:|------------:|
+| 6.1 Business Service | 6.5 | 3.9 | 4.6 | 3.3 | **18.2** |
+| 7.4 Member Portal *(P)* | 19.5 | 11.7 | 13.7 | 9.8 | **54.6** |
+| 7.5 Mobile App *(P)* | 19.5 | 11.7 | 13.7 | 9.8 | **54.6** |
+| **WS5 subtotal** | **45.5** | **27.3** | **32.0** | **22.9** | **≈ 127.4** |
+
+### TBD — Cleanup, PROD Cutover, DR & Acceptance
+| Phase | DEV h | QAR h | PROD h | HFX h | **Total h** |
+|-------|------:|------:|-------:|------:|------------:|
+| 9.1 Provider Copy Job | 6.5 | 3.9 | 4.6 | 3.3 | **18.2** |
+| 9.2 Remove Extra Disk/CPU | 9.8 | 5.9 | 6.8 | 4.9 | **27.3** |
+| 10 **Remove SLE Data** | — | — | 19.5 | 9.8 | **29.3** |
+| 11 Bring COM DB Online | — | — | 9.8 | — | **9.8** |
+| 12 Disaster Recovery *(P)* | 6.5 | — | 19.5 | 13.0 | **39.0** |
+| **X End-to-End Test & UAT** | 13.0 | 52.0 | 78.0 | 19.5 | **162.5** |
+| **TBD subtotal** | **35.8** | **61.8** | **138.2** | **50.5** | **≈ 286.1** |
+
+### Workstream rollup (hours)
+| Workstream | Firm hours | Incl. placeholders |
+|-----------|-----------:|-------------------:|
+| WS1 — Core Infra/DB/Deploy | 427.7 | 427.7 |
+| WS2 — Payments & Oracle | 109.2 | 145.6 |
+| WS3 — EDI & Eligibility | 0 | 100.1 |
+| WS4 — Jobs/Correspondence/Reporting | 72.8 | 100.1 |
+| WS5 — Member-Facing | 18.2 | 127.4 |
+| TBD — Cleanup/Cutover/DR/UAT | 247.1 | 286.1 |
+| **Program (base)** | **≈ 875 h** | **≈ 1,187 h** |
+
+### Program totals (hours)
+| Line | Firm phases | Incl. placeholders |
+|------|------------:|-------------------:|
+| Base SQA effort | ≈ 875 h | ≈ 1,187 h |
+| + 20% contingency | ≈ 1,050 h | **≈ 1,425 h** |
+
+### Per-environment totals (hours)
+| Environment | Firm | Incl. placeholders |
+|-------------|-----:|-------------------:|
+| **DEV** | ≈ 254 h | ≈ 358 h |
+| **QAR** | ≈ 195 h | ≈ 267 h |
+| **PROD** | ≈ 273 h | ≈ 345 h |
+| **HFX** | ≈ 156 h | ≈ 221 h |
+| **Total (base)** | **≈ 875 h** | **≈ 1,187 h** |
+
+> **FTE reference:** 1 SQA FTE ≈ 130 productive hours/month (20 PD × 6.5 h). DEV pass ≈ 358 h (with placeholders) ≈ 430 h with contingency → **2 FTE ≈ 1.6 months** to DEV-complete by end of Aug 2026.
+
 ---
 *Effort derived from the authored suites under `test-cases/`; see `TraceabilityMatrix.md` for phase coverage and `TestStrategy.md` §3.4 for the workstream model.*
