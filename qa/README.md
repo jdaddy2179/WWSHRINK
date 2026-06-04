@@ -30,6 +30,15 @@ Test strategy and test cases validating the AWS onboarding / Windward tenant-cre
 | [`test-cases/TC_Phase04.2_BackupRestore.md`](test-cases/TC_Phase04.2_BackupRestore.md) | Phase 4.2 backup/restore integrity, sequential env |
 | [`test-cases/TC_Phase04.3_WWShrinkWW1.0AndConfig.md`](test-cases/TC_Phase04.3_WWShrinkWW1.0AndConfig.md) | Phase 4.3 **WW Shrink** scoping/no-loss/backup safety |
 | [`test-cases/TC_Phase04.4_WWShrinkPayment.md`](test-cases/TC_Phase04.4_WWShrinkPayment.md) | Phase 4.4 **WW Payment Shrink** integrity/scoping |
+| [`test-cases/TC_Phase05_DeployWW1.0AndConfig.md`](test-cases/TC_Phase05_DeployWW1.0AndConfig.md) | Phase 5 deploy + functional (Citrix) + performance |
+| [`test-cases/TC_Phase05.1_AppSecurity_WW1_Config.md`](test-cases/TC_Phase05.1_AppSecurity_WW1_Config.md) | Phase 5.1 Okta SSO/auth/ForcePoint DSS PHI |
+| [`test-cases/TC_Phase05.2_DeployWWPayments.md`](test-cases/TC_Phase05.2_DeployWWPayments.md) | Phase 5.2 payments deploy + functional + Tier file |
+| [`test-cases/TC_Phase05.3_AppSecurity_Payments.md`](test-cases/TC_Phase05.3_AppSecurity_Payments.md) | Phase 5.3 payments security (correct instance) |
+| [`test-cases/TC_Phase06.1_DeployBusinessService.md`](test-cases/TC_Phase06.1_DeployBusinessService.md) | Phase 6.1 business service (all-env, smoke, rollback) |
+| [`test-cases/TC_Phase07_TWSJobs.md`](test-cases/TC_Phase07_TWSJobs.md) | Phase 7 TWS jobs (conn-strings, SSIS, BU, job runs) |
+| [`test-cases/TC_Phase09_TrustedView.md`](test-cases/TC_Phase09_TrustedView.md) | Phase 9 Trusted View rebuild integrity |
+| [`test-cases/TC_Phase09.1_ProviderCopyJob.md`](test-cases/TC_Phase09.1_ProviderCopyJob.md) | Phase 9.1 provider sync completeness |
+| [`test-cases/TC_Phase09.2_RemoveExtraResources.md`](test-cases/TC_Phase09.2_RemoveExtraResources.md) | Phase 9.2 irreversible resize, snapshot, performance |
 | [`test-cases/TC_SQL_ClientMemCount.md`](test-cases/TC_SQL_ClientMemCount.md) | `ClientMemCount.sql` accuracy, safety, definition gaps |
 
 ## How to use
@@ -39,7 +48,10 @@ Test strategy and test cases validating the AWS onboarding / Windward tenant-cre
 4. A phase exits only when every `How to validate` item and `Completion Checklist` deliverable maps to a passing TC or a risk-accepted Gap Register entry (`TestStrategy.md` §11).
 
 ## Coverage status
-Detailed cases exist for the phases whose source content is currently available (Phase 1, Phase 2.1, and the SQL query). All remaining phases are tracked in the traceability matrix as `Pending Content` and will be authored against each phase's standard sections as the markdown is delivered.
+Detailed suites are authored for all content-bearing phases delivered so far: **1, 2, 2.1, 3, 3.1–3.4, 4.1–4.4, 5, 5.1–5.3, 6.1, 7, 9, 9.1, 9.2** and `ClientMemCount.sql`. Hand-off phases reuse `TC-HO-01..09` from the pattern file.
+- **Not QA-ready (placeholder templates):** Phases 7.1, 7.2, 7.3, 7.4, 7.5, 8 were received as empty templates and are blocked until real content is supplied (Gap Register G7).
+- **Pending content (not yet provided):** Phases 4 (Setup DBs), 4.5 (Replication), 6 (Domain Services), 10, 11, 12, X.
+- Workstream-by-workstream coverage status is in `TestStrategy.md` §3.4; phase-by-phase status is in `TraceabilityMatrix.md`.
 
 ## Key risks under test (highest priority first)
 - **Member-count accuracy → Tier derivation** (mis-sizes all downstream infrastructure).

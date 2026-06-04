@@ -254,6 +254,9 @@ All requirements (every documented input, output, validation check, and completi
 | G4 | Tier assumption: based **strictly** on member count, ignoring provider/claims volume | Phase01 Step2 | Under/over-sizing for atypical clients | Documented assumption; revisit per architecture |
 | G5 | Many phases have `Target Future State = To be determined` | Multiple | Future-state validation undefined | Track; not a release blocker for pilot |
 | G6 | PROD account may need a separate request via InfoSec (Phase 2.1 #10a) | Phase02.1 | Delay/missed account | Negative test + checklist item |
+| G7 | Phases 7.1, 7.2, 7.3, 7.4, 7.5, 8 are **unfilled placeholder templates** (no titles/AC/owners/links) | Phase07.x, 08 | Not testable; high latent risk (EDI/EE PHI routing; portal/mobile external PHI exposure) | Blocked for QA authoring until real content supplied; must not be marked COMPLETE on an empty template |
+| G8 | Workstream ownership for Phases 9.1, 9.2, 10, 11, 12, X marked **TBD** in Introduction | Introduction | Unowned testing for irreversible PROD steps (10/11) | Confirm QA ownership with QA Lead before execution |
+| G9 | Recurring playbook doc defects: broken cross-links (5.2→`Phase05_DeployWWApplications.md`; 4.3→`Phase03.3_Infosec_IT_Intake.md`; 6.1→`Phase03.1_Infosec.md`), missing AC (5.1/5.3), "reduce EBS size" vs AWS limit (9.2), 4.1 PROD-vs-HFX inconsistency | Multiple | Operator confusion, wrong refs | Logged per-suite as `D-*`; batch-fix recommended |
 
 ## 12. Schedule & Milestones (template)
 

@@ -21,26 +21,30 @@ Workstream and phase list per `Introduction.md`. Hand-off phases (ticket → spe
 | 4.3 | WW Shrink (WW1.0) & Config | 1 | P1 | Scoping IDs, no data loss, backup safety | `TC-P4.3-01..09` | **Authored** |
 | 4.4 | WW Shrink (WW Payment) | 2 | P1 | Payment integrity, scoping, backup safety | `TC-P4.4-01..07` | **Authored** |
 | 4.5 | Database Replication | 1 | P2 | Replication consistency/lag | `TC-P4.5-*` | Pending Content |
-| 5 | Deploy WW1.0 & Config | 1 | P2 | Deployment correctness | `TC-P5-*` | Pending Content |
-| 5.1 | App Security: WW1.0 & Config | 1 | P1 | AuthZ, secrets, PHI access | `TC-P5.1-*` | Pending Content |
-| 5.2 | Deploy WW Payments | 2 | P2 | Payment deploy | `TC-P5.2-*` | Pending Content |
-| 5.3 | App Security: WW Payments | 2 | P1 | Payment authZ/secrets | `TC-P5.3-*` | Pending Content |
+| 5 | Deploy WW1.0 & Config | 1 | P2 | Deploy + functional (Citrix), seq env | `TC-P5-*` + HO | **Authored** |
+| 5.1 | App Security: WW1.0 & Config | 1 | P1 | Okta SSO, auth, ForcePoint DSS PHI | `TC-P5.1-*` | **Authored** |
+| 5.2 | Deploy WW Payments | 2 | P1 | Payment deploy + functional, Tier file | `TC-P5.2-*` + HO | **Authored** |
+| 5.3 | App Security: WW Payments | 2 | P1 | Payment SSO/auth, PHI, correct instance | `TC-P5.3-*` | **Authored** |
 | 6 | Deploy Domain Services | 1 | P2 | Service health | `TC-P6-*` | Pending Content |
-| 6.1 | Deploy Business Service | 5 | P2 | Service health | `TC-P6.1-*` | Pending Content |
-| 7 | TWS Jobs Setup | 4 | P3 | Job scheduling/run | `TC-P7-*` | Pending Content |
-| 7.1 | Correspondence Letter Setup | 4 | P3 | Letter generation | `TC-P7.1-*` | Pending Content |
-| 7.2 | EDI Setup | 3 | P2 | Payor/Trading Partner ID routing | `TC-P7.2-*` | Pending Content |
-| 7.3 | Eligibility Engine Setup | 3 | P2 | Eligibility responses | `TC-P7.3-*` | Pending Content |
-| 7.4 | Member Portal Setup | 5 | P3 | Portal access/PHI | `TC-P7.4-*` | Pending Content |
-| 7.5 | Mobile App Setup | 5 | P3 | App access/PHI | `TC-P7.5-*` | Pending Content |
-| 8 | Oracle Integration | 2 | P2 | Integration data flow | `TC-P8-*` | Pending Content |
-| 9 | Trusted View Setup | 4 | P3 | Reporting/view config | `TC-P9-*` | Pending Content |
-| 9.1 | Provider Copy Job | TBD | P3 | Provider data copy | `TC-P9.1-*` | Pending Content |
-| 9.2 | Remove Extra Disk & CPUs | TBD | P2 | Right-size, no service impact | `TC-P9.2-*` | Pending Content |
+| 6.1 | Deploy Business Service | 5 | P2 | All-env deploy, smoke, rollback | `TC-P6.1-*` + HO | **Authored** |
+| 7 | TWS Jobs Setup | 4 | P2 | Conn-strings (cross-tenant), SSIS, BU, jobs | `TC-P7-*` + HO | **Authored** |
+| 7.1 | Correspondence Letter Setup | 4 | P3 | Letter generation (PHI output) | `TC-P7.1-*` | **Not QA-ready** (placeholder) |
+| 7.2 | EDI Setup | 3 | P2 | Payor/Trading Partner ID routing | `TC-P7.2-*` | **Not QA-ready** (placeholder) |
+| 7.3 | Eligibility Engine Setup | 3 | P2 | Eligibility responses | `TC-P7.3-*` | **Not QA-ready** (placeholder) |
+| 7.4 | Member Portal Setup | 5 | P3 | Portal access/PHI (external) | `TC-P7.4-*` | **Not QA-ready** (placeholder) |
+| 7.5 | Mobile App Setup | 5 | P3 | App access/PHI (external) | `TC-P7.5-*` | **Not QA-ready** (placeholder) |
+| 8 | Oracle Integration | 2 | P2 | Integration data flow | `TC-P8-*` | **Not QA-ready** (placeholder) |
+| 9 | Trusted View Setup | 4 | **P1** | Rebuild integrity, all tables populated | `TC-P9-*` + HO | **Authored** |
+| 9.1 | Provider Copy Job | TBD | P2 | Provider sync completeness, cross-tenant | `TC-P9.1-*` + HO | **Authored** |
+| 9.2 | Remove Extra Disk & CPUs | TBD | **P1** | Irreversible resize, snapshot, perf | `TC-P9.2-*` + HO | **Authored** |
 | 10 | Remove SLE Data from COM DB | TBD | **P1** | Irreversible data removal, scope | `TC-P10-*` | Pending Content |
 | 11 | Bring COM DB Online (PROD ONLY) | TBD | **P1** | PROD restore, integrity, change ctrl | `TC-P11-*` | Pending Content |
 | 12 | Disaster Recovery Setup | TBD | P1 | DR failover/restore drill | `TC-P12-*` | Pending Content |
-| X | End-to-End Test & UAT | TBD | P1 | Full onboarding acceptance | `TC-PX-*` | Pending Content |
+| X | End-to-End Test & UAT | TBD | P1 | Full onboarding acceptance + functional/perf gate | `TC-PX-*` | Pending Content |
+
+**Status legend:** **Authored** = detailed suite in `test-cases/`. **Pending Content** = phase markdown not yet provided. **Not QA-ready (placeholder)** = phase file received but is an unfilled template (no titles, acceptance criteria, owners, or reference links) — nothing testable yet; see Gap Register **G7**.
+
+> **Placeholder phases (7.1, 7.2, 7.3, 7.4, 7.5, 8):** received as empty templates. These are **blocked for QA authoring** until real content (titles, steps, acceptance criteria, owners, links) is supplied. Their latent risk is high — EDI (7.2) and Eligibility (7.3) carry PHI/claims routing; Member Portal (7.4) and Mobile App (7.5) are externally exposed member-PHI surfaces (WS5) and will be **P1 for exposure** once authored. They must not be marked COMPLETE on the strength of an empty template.
 
 ## Cross-cutting coverage (applies across phases)
 | Concern | Where validated |
