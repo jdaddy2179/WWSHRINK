@@ -61,72 +61,77 @@ A **+50% complexity uplift (×1.5 on DEV base)** is applied to the areas confirm
 
 ## 3. Per-phase estimates (by workstream)
 
-Columns are SQA person-days per environment. "—" = phase does not run in that environment. *(P)* = provisional/ROM placeholder phase. **⬆ = +50% complexity uplift applied (§2.4).**
+Columns are SQA person-days per environment. "—" = phase does not run in that environment. *(P)* = provisional/ROM placeholder phase. **⬆ = +50% complexity uplift applied (§2.4).** The **Notes** column names the team actually performing the work and SQA's role: **real** = SQA performs hands-on testing; **follow-up** = SQA QAs the ticket and confirms the specialist team's own validation (no independent SQA test). *(TBD)* = team unconfirmed (placeholder/Introduction gap).
 
 ### Workstream 1 — Core Infra, DB & Base Deployment
-| Phase | DEV | QAR | PROD | HFX | Total |
-|-------|----:|----:|-----:|----:|------:|
-| 1 Gather Client & Tier (one-time) | 1.0 | — | — | — | **1.0** |
-| `ClientMemCount.sql` (one-time, PROD read) | — | — | 0.5 | — | **0.5** |
-| 2 Request AWS Accounts (one-time) | 0.5 | — | — | — | **0.5** |
-| 2.1 Test AWS Accounts (per-env, flat) | 0.5 | 0.5 | 0.5 | 0.5 | **2.0** |
-| 3 Provision Infrastructure | 1.5 | 0.9 | 1.05 | 0.75 | **4.2** |
-| 3.1 Kerberos | 0.5 | 0.3 | 0.35 | 0.25 | **1.4** |
-| 3.2 Load Balancers / DNS | 1.0 | 0.6 | 0.7 | 0.5 | **2.8** |
-| 3.3 Certificates | 1.0 | 0.6 | 0.7 | 0.5 | **2.8** |
-| 3.4 Infrastructure Security | 1.5 | 0.9 | 1.05 | 0.75 | **4.2** |
-| 4 Setup Databases | 1.5 | 0.9 | 1.05 | 0.75 | **4.2** |
-| 4.1 Bring COM DB Offline (PROD/HFX) | — | — | 2.0 | 1.0 | **3.0** |
-| 4.2 Backup & Restore | 2.0 | 1.2 | 1.4 | 1.0 | **5.6** |
-| 4.3 **WW Shrink (WW1.0/Config)** ⬆ | 4.5 | 2.7 | 3.15 | 2.25 | **12.6** |
-| 4.5 Replication | 2.0 | 1.2 | 1.4 | 1.0 | **5.6** |
-| 5 Deploy WW1.0 & Config (functional) | 2.5 | 1.5 | 1.75 | 1.25 | **7.0** |
-| 5.1 App Security WW1.0/Config | 2.0 | 1.2 | 1.4 | 1.0 | **5.6** |
-| 6 Deploy Domain Services (4 services) | 2.5 | 1.5 | 1.75 | 1.25 | **7.0** |
-| **WS1 subtotal** | | | | | **≈ 70.0** |
+| Phase | DEV | QAR | PROD | HFX | Total | Notes — executing team / SQA role |
+|-------|----:|----:|-----:|----:|------:|------|
+| 1 Gather Client & Tier (one-time) | 1.0 | — | — | — | **1.0** | Exec: Onboarding lead + stakeholders • SQA: **real** (validate data & Tier calc) |
+| `ClientMemCount.sql` (one-time, PROD read) | — | — | 0.5 | — | **0.5** | Exec: DBA / AJ on PROD • SQA: **real** (verify count vs golden) |
+| 2 Request AWS Accounts (one-time) | 0.5 | — | — | — | **0.5** | Exec: Onboarding lead (ServiceNow) → Cloud Infra creates • SQA: **follow-up** (ticket QA) |
+| 2.1 Test AWS Accounts (per-env, flat) | 0.5 | 0.5 | 0.5 | 0.5 | **2.0** | Exec: **SQA** • SQA: **real** (validate login/naming, all envs) |
+| 3 Provision Infrastructure | 1.5 | 0.9 | 1.05 | 0.75 | **4.2** | Exec: Cloud Infra • SQA: **real** (validate servers/naming) + follow-up |
+| 3.1 Kerberos | 0.5 | 0.3 | 0.35 | 0.25 | **1.4** | Exec: Kerberos Team (configures + validates) • SQA: **follow-up** |
+| 3.2 Load Balancers / DNS | 1.0 | 0.6 | 0.7 | 0.5 | **2.8** | Exec: Cloud Infra + App & Network (validate) • SQA: **follow-up** |
+| 3.3 Certificates | 1.0 | 0.6 | 0.7 | 0.5 | **2.8** | Exec: App & Network + Infra (validate) • SQA: **follow-up** |
+| 3.4 Infrastructure Security | 1.5 | 0.9 | 1.05 | 0.75 | **4.2** | Exec: InfoSec Team (deploy + validate) • SQA: **follow-up** (IT-intake / story QA) |
+| 4 Setup Databases | 1.5 | 0.9 | 1.05 | 0.75 | **4.2** | Exec: DBA (create/configure) • SQA: **real** (SSMS connectivity, Step 2) |
+| 4.1 Bring COM DB Offline (PROD/HFX) | — | — | 2.0 | 1.0 | **3.0** | Exec: DBA • SQA: **follow-up** (confirm offline status) |
+| 4.2 Backup & Restore | 2.0 | 1.2 | 1.4 | 1.0 | **5.6** | Exec: DBA (backup/restore + integrity) • SQA: **real** (SSMS connectivity) + follow-up |
+| 4.3 **WW Shrink (WW1.0/Config)** ⬆ | 4.5 | 2.7 | 3.15 | 2.25 | **12.6** | Exec: DBA (runs shrinker) • SQA: **real** (verify shrink results / scoping / no data loss, Step 2) |
+| 4.5 Replication | 2.0 | 1.2 | 1.4 | 1.0 | **5.6** | Exec: DBA • SQA: **real** (read-only replica connectivity/consistency) + follow-up |
+| 5 Deploy WW1.0 & Config (functional) | 2.5 | 1.5 | 1.75 | 1.25 | **7.0** | Exec: Application Services Team • SQA: **real** (Citrix functional) + follow-up |
+| 5.1 App Security WW1.0/Config | 2.0 | 1.2 | 1.4 | 1.0 | **5.6** | Exec: InfoSec + Identity (deploy + validate) • SQA: **follow-up** |
+| 6 Deploy Domain Services (4 services) | 2.5 | 1.5 | 1.75 | 1.25 | **7.0** | Exec: NextGen Services Team • SQA: **real** (smoke) + follow-up |
+| **WS1 subtotal** | | | | | **≈ 70.0** | |
 
 ### Workstream 2 — Payments & Oracle
-| Phase | DEV | QAR | PROD | HFX | Total |
-|-------|----:|----:|-----:|----:|------:|
-| 4.4 **WW Payment Shrink** ⬆ | 3.75 | 2.25 | 2.625 | 1.875 | **10.5** |
-| 5.2 Deploy WW Payments (functional) ⬆ | 3.0 | 1.8 | 2.1 | 1.5 | **8.4** |
-| 5.3 App Security Payments ⬆ | 2.25 | 1.35 | 1.575 | 1.125 | **6.3** |
-| 8 Oracle Integration *(P)* ⬆ | 3.0 | 1.8 | 2.1 | 1.5 | **8.4** |
-| **WS2 subtotal** (25.2 firm + 8.4 ROM) | | | | | **≈ 33.6** |
+| Phase | DEV | QAR | PROD | HFX | Total | Notes — executing team / SQA role |
+|-------|----:|----:|-----:|----:|------:|------|
+| 4.4 **WW Payment Shrink** ⬆ | 3.75 | 2.25 | 2.625 | 1.875 | **10.5** | Exec: DBA (runs shrinker) • SQA: **real** (verify payment shrink / scoping / reconcile, Step 2) |
+| 5.2 Deploy WW Payments (functional) ⬆ | 3.0 | 1.8 | 2.1 | 1.5 | **8.4** | Exec: Application Services Team • SQA: **real** (Citrix Payment UI) + follow-up |
+| 5.3 App Security Payments ⬆ | 2.25 | 1.35 | 1.575 | 1.125 | **6.3** | Exec: InfoSec + Identity • SQA: **follow-up** |
+| 8 Oracle Integration *(P)* ⬆ | 3.0 | 1.8 | 2.1 | 1.5 | **8.4** | Exec: Integration / Oracle Team *(TBD)* • SQA: **real** (data-flow reconciliation) — TBD |
+| **WS2 subtotal** (25.2 firm + 8.4 ROM) | | | | | **≈ 33.6** | |
 
 ### Workstream 3 — EDI & Eligibility *(both placeholder)*
-| Phase | DEV | QAR | PROD | HFX | Total |
-|-------|----:|----:|-----:|----:|------:|
-| 7.2 EDI Setup *(P)* | 3.0 | 1.8 | 2.1 | 1.5 | **8.4** |
-| 7.3 Eligibility Engine *(P)* | 2.5 | 1.5 | 1.75 | 1.25 | **7.0** |
-| **WS3 subtotal** (all ROM) | | | | | **≈ 15.4** |
+| Phase | DEV | QAR | PROD | HFX | Total | Notes — executing team / SQA role |
+|-------|----:|----:|-----:|----:|------:|------|
+| 7.2 EDI Setup *(P)* | 3.0 | 1.8 | 2.1 | 1.5 | **8.4** | Exec: EDI / Integration Team *(TBD)* • SQA: **real** (Payor/Trading-Partner routing, PHI in transit) — TBD |
+| 7.3 Eligibility Engine *(P)* | 2.5 | 1.5 | 1.75 | 1.25 | **7.0** | Exec: Eligibility Team *(TBD)* • SQA: **real** (eligibility response accuracy) — TBD |
+| **WS3 subtotal** (all ROM) | | | | | **≈ 15.4** | |
 
 ### Workstream 4 — Jobs, Correspondence & Reporting
-| Phase | DEV | QAR | PROD | HFX | Total |
-|-------|----:|----:|-----:|----:|------:|
-| 7 TWS Jobs | 2.0 | 1.2 | 1.4 | 1.0 | **5.6** |
-| 7.1 Correspondence Letters *(P)* | 1.5 | 0.9 | 1.05 | 0.75 | **4.2** |
-| 9 Trusted View | 2.0 | 1.2 | 1.4 | 1.0 | **5.6** |
-| **WS4 subtotal** (11.2 firm + 4.2 ROM) | | | | | **≈ 15.4** |
+| Phase | DEV | QAR | PROD | HFX | Total | Notes — executing team / SQA role |
+|-------|----:|----:|-----:|----:|------:|------|
+| 7 TWS Jobs | 2.0 | 1.2 | 1.4 | 1.0 | **5.6** | Exec: TWS Team + DBA (configure + validate) • SQA: **follow-up** + functional check (job runs) |
+| 7.1 Correspondence Letters *(P)* | 1.5 | 0.9 | 1.05 | 0.75 | **4.2** | Exec: Correspondence Team *(TBD)* • SQA: **real** (letter output / PHI) — TBD |
+| 9 Trusted View | 2.0 | 1.2 | 1.4 | 1.0 | **5.6** | Exec: DBA (rebuild) • SQA: **follow-up** + spot-check rebuild integrity |
+| **WS4 subtotal** (11.2 firm + 4.2 ROM) | | | | | **≈ 15.4** | |
 
 ### Workstream 5 — Member-Facing *(2 of 3 placeholder; external-PHI surfaces)*
-| Phase | DEV | QAR | PROD | HFX | Total |
-|-------|----:|----:|-----:|----:|------:|
-| 6.1 Business Service (smoke) ⬆ | 1.5 | 0.9 | 1.05 | 0.75 | **4.2** |
-| 7.4 Member Portal *(P, security+functional)* ⬆ | 4.5 | 2.7 | 3.15 | 2.25 | **12.6** |
-| 7.5 Mobile App *(P, security+functional)* ⬆ | 4.5 | 2.7 | 3.15 | 2.25 | **12.6** |
-| **WS5 subtotal** (4.2 firm + 25.2 ROM) | | | | | **≈ 29.4** |
+| Phase | DEV | QAR | PROD | HFX | Total | Notes — executing team / SQA role |
+|-------|----:|----:|-----:|----:|------:|------|
+| 6.1 Business Service (smoke) ⬆ | 1.5 | 0.9 | 1.05 | 0.75 | **4.2** | Exec: NextGen Services Team • SQA: **real** (smoke) + follow-up |
+| 7.4 Member Portal *(P, security+functional)* ⬆ | 4.5 | 2.7 | 3.15 | 2.25 | **12.6** | Exec: Member Portal Team *(TBD)* • SQA: **real** (auth / member-data isolation / PHI) — TBD |
+| 7.5 Mobile App *(P, security+functional)* ⬆ | 4.5 | 2.7 | 3.15 | 2.25 | **12.6** | Exec: Mobile App Team *(TBD)* • SQA: **real** (auth / isolation / PHI) — TBD |
+| **WS5 subtotal** (4.2 firm + 25.2 ROM) | | | | | **≈ 29.4** | |
 
 ### TBD — Cleanup, PROD Cutover, DR & Acceptance
-| Phase | DEV | QAR | PROD | HFX | Total |
-|-------|----:|----:|-----:|----:|------:|
-| 9.1 Provider Copy Job | 1.0 | 0.6 | 0.7 | 0.5 | **2.8** |
-| 9.2 Remove Extra Disk/CPU (perf) | 1.5 | 0.9 | 1.05 | 0.75 | **4.2** |
-| 10 **Remove SLE Data** (HFX rehearse + PROD) | — | — | 3.0 | 1.5 | **4.5** |
-| 11 Bring COM DB Online (PROD only) | — | — | 1.5 | — | **1.5** |
-| 12 Disaster Recovery *(P)* | 1.0 | — | 3.0 | 2.0 | **6.0** |
-| **X End-to-End Test & UAT** | 2.0 | 8.0 | 12.0 | 3.0 | **25.0** |
-| **TBD subtotal** (38.0 firm + 6.0 ROM) | | | | | **≈ 44.0** |
+| Phase | DEV | QAR | PROD | HFX | Total | Notes — executing team / SQA role |
+|-------|----:|----:|-----:|----:|------:|------|
+| 9.1 Provider Copy Job | 1.0 | 0.6 | 0.7 | 0.5 | **2.8** | Exec: DBA • SQA: **follow-up** (verify provider sync) |
+| 9.2 Remove Extra Disk/CPU (perf) | 1.5 | 0.9 | 1.05 | 0.75 | **4.2** | Exec: Infrastructure Team *(TBD)* • SQA: **follow-up** + performance validation |
+| 10 **Remove SLE Data** (HFX rehearse + PROD) | — | — | 3.0 | 1.5 | **4.5** | Exec: DBA (runs removal) • SQA: **follow-up** (verify before/after counts, scope) |
+| 11 Bring COM DB Online (PROD only) | — | — | 1.5 | — | **1.5** | Exec: DBA • SQA: **real** (application connectivity) + follow-up |
+| 12 Disaster Recovery *(P)* | 1.0 | — | 3.0 | 2.0 | **6.0** | Exec: Infra / DBA *(TBD)* • SQA: **real** (failover/restore drill) — TBD |
+| **X End-to-End Test & UAT** | 2.0 | 8.0 | 12.0 | 3.0 | **25.0** | Exec: **SQA** (lead) + business UAT • SQA: **real** (full E2E + performance + UAT) |
+| **TBD subtotal** (38.0 firm + 6.0 ROM) | | | | | **≈ 44.0** | |
+
+### SQA role summary
+- **Hands-on ("real") SQA testing** — SQA independently executes/validates: Phases **1, ClientMemCount.sql, 2.1, 3, 4, 4.2, 4.3, 4.5, 5, 6** (WS1); **4.4, 5.2, 8** (WS2); **7.2, 7.3** (WS3); **7.1** (WS4); **6.1, 7.4, 7.5** (WS5); **11, 12, X** (TBD).
+- **"Follow-up" only** — the specialist team executes *and* self-validates; SQA QAs the ticket and confirms completion: Phases **2, 3.1, 3.2, 3.3, 3.4, 4.1, 5.1** (WS1); **5.3** (WS2); **7, 9** (WS4); **9.1, 9.2, 10** (TBD).
+- **Implication:** the SQA estimate is **not** pure coordination — the majority of phases (and effort, incl. WW Shrink, Payments, WS5, and Phase X) require independent hands-on testing, which underpins the headcount ask in §7.
 
 ## 4. Per-environment rollup (program)
 | Environment | Firm phases (PD) | Incl. placeholders (PD) |
@@ -192,7 +197,7 @@ Phase X (E2E+perf+UAT)        ░░▓▓▓▓▓▓▓▓▓▓░  (QAR/PROD
 
 ## 9. Hours breakdown (per playbook item & workstream)
 
-**Conversion basis:** 1 person-day (PD) = **6.5 focused hours**. Figures below are SQA test-execution hours per environment; `—` = phase does not run in that environment; *(P)* = provisional/ROM placeholder phase; **⬆ = +50% complexity uplift (§2.4).**
+**Conversion basis:** 1 person-day (PD) = **6.5 focused hours**. Figures below are SQA test-execution hours per environment; `—` = phase does not run in that environment; *(P)* = provisional/ROM placeholder phase; **⬆ = +50% complexity uplift (§2.4).** Executing-team / SQA-role notes are in **§3** (not repeated here).
 
 ### Workstream 1 — Core Infra, DB & Base Deployment
 | Phase | DEV h | QAR h | PROD h | HFX h | **Total h** |
