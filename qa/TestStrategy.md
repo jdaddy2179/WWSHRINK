@@ -184,7 +184,7 @@ TBD  (9.1, 9.2, 10, 11, 12, X) — cleanup, PROD cutover, DR, and final E2E/UAT
 ### 4.3 Entry & Exit Criteria (per phase)
 **Entry:** all `Prerequisites` met and verified; required access granted (per Introduction access matrix); prior phase `Completion Checklist` is COMPLETE; test data/environment available.
 
-**Exit:** all in-scope test cases executed; all `How to validate` checks pass; `Completion Checklist` deliverables COMPLETE; defects either fixed-and-retested or formally risk-accepted; results recorded.
+**Exit:** all in-scope test cases executed; all `How to validate` checks pass; `Completion Checklist` deliverables COMPLETE; **all bugs raised in Jira on the backlog, linked to the parent story with a priority; no open Critical (S1) bug; remaining defects fixed-and-retested or formally risk-accepted**; results recorded; **SQA sign-off captured as a Sub-Task under the playbook user story** (see §8).
 
 **Functional & performance gates (deployment and post-deployment phases):** for any phase that deploys or configures a runnable component (WS1 Phase 5/6; WS2 Phase 5.2/8; WS3 EDI/EE; WS4 jobs/correspondence/reporting; WS5 business service/portal/mobile), the phase additionally exits only when its **functional** test cases pass for the tenant, and the environment meets its **performance/load** thresholds for the Tier. These culminate in **Phase X (E2E/UAT)** as the joint functional + performance acceptance gate across all workstreams.
 
@@ -225,13 +225,45 @@ TBD  (9.1, 9.2, 10, 11, 12, X) — cleanup, PROD cutover, DR, and final E2E/UAT
 
 Highest-risk areas (test first, test hardest): **member-count & Tier derivation**, **AWS naming-convention validation**, **PHI/access controls**, and **all PROD-only / irreversible steps**.
 
-## 8. Defect Management
+## 8. Bug / Defect Management Process
 
-- **Severity:** S1 (blocks onboarding / data loss / PHI exposure) → S4 (cosmetic).
-- **Defect types unique to a playbook:** ambiguity, missing step, wrong order, broken link, stale screenshot, contradictory instruction, undocumented gap, missing rollback.
-- Every defect references the **phase, step number, and test-case ID**.
-- S1/S2 require fix + full retest of the affected phase and a regression pass on dependent phases before exit.
-- **Operational gaps** explicitly flagged as `TBD` in the playbook (e.g., NBI process, several "Target Future State" sections) are logged in the **Gap Register** (Section 11) and must be risk-accepted by the QA Lead rather than treated as pass.
+> Process owner: **Joshua Ernstoff (SQA)**, QA Lead **Arun Pant**. Applies to every phase and to Phase X (E2E/UAT).
+
+### 8.1 Where bugs live
+- **All bugs are raised in Jira on the client's product backlog** (the same backlog used to create the phase user stories, e.g., the CCP board). Nothing is tracked informally — **every defect found during testing is reported on the backlog** so it is visible, triaged, and reportable.
+- Bug type = **Bug** (not Story/Task).
+
+### 8.2 Required fields on every bug
+| Field | Rule |
+|-------|------|
+| **Link to parent story** | Each bug **must be linked to the playbook user story** it was found under (link type *"relates to"* / *"is caused by"* / *"blocks"*). This keeps phase ↔ defect traceability. |
+| **Priority** | Each bug **must be set with a Jira priority** (see §8.3). |
+| **Reference** | Phase, step number, environment (DEV/QAR/PROD/HFX), and the **test-case ID** that found it. |
+| **Evidence** | Steps to reproduce, expected vs actual, screenshot/log where relevant. |
+
+### 8.3 Severity ↔ Jira priority
+| Internal severity | Jira priority | Meaning | Gate |
+|-------------------|---------------|---------|------|
+| **S1** | **Critical / Highest** | Blocks onboarding, data loss, PHI exposure, irreversible-step failure | **Must be resolved before SQA sign-off** |
+| **S2** | **High** | Significant — misleads operator, missing AC, scope ambiguity on a risky phase | Fix + full retest before phase exit (or formal risk-accept by QA Lead) |
+| **S3** | **Medium** | Moderate — incomplete step, unclear ownership | Fix or risk-accept |
+| **S4** | **Low** | Cosmetic — typo, rendering, status inconsistency | Backlog; fix opportunistically |
+
+### 8.4 Lifecycle
+1. **Detect** during test execution → 2. **Raise Bug in Jira** on the backlog, linked to the parent story with a priority set → 3. **Triage** on the backlog (SQA + QA Lead + owning team) → 4. **Fix** by the responsible team → 5. **Retest** by SQA → 6. **Close** (or re-open). S1/S2 also trigger a **regression pass** on dependent phases.
+
+### 8.5 SQA sign-off gate
+- A phase (and the overall onboarding at Phase X) **cannot be signed off by SQA while any Critical (S1) bug is open.** All Critical bugs must be **resolved and retested first.**
+- High (S2) bugs are either fixed-and-retested or **formally risk-accepted by the QA Lead** before sign-off.
+- SQA confirms: all in-scope test cases executed, no open Critical bugs, results documented.
+
+### 8.6 Capturing sign-off
+- **Once SQA signs off, the sign-off is recorded as a "Sub-Task" under the corresponding playbook user story** in Jira (e.g., Sub-Task "SQA Sign-off — <Phase> — <Environment>"), with the sign-off date, tester, and a link to the test results / executed cases.
+- This makes sign-off auditable and tied directly to the story it validates.
+
+### 8.7 Playbook documentation defects
+- Documentation defects found in the playbook itself (broken links, missing AC, contradictions, etc.) follow the same Jira bug flow and are also consolidated in **`DocumentationFixes.md`**.
+- **Operational gaps** explicitly flagged as `TBD` in the playbook (e.g., NBI process, "Target Future State" sections) are logged in the **Gap Register** (§11) and must be **risk-accepted by the QA Lead** rather than treated as a pass.
 
 ## 9. Traceability
 
