@@ -1,0 +1,581 @@
+{
+	"info": {
+		"_postman_id": "b1c2d3e4-5f60-4a71-8b92-0c1d2e3f4a5b",
+		"name": "Group API BCBSM JJE",
+		"description": "Smoke test collection for the WW Benefits Group API (BCBSM). Reconstructed from the Postman CLI run report. Set the {{baseUrl}} variable per environment, e.g.:\n- ds11:  http://ds11wwapi.dqdev.ad\n- ts06:  http://waww2dws05t.dqtest.ad\n- ds10:  http://waww2dws02d.dqdev.ad\n- qar:   http://WAWW2API56T.DQTEST.AD\n- tshf:  http://WAWW2DWS14T.DQTEST.AD",
+		"schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+	},
+	"item": [
+		{
+			"name": "Group API BCBSM Smoke Test",
+			"item": [
+				{
+					"name": "Add Plan",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"type": "text/javascript",
+								"exec": [
+									"const res = pm.response.json();",
+									"const data = res.data || res;",
+									"",
+									"pm.test(\"Status result is OK\", function () {",
+									"    pm.response.to.have.status(\"OK\");",
+									"});",
+									"",
+									"pm.test(\"Status code is 200\", function () {",
+									"    pm.response.to.have.status(200);",
+									"});",
+									"",
+									"// The Add Plan request creates a Client, a Group and a Plan -> 3 result rows.",
+									"const expected = [",
+									"    { resultCode: \"Succeeded\", messageStartsWith: \"ClientId:\" },",
+									"    { resultCode: \"Succeeded\", messageStartsWith: \"GroupId:\" },",
+									"    { resultCode: \"Succeeded\", messageStartsWith: \"PlanId:\" }",
+									"];",
+									"",
+									"expected.forEach(function (exp, i) {",
+									"    const n = i + 1;",
+									"    const row = data[i];",
+									"",
+									"    pm.test(\"Response \" + n + \" data node has 3 sub-nodes\", function () {",
+									"        pm.expect(Object.keys(row)).to.have.lengthOf(3);",
+									"    });",
+									"",
+									"    pm.test(\"Response \" + n + \" data node has RecordId, ResultCode and Message sub-node\", function () {",
+									"        pm.expect(row).to.have.property(\"RecordId\");",
+									"        pm.expect(row).to.have.property(\"ResultCode\");",
+									"        pm.expect(row).to.have.property(\"Message\");",
+									"    });",
+									"",
+									"    pm.test(\"Response \" + n + \" data RecordId sub-node's value is 1\", function () {",
+									"        pm.expect(row.RecordId).to.eql(1);",
+									"    });",
+									"",
+									"    pm.test(\"Response \" + n + \" data node has ResultCode properties with the value \" + exp.resultCode, function () {",
+									"        pm.expect(row.ResultCode).to.eql(exp.resultCode);",
+									"    });",
+									"",
+									"    pm.test(\"Response \" + n + \" data has Message node with value starting \" + exp.messageStartsWith, function () {",
+									"        pm.expect(row.Message).to.be.a(\"string\").and.to.satisfy(function (m) {",
+									"            return m.indexOf(exp.messageStartsWith) === 0;",
+									"        });",
+									"    });",
+									"});"
+								]
+							}
+						}
+					],
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n    \"BusinessUnit\": \"BCBSM\",\n    \"ExternalId\": \"{{extSubGroupId}}\",\n    \"PlanName\": \"{{planName}}\"\n}"
+						},
+						"url": {
+							"raw": "{{baseUrl}}/v1/Benefits/Plan",
+							"host": [
+								"{{baseUrl}}"
+							],
+							"path": [
+								"v1",
+								"Benefits",
+								"Plan"
+							]
+						}
+					},
+					"response": []
+				},
+				{
+					"name": "Modify Plan",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"type": "text/javascript",
+								"exec": [
+									"const res = pm.response.json();",
+									"const data = res.data || res;",
+									"",
+									"pm.test(\"Status result is OK\", function () {",
+									"    pm.response.to.have.status(\"OK\");",
+									"});",
+									"",
+									"pm.test(\"Status code is 200\", function () {",
+									"    pm.response.to.have.status(200);",
+									"});",
+									"",
+									"const expected = [",
+									"    { resultCode: \"Succeeded\", message: \"PlanName updated successfully.\" },",
+									"    { resultCode: \"Warning\", message: \"Maximum has been retroactively updated.\" },",
+									"    { resultCode: \"Succeeded\", message: \"Maximum Updated.\" }",
+									"];",
+									"",
+									"expected.forEach(function (exp, i) {",
+									"    const n = i + 1;",
+									"    const row = data[i];",
+									"",
+									"    pm.test(\"Response \" + n + \" data node has 3 sub-nodes\", function () {",
+									"        pm.expect(Object.keys(row)).to.have.lengthOf(3);",
+									"    });",
+									"",
+									"    pm.test(\"Response \" + n + \" data node has RecordId, ResultCode and Message sub-node\", function () {",
+									"        pm.expect(row).to.have.property(\"RecordId\");",
+									"        pm.expect(row).to.have.property(\"ResultCode\");",
+									"        pm.expect(row).to.have.property(\"Message\");",
+									"    });",
+									"",
+									"    pm.test(\"Response \" + n + \" data RecordId sub-node's value is 3\", function () {",
+									"        pm.expect(row.RecordId).to.eql(3);",
+									"    });",
+									"",
+									"    pm.test(\"Response \" + n + \" data node has ResultCode properties with the value \" + exp.resultCode, function () {",
+									"        pm.expect(row.ResultCode).to.eql(exp.resultCode);",
+									"    });",
+									"",
+									"    pm.test(\"Response \" + n + \" data has Message node with value = \" + exp.message, function () {",
+									"        pm.expect(row.Message).to.eql(exp.message);",
+									"    });",
+									"});"
+								]
+							}
+						}
+					],
+					"request": {
+						"method": "PUT",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n    \"BusinessUnit\": \"BCBSM\",\n    \"ExternalId\": \"{{extSubGroupId}}\",\n    \"PlanName\": \"{{modifiedPlanName}}\"\n}"
+						},
+						"url": {
+							"raw": "{{baseUrl}}/v1/Benefits/Plan",
+							"host": [
+								"{{baseUrl}}"
+							],
+							"path": [
+								"v1",
+								"Benefits",
+								"Plan"
+							]
+						}
+					},
+					"response": []
+				},
+				{
+					"name": "Same Plan",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"type": "text/javascript",
+								"exec": [
+									"const res = pm.response.json();",
+									"const data = res.data || res;",
+									"",
+									"pm.test(\"Status result is OK\", function () {",
+									"    pm.response.to.have.status(\"OK\");",
+									"});",
+									"",
+									"pm.test(\"Status code is 200\", function () {",
+									"    pm.response.to.have.status(200);",
+									"});",
+									"",
+									"function checkNodeNames(obj, names, label) {",
+									"    const keys = Object.keys(obj);",
+									"    names.forEach(function (name, i) {",
+									"        pm.test(\"Response data' node \" + (i + 1) + \" name is: \" + name, function () {",
+									"            pm.expect(keys[i]).to.eql(name);",
+									"        });",
+									"    });",
+									"    pm.test(label + \" node has \" + names.length + \" sub-node\", function () {",
+									"        pm.expect(keys).to.have.lengthOf(names.length);",
+									"    });",
+									"}",
+									"",
+									"// Top-level data node (16 sub-nodes)",
+									"checkNodeNames(data, [",
+									"    \"PlanEffectiveDate\",",
+									"    \"PlanTerminationDate\",",
+									"    \"EmployerRenewalDate\",",
+									"    \"BptTemplate\",",
+									"    \"PlanCoverages\",",
+									"    \"MaximumApplies\",",
+									"    \"BenefitPeriodMaximums\",",
+									"    \"DeductibleApplies\",",
+									"    \"BenefitPeriodDeductibles\",",
+									"    \"CoinsuranceApplies\",",
+									"    \"BenefitPeriodCoinsurances\",",
+									"    \"OopMemberMaximumApplies\",",
+									"    \"BenefitPeriodOopMemberMaxes\",",
+									"    \"WaitingPeriodApplies\",",
+									"    \"BenefitPeriodWaitingPeriods\",",
+									"    \"Rules\"",
+									"], \"Response data\");",
+									"",
+									"// PlanCoverages node (15 sub-nodes)",
+									"const planCoverage = (data.PlanCoverages && data.PlanCoverages[0]) || {};",
+									"checkNodeNames(planCoverage, [",
+									"    \"MaxDependentAge\",",
+									"    \"MaxDependentAgeCalculation\",",
+									"    \"AllowAdultDependents\",",
+									"    \"AllowDisabledDependents\",",
+									"    \"AllowDomesticPartner\",",
+									"    \"AllowStudents\",",
+									"    \"MaxStudentAge\",",
+									"    \"MaxStudentAgeCalculation\",",
+									"    \"WaitingPeriodApplies\",",
+									"    \"OrthoCoverage\",",
+									"    \"AllowNonParPayment\",",
+									"    \"WaitingPeriodNumOfDays\",",
+									"    \"NonParMemberEffectiveDate\",",
+									"    \"PlanCoverageEffectiveDate\",",
+									"    \"PlanCoverageTerminationDate\"",
+									"], \"PlanCoverages\");",
+									"",
+									"// Rules node (11 sub-nodes)",
+									"const rules = (data.Rules && data.Rules[0]) || {};",
+									"checkNodeNames(rules, [",
+									"    \"EffectiveDate\",",
+									"    \"TerminationDate\",",
+									"    \"ProcedureCode\",",
+									"    \"ProcedureClassRelationApplies\",",
+									"    \"ProcedureClassRelation\",",
+									"    \"ProcedureRuleApplies\",",
+									"    \"ProcedureRules\",",
+									"    \"ProcedurePaymentApplies\",",
+									"    \"ProcedurePayments\",",
+									"    \"BenefitCrossCheckApplies\",",
+									"    \"BenefitCrossChecks\"",
+									"], \"Rules\");",
+									"",
+									"// BenefitPeriodMaximums node (16 sub-nodes)",
+									"const bpm = (data.BenefitPeriodMaximums && data.BenefitPeriodMaximums[0]) || {};",
+									"checkNodeNames(bpm, [",
+									"    \"EffectiveDate\",",
+									"    \"TerminationDate\",",
+									"    \"MaximumRules\",",
+									"    \"StartDateOption\",",
+									"    \"PlanYearBegins\",",
+									"    \"AllowCarryForward\",",
+									"    \"Relationship\",",
+									"    \"CarryForwardNumberOfMonths\",",
+									"    \"MinimumAge\",",
+									"    \"MinimumYearsMonths\",",
+									"    \"MinimumAgeCalculation\",",
+									"    \"MaximumAge\",",
+									"    \"MaximumYearsMonths\",",
+									"    \"MaximumAgeCalculation\",",
+									"    \"RollOverMaximumApplies\",",
+									"    \"RollOverMaximum\"",
+									"], \"BenefitPeriodMaximums\");",
+									"",
+									"// BenefitPeriodMaximums.MaximumRules node (7 sub-nodes)",
+									"const maxRules = (bpm.MaximumRules && bpm.MaximumRules[0]) || {};",
+									"checkNodeNames(maxRules, [",
+									"    \"MaximumAmount\",",
+									"    \"AppliesToIndFam\",",
+									"    \"MaximumClasses\",",
+									"    \"AppliesToNetworkParticipation\",",
+									"    \"BenefitPeriodSetting\",",
+									"    \"NumberOfPeriodsForBenefitSettings\",",
+									"    \"GroupForOverride\"",
+									"], \"BenefitPeriodMaximums.MaximumRules\");"
+								]
+							}
+						}
+					],
+					"request": {
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "{{baseUrl}}/v1/Benefits/Plan/BusinessUnit/BCBSM/ExternalId/{{extSubGroupId}}/PlanName/{{modifiedPlanName}}/AllDetails",
+							"host": [
+								"{{baseUrl}}"
+							],
+							"path": [
+								"v1",
+								"Benefits",
+								"Plan",
+								"BusinessUnit",
+								"BCBSM",
+								"ExternalId",
+								"{{extSubGroupId}}",
+								"PlanName",
+								"{{modifiedPlanName}}",
+								"AllDetails"
+							]
+						}
+					},
+					"response": []
+				},
+				{
+					"name": "Terminate Plan",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"type": "text/javascript",
+								"exec": [
+									"const res = pm.response.json();",
+									"const data = (res.data && res.data[0]) || res.data || res;",
+									"",
+									"pm.test(\"Status result is OK\", function () {",
+									"    pm.response.to.have.status(\"OK\");",
+									"});",
+									"",
+									"pm.test(\"Status code is 200\", function () {",
+									"    pm.response.to.have.status(200);",
+									"});",
+									"",
+									"pm.test(\"Response data has 3 nodes\", function () {",
+									"    pm.expect(Object.keys(data)).to.have.lengthOf(3);",
+									"});",
+									"",
+									"pm.test(\"Response data node has RecordId, ResultCode and Message sub-node\", function () {",
+									"    pm.expect(data).to.have.property(\"RecordId\");",
+									"    pm.expect(data).to.have.property(\"ResultCode\");",
+									"    pm.expect(data).to.have.property(\"Message\");",
+									"});",
+									"",
+									"pm.test(\"Response data RecordId sub-node's value is 149424\", function () {",
+									"    pm.expect(data.RecordId).to.eql(149424);",
+									"});",
+									"",
+									"pm.test(\"Response data node has ResultCode node with the value Succeeded\", function () {",
+									"    pm.expect(data.ResultCode).to.eql(\"Succeeded\");",
+									"});",
+									"",
+									"pm.test(\"Response data has Message node with value = TerminationDate has been successfully updated for PlanGroup and PlanCoverage\", function () {",
+									"    pm.expect(data.Message).to.eql(\"TerminationDate has been successfully updated for PlanGroup and PlanCoverage\");",
+									"});"
+								]
+							}
+						}
+					],
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n    \"BusinessUnit\": \"BCBSM\",\n    \"ExternalId\": \"{{extSubGroupId}}\",\n    \"TerminationDate\": \"{{terminationDate}}\"\n}"
+						},
+						"url": {
+							"raw": "{{baseUrl}}/v1/Benefits/Plan/Terminate",
+							"host": [
+								"{{baseUrl}}"
+							],
+							"path": [
+								"v1",
+								"Benefits",
+								"Plan",
+								"Terminate"
+							]
+						}
+					},
+					"response": []
+				},
+				{
+					"name": "BCN Small Group",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"type": "text/javascript",
+								"exec": [
+									"const res = pm.response.json();",
+									"const data = res.data || res;",
+									"const row = data[0];",
+									"",
+									"pm.test(\"Status result is OK\", function () {",
+									"    pm.response.to.have.status(\"OK\");",
+									"});",
+									"",
+									"pm.test(\"Status code is 200\", function () {",
+									"    pm.response.to.have.status(200);",
+									"});",
+									"",
+									"pm.test(\"Response 1 data node has 3 sub-nodes\", function () {",
+									"    pm.expect(Object.keys(row)).to.have.lengthOf(3);",
+									"});",
+									"",
+									"pm.test(\"Response 1 data node has RecordId, ResultCode and Message sub-node\", function () {",
+									"    pm.expect(row).to.have.property(\"RecordId\");",
+									"    pm.expect(row).to.have.property(\"ResultCode\");",
+									"    pm.expect(row).to.have.property(\"Message\");",
+									"});",
+									"",
+									"pm.test(\"Response 1 data RecordId sub-node's value is 1\", function () {",
+									"    pm.expect(row.RecordId).to.eql(1);",
+									"});",
+									"",
+									"pm.test(\"Response 1 data node has ResultCode properties with the value Succeeded\", function () {",
+									"    pm.expect(row.ResultCode).to.eql(\"Succeeded\");",
+									"});",
+									"",
+									"pm.test(\"Response 1 data has Message node with value starting PlanId:\", function () {",
+									"    pm.expect(row.Message).to.be.a(\"string\").and.to.satisfy(function (m) {",
+									"        return m.indexOf(\"PlanId:\") === 0;",
+									"    });",
+									"});"
+								]
+							}
+						}
+					],
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n    \"BusinessUnit\": \"BCN\",\n    \"GroupSize\": \"Small\",\n    \"PlanName\": \"{{bcnSmallPlanName}}\"\n}"
+						},
+						"url": {
+							"raw": "{{baseUrl}}/v1/Benefits/Plan",
+							"host": [
+								"{{baseUrl}}"
+							],
+							"path": [
+								"v1",
+								"Benefits",
+								"Plan"
+							]
+						}
+					},
+					"response": []
+				},
+				{
+					"name": "BCN Large Group",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"type": "text/javascript",
+								"exec": [
+									"const res = pm.response.json();",
+									"const data = res.data || res;",
+									"const row = data[0];",
+									"",
+									"pm.test(\"Status result is OK\", function () {",
+									"    pm.response.to.have.status(\"OK\");",
+									"});",
+									"",
+									"pm.test(\"Status code is 200\", function () {",
+									"    pm.response.to.have.status(200);",
+									"});",
+									"",
+									"pm.test(\"Response 1 data node has 3 sub-nodes\", function () {",
+									"    pm.expect(Object.keys(row)).to.have.lengthOf(3);",
+									"});",
+									"",
+									"pm.test(\"Response 1 data node has RecordId, ResultCode and Message sub-node\", function () {",
+									"    pm.expect(row).to.have.property(\"RecordId\");",
+									"    pm.expect(row).to.have.property(\"ResultCode\");",
+									"    pm.expect(row).to.have.property(\"Message\");",
+									"});",
+									"",
+									"pm.test(\"Response 1 data RecordId sub-node's value is 1\", function () {",
+									"    pm.expect(row.RecordId).to.eql(1);",
+									"});",
+									"",
+									"pm.test(\"Response 1 data node has ResultCode properties with the value Succeeded\", function () {",
+									"    pm.expect(row.ResultCode).to.eql(\"Succeeded\");",
+									"});",
+									"",
+									"pm.test(\"Response 1 data has Message node with value starting PlanId:\", function () {",
+									"    pm.expect(row.Message).to.be.a(\"string\").and.to.satisfy(function (m) {",
+									"        return m.indexOf(\"PlanId:\") === 0;",
+									"    });",
+									"});"
+								]
+							}
+						}
+					],
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n    \"BusinessUnit\": \"BCN\",\n    \"GroupSize\": \"Large\",\n    \"PlanName\": \"{{bcnLargePlanName}}\"\n}"
+						},
+						"url": {
+							"raw": "{{baseUrl}}/v1/Benefits/Plan",
+							"host": [
+								"{{baseUrl}}"
+							],
+							"path": [
+								"v1",
+								"Benefits",
+								"Plan"
+							]
+						}
+					},
+					"response": []
+				}
+			]
+		}
+	],
+	"variable": [
+		{
+			"key": "baseUrl",
+			"value": "http://ds11wwapi.dqdev.ad",
+			"type": "string"
+		},
+		{
+			"key": "extSubGroupId",
+			"value": "DoNotUseSmokeTestExtSubGroupId20251209021",
+			"type": "string"
+		},
+		{
+			"key": "planName",
+			"value": "DoNotUseSmokeTestSubGrpName20251209021",
+			"type": "string"
+		},
+		{
+			"key": "modifiedPlanName",
+			"value": "ModifiedDoNotUseSmokeTestSubGrpName20251209021",
+			"type": "string"
+		},
+		{
+			"key": "terminationDate",
+			"value": "2025-12-31",
+			"type": "string"
+		},
+		{
+			"key": "bcnSmallPlanName",
+			"value": "DoNotUseSmokeTestBcnSmall20251209021",
+			"type": "string"
+		},
+		{
+			"key": "bcnLargePlanName",
+			"value": "DoNotUseSmokeTestBcnLarge20251209021",
+			"type": "string"
+		}
+	]
+}
