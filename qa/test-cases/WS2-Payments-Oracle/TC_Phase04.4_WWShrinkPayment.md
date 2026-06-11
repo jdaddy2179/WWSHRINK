@@ -97,3 +97,10 @@
 | TC-P4.4-05 | | | | | | |
 | TC-P4.4-06 | | | | | | |
 | TC-P4.4-07 | | | | | | |
+
+---
+
+## Playbook Reference
+This suite validates the playbook item **[Phase04.4_WWShrinkPayment.md](https://dev.azure.com/EnterpriseRepo/Application%20Services/_git/com-client-pilot?path=/Playbook/Phase04.4_WWShrinkPayment.md&version=GBmain)** (`com-client-pilot/Playbook/`).
+
+Related: [Jira ↔ Playbook matrix](../../JiraPlaybookMatrix.md) · [Test Strategy](../../TestStrategy.md) · [Traceability Matrix](../../TraceabilityMatrix.md)

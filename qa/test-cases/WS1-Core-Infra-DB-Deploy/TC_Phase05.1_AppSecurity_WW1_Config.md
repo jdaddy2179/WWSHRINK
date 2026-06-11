@@ -80,3 +80,10 @@ Phase 5 COMPLETE (WW1.0 & Config deployed).
 | TC-P5.1-03 | | | | | |
 | TC-P5.1-04 | | | | | |
 | TC-P5.1-05 | | | | | |
+
+---
+
+## Playbook Reference
+This suite validates the playbook item **[Phase05.1_AppSecurity_WW1_Config.md](https://dev.azure.com/EnterpriseRepo/Application%20Services/_git/com-client-pilot?path=/Playbook/Phase05.1_AppSecurity_WW1_Config.md&version=GBmain)** (`com-client-pilot/Playbook/`).
+
+Related: [Jira ↔ Playbook matrix](../../JiraPlaybookMatrix.md) · [Test Strategy](../../TestStrategy.md) · [Traceability Matrix](../../TraceabilityMatrix.md)

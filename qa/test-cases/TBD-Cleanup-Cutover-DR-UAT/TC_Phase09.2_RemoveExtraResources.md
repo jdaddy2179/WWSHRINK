@@ -88,3 +88,10 @@ Phases 1–9.1 COMPLETE; system at production/near-prod baseline with CloudWatch
 | TC-P9.2-04 | | | | | | |
 | TC-P9.2-05 | | | | | | |
 | TC-P9.2-06 | | | | | | |
+
+---
+
+## Playbook Reference
+This suite validates the playbook item **[Phase09.2_RemoveExtraResources.md](https://dev.azure.com/EnterpriseRepo/Application%20Services/_git/com-client-pilot?path=/Playbook/Phase09.2_RemoveExtraResources.md&version=GBmain)** (`com-client-pilot/Playbook/`).
+
+Related: [Jira ↔ Playbook matrix](../../JiraPlaybookMatrix.md) · [Test Strategy](../../TestStrategy.md) · [Traceability Matrix](../../TraceabilityMatrix.md)

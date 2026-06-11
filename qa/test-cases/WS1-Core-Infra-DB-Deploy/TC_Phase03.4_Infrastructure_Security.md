@@ -121,3 +121,10 @@
 | TC-P3.4-06 | | | | | |
 | TC-P3.4-07 | | | | | |
 | TC-P3.4-08 | | | | | |
+
+---
+
+## Playbook Reference
+This suite validates the playbook item **[Phase03.4_Infrastructure_Security.md](https://dev.azure.com/EnterpriseRepo/Application%20Services/_git/com-client-pilot?path=/Playbook/Phase03.4_Infrastructure_Security.md&version=GBmain)** (`com-client-pilot/Playbook/`).
+
+Related: [Jira ↔ Playbook matrix](../../JiraPlaybookMatrix.md) · [Test Strategy](../../TestStrategy.md) · [Traceability Matrix](../../TraceabilityMatrix.md)

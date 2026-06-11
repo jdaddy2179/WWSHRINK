@@ -72,3 +72,10 @@ Phases 4 and 9 COMPLETE.
 | TC-P9.1-03 | | | | | |
 | TC-P9.1-04 | | | | | |
 | TC-P9.1-05 | | | | | |
+
+---
+
+## Playbook Reference
+This suite validates the playbook item **[Phase09.1_ProviderCopyJob.md](https://dev.azure.com/EnterpriseRepo/Application%20Services/_git/com-client-pilot?path=/Playbook/Phase09.1_ProviderCopyJob.md&version=GBmain)** (`com-client-pilot/Playbook/`).
+
+Related: [Jira ↔ Playbook matrix](../../JiraPlaybookMatrix.md) · [Test Strategy](../../TestStrategy.md) · [Traceability Matrix](../../TraceabilityMatrix.md)

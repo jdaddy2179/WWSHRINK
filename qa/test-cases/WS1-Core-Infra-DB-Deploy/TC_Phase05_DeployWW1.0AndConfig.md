@@ -72,3 +72,10 @@ Phases 3, 3.3, 4, 4.1 (PROD), 4.2, 4.3, 4.4, 4.5 COMPLETE. Step 2 requires Step 
 | TC-P5-02 | | | | | | |
 | TC-P5-03 | | | | | | |
 | TC-P5-04 | | | | | | |
+
+---
+
+## Playbook Reference
+This suite validates the playbook item **[Phase05_DeployWW1.0AndConfig.md](https://dev.azure.com/EnterpriseRepo/Application%20Services/_git/com-client-pilot?path=/Playbook/Phase05_DeployWW1.0AndConfig.md&version=GBmain)** (`com-client-pilot/Playbook/`).
+
+Related: [Jira ↔ Playbook matrix](../../JiraPlaybookMatrix.md) · [Test Strategy](../../TestStrategy.md) · [Traceability Matrix](../../TraceabilityMatrix.md)

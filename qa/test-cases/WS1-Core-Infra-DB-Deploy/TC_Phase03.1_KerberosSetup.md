@@ -47,3 +47,10 @@
 | TC-HO-01..09 | | | | | |
 | TC-P3.1-01 | | | | | |
 | TC-P3.1-02 | | | | | |
+
+---
+
+## Playbook Reference
+This suite validates the playbook item **[Phase03.1_KerberosSetup.md](https://dev.azure.com/EnterpriseRepo/Application%20Services/_git/com-client-pilot?path=/Playbook/Phase03.1_KerberosSetup.md&version=GBmain)** (`com-client-pilot/Playbook/`).
+
+Related: [Jira ↔ Playbook matrix](../../JiraPlaybookMatrix.md) · [Test Strategy](../../TestStrategy.md) · [Traceability Matrix](../../TraceabilityMatrix.md)

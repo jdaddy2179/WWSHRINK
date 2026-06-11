@@ -107,3 +107,10 @@
 | TC-P4.1-05 | | | | | | |
 | TC-P4.1-06 | | | | | | |
 | TC-P4.1-07 | | | | | | |
+
+---
+
+## Playbook Reference
+This suite validates the playbook item **[Phase04.1_BringComDBOfflinePROD.md](https://dev.azure.com/EnterpriseRepo/Application%20Services/_git/com-client-pilot?path=/Playbook/Phase04.1_BringComDBOfflinePROD.md&version=GBmain)** (`com-client-pilot/Playbook/`).
+
+Related: [Jira ↔ Playbook matrix](../../JiraPlaybookMatrix.md) · [Test Strategy](../../TestStrategy.md) · [Traceability Matrix](../../TraceabilityMatrix.md)

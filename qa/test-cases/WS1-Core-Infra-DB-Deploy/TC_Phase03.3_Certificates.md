@@ -58,3 +58,10 @@
 | TC-P3.3-01 | | | | | |
 | TC-P3.3-02 | | | | | |
 | TC-P3.3-03 | | | | | |
+
+---
+
+## Playbook Reference
+This suite validates the playbook item **[Phase03.3_Certificates.md](https://dev.azure.com/EnterpriseRepo/Application%20Services/_git/com-client-pilot?path=/Playbook/Phase03.3_Certificates.md&version=GBmain)** (`com-client-pilot/Playbook/`).
+
+Related: [Jira ↔ Playbook matrix](../../JiraPlaybookMatrix.md) · [Test Strategy](../../TestStrategy.md) · [Traceability Matrix](../../TraceabilityMatrix.md)

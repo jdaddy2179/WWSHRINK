@@ -118,3 +118,10 @@
 | TC-P2-06 | | | | | | |
 | TC-P2-07 | | | | | | |
 | TC-P2-08 | | | | | | |
+
+---
+
+## Playbook Reference
+This suite validates the playbook item **[Phase02_RequestAWSAccounts.md](https://dev.azure.com/EnterpriseRepo/Application%20Services/_git/com-client-pilot?path=/Playbook/Phase02_RequestAWSAccounts.md&version=GBmain)** (`com-client-pilot/Playbook/`).
+
+Related: [Jira ↔ Playbook matrix](../../JiraPlaybookMatrix.md) · [Test Strategy](../../TestStrategy.md) · [Traceability Matrix](../../TraceabilityMatrix.md)

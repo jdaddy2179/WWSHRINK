@@ -108,3 +108,10 @@
 | TC-P4.2-06 | | | | | | |
 | TC-P4.2-07 | | | | | | |
 | TC-P4.2-08 | | | | | | |
+
+---
+
+## Playbook Reference
+This suite validates the playbook item **[Phase04.2_BackupRestore.md](https://dev.azure.com/EnterpriseRepo/Application%20Services/_git/com-client-pilot?path=/Playbook/Phase04.2_BackupRestore.md&version=GBmain)** (`com-client-pilot/Playbook/`).
+
+Related: [Jira ↔ Playbook matrix](../../JiraPlaybookMatrix.md) · [Test Strategy](../../TestStrategy.md) · [Traceability Matrix](../../TraceabilityMatrix.md)

@@ -100,3 +100,10 @@
 | TC-PX-05 | | | | | | |
 | TC-PX-06 | | | | | | |
 | TC-PX-07 | | | | | | |
+
+---
+
+## Playbook Reference
+This suite validates the playbook item **[PhaseX_EndtoEndTest_UAT.md](https://dev.azure.com/EnterpriseRepo/Application%20Services/_git/com-client-pilot?path=/Playbook/PhaseX_EndtoEndTest_UAT.md&version=GBmain)** (`com-client-pilot/Playbook/`).
+
+Related: [Jira ↔ Playbook matrix](../../JiraPlaybookMatrix.md) · [Test Strategy](../../TestStrategy.md) · [Traceability Matrix](../../TraceabilityMatrix.md)

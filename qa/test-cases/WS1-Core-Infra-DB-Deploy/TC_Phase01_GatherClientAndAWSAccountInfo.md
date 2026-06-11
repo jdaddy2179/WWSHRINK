@@ -183,3 +183,10 @@
 | TC-P1-09 | | | | | | |
 | TC-P1-10 | | | | | | |
 | TC-P1-11 | | | | | | |
+
+---
+
+## Playbook Reference
+This suite validates the playbook item **[Phase01_GatherClientAndAWSAccountInfo.md](https://dev.azure.com/EnterpriseRepo/Application%20Services/_git/com-client-pilot?path=/Playbook/Phase01_GatherClientAndAWSAccountInfo.md&version=GBmain)** (`com-client-pilot/Playbook/`).
+
+Related: [Jira ↔ Playbook matrix](../../JiraPlaybookMatrix.md) · [Test Strategy](../../TestStrategy.md) · [Traceability Matrix](../../TraceabilityMatrix.md)

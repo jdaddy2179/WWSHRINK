@@ -70,3 +70,10 @@ Phase 5 (WW1.0 + Config) COMPLETE.
 | TC-P5.2-02 | | | | | | |
 | TC-P5.2-03 | | | | | | |
 | TC-P5.2-04 | | | | | | |
+
+---
+
+## Playbook Reference
+This suite validates the playbook item **[Phase05.2_DeployWWPayments.md](https://dev.azure.com/EnterpriseRepo/Application%20Services/_git/com-client-pilot?path=/Playbook/Phase05.2_DeployWWPayments.md&version=GBmain)** (`com-client-pilot/Playbook/`).
+
+Related: [Jira ↔ Playbook matrix](../../JiraPlaybookMatrix.md) · [Test Strategy](../../TestStrategy.md) · [Traceability Matrix](../../TraceabilityMatrix.md)

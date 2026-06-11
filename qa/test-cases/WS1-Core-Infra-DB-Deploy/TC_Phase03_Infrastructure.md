@@ -105,3 +105,10 @@
 | TC-P3-05 | | | | | | |
 | TC-P3-06 | | | | | | |
 | TC-P3-07 | | | | | | |
+
+---
+
+## Playbook Reference
+This suite validates the playbook item **[Phase03_Infrastructure.md](https://dev.azure.com/EnterpriseRepo/Application%20Services/_git/com-client-pilot?path=/Playbook/Phase03_Infrastructure.md&version=GBmain)** (`com-client-pilot/Playbook/`).
+
+Related: [Jira ↔ Playbook matrix](../../JiraPlaybookMatrix.md) · [Test Strategy](../../TestStrategy.md) · [Traceability Matrix](../../TraceabilityMatrix.md)

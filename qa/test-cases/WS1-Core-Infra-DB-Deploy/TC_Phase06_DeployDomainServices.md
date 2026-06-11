@@ -69,3 +69,10 @@ Phases 3, 3.1, 4, 4.1 (PROD), 4.2, 4.3, 4.4, 4.5 COMPLETE.
 | TC-P6-02 | | | | | | |
 | TC-P6-03 | | | | | | |
 | TC-P6-04 | | | | | | |
+
+---
+
+## Playbook Reference
+This suite validates the playbook item **[Phase06_DeployDomainServices.md](https://dev.azure.com/EnterpriseRepo/Application%20Services/_git/com-client-pilot?path=/Playbook/Phase06_DeployDomainServices.md&version=GBmain)** (`com-client-pilot/Playbook/`).
+
+Related: [Jira ↔ Playbook matrix](../../JiraPlaybookMatrix.md) · [Test Strategy](../../TestStrategy.md) · [Traceability Matrix](../../TraceabilityMatrix.md)

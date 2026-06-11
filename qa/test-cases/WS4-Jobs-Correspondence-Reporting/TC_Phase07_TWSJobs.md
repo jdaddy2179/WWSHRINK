@@ -78,3 +78,10 @@ Phases 3, 4, 5 COMPLETE.
 | TC-P7-03 | | | | | |
 | TC-P7-04 | | | | | |
 | TC-P7-05 | | | | | |
+
+---
+
+## Playbook Reference
+This suite validates the playbook item **[Phase07_TWSJobs.md](https://dev.azure.com/EnterpriseRepo/Application%20Services/_git/com-client-pilot?path=/Playbook/Phase07_TWSJobs.md&version=GBmain)** (`com-client-pilot/Playbook/`).
+
+Related: [Jira ↔ Playbook matrix](../../JiraPlaybookMatrix.md) · [Test Strategy](../../TestStrategy.md) · [Traceability Matrix](../../TraceabilityMatrix.md)

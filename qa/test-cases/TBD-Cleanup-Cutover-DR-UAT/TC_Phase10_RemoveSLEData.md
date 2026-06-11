@@ -119,3 +119,10 @@
 | TC-P10-06 | | | | | | |
 | TC-P10-07 | | | | | | |
 | TC-P10-08 | | | | | | |
+
+---
+
+## Playbook Reference
+This suite validates the playbook item **[Phase10_RemoveSLEData.md](https://dev.azure.com/EnterpriseRepo/Application%20Services/_git/com-client-pilot?path=/Playbook/Phase10_RemoveSLEData.md&version=GBmain)** (`com-client-pilot/Playbook/`).
+
+Related: [Jira ↔ Playbook matrix](../../JiraPlaybookMatrix.md) · [Test Strategy](../../TestStrategy.md) · [Traceability Matrix](../../TraceabilityMatrix.md)

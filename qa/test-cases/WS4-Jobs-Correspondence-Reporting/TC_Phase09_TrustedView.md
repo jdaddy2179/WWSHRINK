@@ -79,3 +79,10 @@ Phases 4, 5, 6 COMPLETE.
 | TC-P9-03 | | | | | | |
 | TC-P9-04 | | | | | | |
 | TC-P9-05 | | | | | | |
+
+---
+
+## Playbook Reference
+This suite validates the playbook item **[Phase09_TrustedView.md](https://dev.azure.com/EnterpriseRepo/Application%20Services/_git/com-client-pilot?path=/Playbook/Phase09_TrustedView.md&version=GBmain)** (`com-client-pilot/Playbook/`).
+
+Related: [Jira ↔ Playbook matrix](../../JiraPlaybookMatrix.md) · [Test Strategy](../../TestStrategy.md) · [Traceability Matrix](../../TraceabilityMatrix.md)

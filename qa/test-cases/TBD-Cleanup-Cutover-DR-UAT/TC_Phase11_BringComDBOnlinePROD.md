@@ -91,3 +91,10 @@
 | TC-P11-04 | | | PROD | | | |
 | TC-P11-05 | | | PROD | | | |
 | TC-P11-06 | | | PROD | | | |
+
+---
+
+## Playbook Reference
+This suite validates the playbook item **[Phase11_BringComDBOnlinePROD.md](https://dev.azure.com/EnterpriseRepo/Application%20Services/_git/com-client-pilot?path=/Playbook/Phase11_BringComDBOnlinePROD.md&version=GBmain)** (`com-client-pilot/Playbook/`).
+
+Related: [Jira ↔ Playbook matrix](../../JiraPlaybookMatrix.md) · [Test Strategy](../../TestStrategy.md) · [Traceability Matrix](../../TraceabilityMatrix.md)

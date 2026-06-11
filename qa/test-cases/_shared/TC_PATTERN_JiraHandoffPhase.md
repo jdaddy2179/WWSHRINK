@@ -84,3 +84,10 @@ In a phase suite, write: *"Applies `TC-HO-01..09` from the Hand-off Pattern, ins
 ---
 
 > **Static review (always include):** confirm all images/screenshots referenced by the phase exist, and that the phase's "Next phase" link is correct.
+
+---
+
+## Playbook Reference
+This suite validates the playbook item **[Playbook Introduction (cross-phase hand-off pattern)](https://dev.azure.com/EnterpriseRepo/Application%20Services/_git/com-client-pilot?path=/Playbook/Introduction.md&version=GBmain)** (`com-client-pilot/Playbook/`).
+
+Related: [Jira ↔ Playbook matrix](../../JiraPlaybookMatrix.md) · [Test Strategy](../../TestStrategy.md) · [Traceability Matrix](../../TraceabilityMatrix.md)

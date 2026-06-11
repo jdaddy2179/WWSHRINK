@@ -80,3 +80,10 @@ Phases 4, 4.1 (PROD), 4.2, 4.3, 4.4 COMPLETE; distribution + read-only servers p
 | TC-P4.5-03 | | | | | | |
 | TC-P4.5-04 | | | | | | |
 | TC-P4.5-05 | | | | | | |
+
+---
+
+## Playbook Reference
+This suite validates the playbook item **[Phase04.5_Replication.md](https://dev.azure.com/EnterpriseRepo/Application%20Services/_git/com-client-pilot?path=/Playbook/Phase04.5_Replication.md&version=GBmain)** (`com-client-pilot/Playbook/`).
+
+Related: [Jira ↔ Playbook matrix](../../JiraPlaybookMatrix.md) · [Test Strategy](../../TestStrategy.md) · [Traceability Matrix](../../TraceabilityMatrix.md)

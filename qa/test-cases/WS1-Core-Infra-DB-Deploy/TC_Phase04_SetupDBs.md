@@ -77,3 +77,10 @@ Phase 3 COMPLETE; SQL Server instances installed; DB servers provisioned. (Prere
 | TC-P4-03 | | | | | | |
 | TC-P4-04 | | | | | | |
 | TC-P4-05 | | | | | | |
+
+---
+
+## Playbook Reference
+This suite validates the playbook item **[Phase04_SetupDBs.md](https://dev.azure.com/EnterpriseRepo/Application%20Services/_git/com-client-pilot?path=/Playbook/Phase04_SetupDBs.md&version=GBmain)** (`com-client-pilot/Playbook/`).
+
+Related: [Jira ↔ Playbook matrix](../../JiraPlaybookMatrix.md) · [Test Strategy](../../TestStrategy.md) · [Traceability Matrix](../../TraceabilityMatrix.md)

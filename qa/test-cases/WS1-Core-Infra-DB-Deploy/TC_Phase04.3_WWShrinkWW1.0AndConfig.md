@@ -137,3 +137,10 @@
 | TC-P4.3-07 | | | | | | |
 | TC-P4.3-08 | | | | | | |
 | TC-P4.3-09 | | | | | | |
+
+---
+
+## Playbook Reference
+This suite validates the playbook item **[Phase04.3_WWShrinkWW1.0AndConfig.md](https://dev.azure.com/EnterpriseRepo/Application%20Services/_git/com-client-pilot?path=/Playbook/Phase04.3_WWShrinkWW1.0AndConfig.md&version=GBmain)** (`com-client-pilot/Playbook/`).
+
+Related: [Jira ↔ Playbook matrix](../../JiraPlaybookMatrix.md) · [Test Strategy](../../TestStrategy.md) · [Traceability Matrix](../../TraceabilityMatrix.md)

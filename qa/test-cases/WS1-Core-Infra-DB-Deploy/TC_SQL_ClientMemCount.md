@@ -147,3 +147,10 @@ Result intent: total members under the client (including termed members whose da
 | TC-SQL-08 | | | PROD | | | |
 | TC-SQL-09 | | | PROD | | | |
 | TC-SQL-10 | | | PROD | | | |
+
+---
+
+## Playbook Reference
+This suite validates the playbook item **[ClientMemCount.sql](https://dev.azure.com/EnterpriseRepo/Application%20Services/_git/com-client-pilot?path=/Playbook/ClientMemCount.sql&version=GBmain)** (`com-client-pilot/Playbook/`).
+
+Related: [Jira ↔ Playbook matrix](../../JiraPlaybookMatrix.md) · [Test Strategy](../../TestStrategy.md) · [Traceability Matrix](../../TraceabilityMatrix.md)
