@@ -1,0 +1,81 @@
+Title,Step Action,Step Expected Result
+E2E_MemberEligibilityInquiry,Authenticate to the Provider Portal using a valid test user account via Okta SSO,Portal home screen loads and displays the authenticated user's name and tenant context
+,Navigate to the Member Search page and enter a known test member ID,Member search form accepts input with no errors
+,Submit the search and confirm the BFF API request routes through to the Web Tier (verify via application or ALB access logs),BFF API call is logged; Web Tier receives the request and forwards to Data Tier
+,Confirm the Data Tier queries the SQL primary database and returns eligibility data,SQL query executes against the correct tenant database and returns a result set
+,Verify the eligibility response is rendered correctly on the Provider Portal member detail page,Member eligibility details (plan, group, effective dates, copay) display accurately matching source data
+E2E_ClaimSubmission_PortalToDatabase,Authenticate to the Provider Portal and navigate to the Claim Entry page,Claim Entry page loads with all required fields displayed
+,Enter a valid test claim (member ID, provider ID, service date, procedure code, diagnosis code),Form accepts all inputs without validation errors
+,Submit the claim and confirm the BFF API receives the request and routes it to the Web Tier,BFF API logs show the claim payload routed to the correct Web Tier endpoint
+,Confirm the Web Tier passes the claim to the Data Tier which writes the claim record to the SQL database,A new claim record exists in the SQL database with the correct fields matching the submitted values
+,Retrieve the submitted claim via the Provider Portal claim search and verify status is Pending or Received,Portal displays the submitted claim with the correct status and all fields intact
+E2E_ClaimSearch_PortalToDatabase,Authenticate to the Provider Portal and navigate to the Claim Search page,Claim Search page loads successfully
+,Enter search criteria (date range and member ID) for a known test claim,Search form accepts criteria with no validation errors
+,Submit the search and confirm results are returned from the Data Tier via the Web Tier and BFF,Search results load within an acceptable response time (< 5 seconds)
+,Select a claim from the results and verify the claim detail page shows all expected fields,Claim detail page displays claim number, service date, procedure, provider, status, and amounts correctly
+,Confirm that the claim detail data matches the record in the SQL database,Direct SQL query returns the same field values shown on the portal claim detail page
+E2E_ProviderSearch_PortalToDatabase,Authenticate to the Provider Portal and navigate to the Provider Search page,Provider Search page loads with search fields visible
+,Enter a partial provider name and submit the search,Search executes and results list is returned within 5 seconds
+,Confirm the Internal API receives the search request and routes it through the Web Tier to the Data Tier,Internal API and Web Tier logs show the provider search request
+,Select a provider from results and verify the provider detail page renders correctly,Provider detail page displays NPI, name, address, specialty, and network status
+,Verify the displayed provider data matches the record in the SQL database,SQL query against the provider table returns matching values for NPI and name
+E2E_GroupInfoSearch_PortalToDatabase,Authenticate to the Provider Portal and navigate to the Group Info Search page,Group Info Search page loads successfully
+,Enter a known test group ID and submit the search,Group record is returned within 5 seconds
+,Confirm the BFF API routes the request through the Web Tier and Data Tier to the SQL database,BFF and Web Tier logs show the group info request with the correct group ID
+,Verify the group detail page displays plan, effective date, member count, and billing information,All group fields display correctly with no blank or placeholder values
+,Confirm displayed group data matches the SQL database record,SQL query against the group table returns matching values for the group ID
+E2E_DocumentGeneration_RequestToRetrieval,Authenticate to the Provider Portal and trigger a document generation request (e.g. Explanation of Benefits or correspondence),Document generation request is accepted and a job reference ID is returned
+,Confirm the Document Generation service receives the request and processes it,Document Generation service log shows the job received and processing started
+,Verify the generated document is written to the configured File Share location,File Share contains the generated document file with the correct filename and tenant prefix
+,Return to the Provider Portal and retrieve the generated document,Document is downloadable from the portal and opens without errors
+,Confirm the document content is accurate (correct member name, dates, amounts),Document content matches the source data used to generate it
+E2E_ClaimAdjudicationBatch_TWS,Trigger the Claims Submission TWS job via the Job Execution Tier (TWS console or scheduled trigger),TWS job is accepted and transitions to Running state in the TWS console
+,Confirm the SSIS Server executes the associated SSIS package and reads pending claims from the SQL database,SSIS package log shows rows read from the pending claims queue in the SQL database
+,Monitor job progress until the job reaches a Completed status,TWS job shows Completed with no errors or warnings in the job log
+,Verify the claim records in the SQL database have been updated with adjudication results (status changed from Pending to Processed or Paid),SQL query shows claim status updated for all claims processed in the batch run
+,Confirm the processed claim status is visible via the Provider Portal claim search,Portal claim search returns the updated claim status matching the SQL record
+E2E_BizTalkBatchDomain_DataFlow,Confirm a pending batch transaction exists in the App Batch Domain queue for the target tenant,App Batch Domain shows one or more pending transactions for the test tenant
+,Trigger the BizTalk batch job for the App Batch Domain and monitor execution,BizTalk job starts and processes the batch transaction without errors
+,Verify the BizTalk job writes the output to the Repository / CDM,Repository or CDM contains the new record created by the BizTalk batch job
+,Query the Repository / CDM to confirm the data matches the input batch transaction,Record fields in Repository / CDM match the fields from the original batch transaction
+,Confirm that no duplicate records are created if the job is run a second time with the same input,Second run detects the existing record and does not insert a duplicate
+E2E_BizTalkRuntimeDomain_DataFlow,Submit a real-time transaction to the App Runtime Domain endpoint for the target tenant,App Runtime Domain acknowledges the transaction and returns a synchronous or acknowledgement response
+,Monitor the BizTalk runtime pipeline for the transaction and confirm it enters the correct receive port,BizTalk admin console shows the message received on the correct receive port for the tenant
+,Confirm the BizTalk orchestration or send port processes the message and routes the output,Orchestration log or send port log shows message processed and output sent to the correct destination
+,Verify the result of the real-time transaction is stored or forwarded as expected by the integration design,Destination system (CDM / File Share / endpoint) shows the processed result
+,Confirm the transaction is logged with the correct tenant ID and timestamp,BizTalk tracking database contains the transaction record with correct tenant and timestamp
+E2E_DataPipeline_DataTierToNextGen,Insert a test record into the Windward Data Tier database (via a controlled test claim or member update),Test record exists in the SQL database with a unique identifier for tracking
+,Confirm the DataHub or on-prem service picks up the change and forwards it to the NextGen Staging endpoint,DataHub log shows the change event routed to the Staging endpoint
+,Verify the test record appears in the NextGen Staging layer with correct values,Staging query returns the test record with all fields matching the source SQL record
+,Confirm the record is promoted from Staging to the History / Query layer within the expected time,History / Query endpoint returns the test record when queried by its unique identifier
+,Verify that the portal or reporting layer can read the data from History / Query,Provider Portal or reporting query against History / Query returns the test record accurately
+E2E_BIReporting_DataToRender,Update a test record in the SQL Data Tier that feeds the BI State Tier (e.g. update a claim amount or member record),SQL update is committed and the change is visible in the source table
+,Confirm the BI State Tier data pipeline picks up the change within the documented refresh window,BI State Tier data store shows the updated value after the scheduled or triggered refresh
+,Open the Power BI report for the target tenant and refresh the dataset,Power BI dataset refresh completes without errors
+,Verify the report reflects the updated data from the SQL source,Power BI report shows the updated claim amount or member field matching the SQL change
+,Confirm no cross-tenant data is visible in the report (tenant isolation),Filtering the report by a different tenant returns no data for the test tenant's records
+E2E_IntegrationAPI_ExternalRequestToData,Send a test HTTP request to the Integration API endpoint for the target tenant with a valid payload,Integration API returns HTTP 200 and a valid response body
+,Confirm the Integration API processes the request and routes it through the internal pipeline,Integration API log shows the request received and forwarded to the appropriate internal service
+,Verify the data from the request is written to the correct target (Data Tier SQL or Repository / CDM),Target data store contains a new or updated record matching the Integration API request payload
+,Query the target data store to confirm field-level accuracy,All fields in the target record match the corresponding fields in the Integration API request payload
+,Confirm the Integration API test suite (Integration API Tests component) passes all assertions for this flow,Integration API test suite run returns 0 failures for the end-to-end flow scenario
+E2E_MemberBenefitInquiry_PortalToDatabase,Authenticate to the Provider Portal and navigate to the Member Benefits page for a known test member,Member Benefits page loads and displays the member's plan information
+,Confirm the BFF API routes the benefits inquiry to the Web Tier and then to the Data Tier,BFF and Web Tier logs show the benefits inquiry request for the correct member ID
+,Verify the Data Tier retrieves the member benefit record from the SQL database,SQL query against the member benefit tables returns data for the test member
+,Confirm the Member Benefit Service (NextGen MBS) is called if member benefit data is sourced from NextGen,MBS log shows an outbound request and a successful response for the test member
+,Verify the benefits data rendered on the portal matches the source database record,Portal member benefits page shows matching plan, copay, deductible, and out-of-pocket values from SQL
+E2E_FullLoginToClaimAudit,Authenticate to the Provider Portal and confirm Okta SSO login completes and OAG session is established,Portal home screen loads; Okta session is active and the OAG token is issued
+,Navigate to the Claim Audit page via the Operations sidebar,Claim Audit page loads with all filter and date range fields
+,Enter a claim ID for a known audited claim and submit,Claim Audit results return within 5 seconds
+,Confirm the BFF API routes the audit request through the Web Tier to the Data Tier,BFF and Web Tier logs show the claim audit request with the correct claim ID
+,Verify the audit trail displayed on the page matches the audit records in the SQL database,All audit event timestamps and user IDs displayed match the SQL audit log table records
+E2E_PortalToDatabase_SubGroupDrilldown,Authenticate to the Provider Portal and navigate to the Group Info section for a known group,Group Info page loads and the group record is displayed
+,Click into a SubGroup record from the group detail page,SubGroup detail page loads and displays plan and membership data for the selected SubGroup
+,Confirm the BFF routes the SubGroup request through the Web Tier and Data Tier to SQL,BFF and Web Tier logs show the SubGroup drill-down request with the correct group and SubGroup IDs
+,Verify the SubGroup data on the portal matches the SQL record,SQL query against the SubGroup tables returns the same plan, effective date, and member count shown on the portal
+,Confirm that navigating back to the parent group from the SubGroup page works correctly,Browser back navigation or breadcrumb returns to the parent group detail page with data intact
+E2E_ServerToServer_WW1WebToApp,Send a test request to the Windward Web Tier ALB endpoint and confirm it reaches the Web server,ALB access log shows the inbound request received on the correct listener
+,Confirm the Web server processes the request and calls the App Tier via the NLB,Web server application log shows an outbound call to the NLB endpoint; NLB routes to an App server
+,Verify the App server receives the request and queries the SQL primary database,App server log shows the database query executed against the correct SQL listener
+,Confirm the SQL database returns results and the App server passes them back through the NLB to the Web server,Response chain is complete; Web server receives data from App server
+,Verify the Web server returns the final HTTP response to the originating ALB client with the correct payload,ALB response log shows HTTP 200; response body contains the expected data payload

@@ -1,0 +1,11 @@
+Title,Step Action,Step Expected Result
+P8_ValidateOracleConnectivity,Confirm with Oracle Team that Oracle integration setup ticket has been created,Integration ticket exists in Jira/ADO
+,Verify the ticket description includes Oracle connection requirements and tenant-specific details,Ticket contains all necessary integration specifications
+,Test database connectivity from the tenant environment to Oracle system,Connectivity test succeeds (ping/connection string validation)
+,Confirm Oracle Team has validated connection parameters,Oracle Team confirmation received
+,Review Oracle integration logs for any connection-related errors,Logs show successful connection with no critical errors
+P8_ValidateOracleDataFeeds,Confirm all required data feeds from Oracle are configured,Data feed configuration documented per requirements
+,Request Oracle Team to execute test data feed transmission,Test transmission executed successfully
+,Verify data arrives in tenant environment with correct structure and format,Data validation checks pass
+,Confirm no data loss or corruption during transmission,Sample data complete and intact
+,Review data feed logs for any transmission errors,Logs show successful data delivery with no failures

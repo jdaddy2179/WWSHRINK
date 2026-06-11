@@ -1,0 +1,10 @@
+Title,Step Action,Step Expected Result
+P7_ValidateTWSJobConfiguration,Log into Jira and navigate to the client-specific backlog,Backlog is accessible
+,Locate the TWS job configuration ticket for this tenant,Ticket exists with title format: TWS Jobs Setup - [Tenant Name]
+,Verify the ticket description includes links to TWS job specifications and database details,Both links are present and navigate to correct resources
+,Confirm the ticket is assigned to the TWS Team and status is Done or has completion comment,Ticket indicates job configuration is complete
+,Review job configuration documentation for connection string correctness,Connection strings match the tenant database servers from Environment Variables
+P7_ValidateTWSJobExecution,Confirm with the TWS Team that test job executions have been scheduled and executed,TWS Team confirmation received
+,Request and review job execution logs for any critical errors,Logs show successful executions with no critical errors or failures
+,Verify that automated job schedules are correctly configured per business requirements,Job schedules documented and match business process timelines
+,Confirm TWS team sign-off on job configuration and execution,Formal sign-off documented from TWS team

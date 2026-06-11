@@ -1,0 +1,16 @@
+Title,Step Action,Step Expected Result
+PX_ValidateTestExecutionComplete,Log into Jira and navigate to the client-specific backlog,Backlog is accessible
+,Locate the Test Execution & Validation ticket for this tenant,Ticket exists with title format: Test Execution & Validation - REF[Tenant Name]
+,Verify ticket description includes links to Testing folder, TestStrategy.md, and Environment Variables,All required documentation links are present and accessible
+,Confirm the ticket is assigned to the SQA Team,Ticket assigned to designated SQA team members
+,Review SQA execution status: verify all test phases have been executed and covered,Test execution tracking shows all playbook phases tested
+,Confirm test results have been documented and recorded,Test results document exists with detailed findings per phase
+,Verify that all manual test steps have been completed,Test case execution checklist shows 100% completion
+,Confirm any automated test suites (Playwright, Postman) have been executed and passed,Automation test reports show successful execution
+PX_ValidateCriticalDefectsResolved,Review Jira defect log for all issues found during test execution,Defect tracking shows all issues logged
+,Filter defects by severity and confirm all Blocker defects have been resolved,Blocker defects marked as resolved or closed
+,Verify all High-priority defects have been resolved before PROD validation,High-priority defects marked as resolved
+,Confirm Medium and Low-priority defects have documented resolution or deferral decisions,All defect records include resolution status
+,Review CloudWatch logs from all application deployments for any unresolved critical errors,Logs reviewed and show no unresolved critical errors
+,Confirm sign-off from all phase owners that their respective phases passed validation,Phase owner confirmation documented
+,Obtain final Project Manager sign-off that onboarding is complete and ready for go-live,Project Manager sign-off documented on Jira ticket

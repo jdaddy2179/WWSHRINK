@@ -1,0 +1,14 @@
+Title,Step Action,Step Expected Result
+P9_ValidateDRPlanDocumentation,Confirm that Disaster Recovery planning ticket has been created,DR planning ticket exists in Jira/ADO
+,Verify the ticket description includes DR strategy, RTO/RPO objectives, and recovery procedures,All required DR planning elements documented
+,Request DR plan documentation from Infrastructure Team,DR plan document received
+,Review DR plan for completeness: backup strategy, recovery procedures, failover steps, communication plan,Plan addresses all critical recovery scenarios
+,Confirm all critical infrastructure components are included in the DR plan,Plan covers all required systems (databases, applications, load balancers)
+,Verify Infrastructure Team sign-off on the DR plan,Sign-off documented from Infrastructure Team
+P9_ValidateDRBackupRestore,Confirm database backups have been configured and scheduled,Backup schedules confirmed and documented
+,Request Infrastructure/DBA Team to execute a test backup,Test backup executed successfully
+,Verify backup integrity and completeness,All data captured in backup without corruption
+,Request test restore to alternate location or instance,Test restore executed successfully
+,Confirm restored data matches original data (integrity check),Data integrity validation passed
+,Measure recovery time from backup to fully restored state,Recovery time documented and meets RTO objectives
+,Verify Disaster Recovery procedures are documented and accessible to operations team,DR runbook available and reviewed by operations team

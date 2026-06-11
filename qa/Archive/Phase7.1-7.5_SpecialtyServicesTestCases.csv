@@ -1,0 +1,43 @@
+Title,Step Action,Step Expected Result
+P7.1_ValidateCorrespondenceLetterDeployment,Log into Jira/ADO and navigate to the client-specific backlog,Backlog is accessible
+,Locate the Correspondence Letter deployment ticket for this tenant,Ticket exists with title format: Correspondence Letter Setup - [Tenant Name]
+,Verify the ticket status is Done or resolved,Deployment is marked complete
+,Confirm Correspondence Letter service is running and responding to health checks,Service responds with healthy status
+,Verify template configuration is correctly set up for the tenant,Configuration matches tenant-specific requirements
+,Confirm no critical errors in application startup logs,CloudWatch logs show successful startup
+P7.2_ValidateEDIConfiguration,Log into Jira/ADO and navigate to the client-specific backlog,Backlog is accessible
+,Locate the EDI setup ticket for this tenant,Ticket exists with title format: EDI Setup - [Tenant Name]
+,Verify the ticket status is Done or resolved,EDI setup is marked complete
+,Confirm EDI service is accessible and configured for the tenant,Service responds to connectivity tests
+,Review EDI source and destination system configuration,Configuration matches stakeholder requirements for data exchange
+P7.2_ValidateEDIDataFlow,Confirm EDI Team has tested sample data flow between source and tenant systems,EDI Team confirmation received
+,Review sample EDI transmission logs for successful data exchange,Logs show successful data parsing and delivery with no errors
+,Verify data format and structure matches expected standards,Data validation checks pass
+,Confirm no data loss or transformation errors in sample transmissions,Sample data arrives intact at destination system
+P7.3_ValidateEEPortalAccessibility,Log into Jira/ADO and navigate to the client-specific backlog,Backlog is accessible
+,Locate the EE Portal deployment ticket for this tenant,Ticket exists with title format: EE Portal Deployment - [Tenant Name]
+,Verify the ticket status is Done,Deployment is marked complete
+,Open a browser and navigate to the EE Portal URL from Environment Variables,Portal loads without errors
+,Confirm the portal displays properly and is responsive,No visual layout issues or broken elements appear
+,Verify HTTPS is enabled and certificate is valid,Portal loads over HTTPS without certificate warnings
+P7.3_ValidateEEPortalBackendConnectivity,Confirm portal service startup logs show no critical errors,CloudWatch logs show successful initialization
+,Verify the portal can connect to required backend services (authentication, data services),Health check confirms connectivity to all required services
+,Test basic portal functionality (if applicable) by checking a sample user action,Core functionality tests pass without errors
+,Confirm the portal service health endpoint returns OK status,Health endpoint responds with 200 status
+P7.4_ValidateMemberPortalAccessibility,Log into Jira/ADO and navigate to the client-specific backlog,Backlog is accessible
+,Locate the Member Portal deployment ticket for this tenant,Ticket exists with title format: Member Portal Deployment - [Tenant Name]
+,Verify the ticket status is Done,Deployment is marked complete
+,Open a browser and navigate to the Member Portal URL from Environment Variables using HTTPS,Portal loads without errors over HTTPS
+,Confirm the portal displays properly and is responsive,No visual layout issues appear
+P7.4_ValidateMemberPortalAuthentication,Test member authentication by attempting to log in with a test member account,Login succeeds and user is authenticated
+,Confirm authenticated member can access member-specific data (e.g., claims, benefits),Data access controls work correctly
+,Verify member session management is functional (logout, timeout handling),Session management works as expected
+,Confirm no critical errors in portal startup or authentication logs,CloudWatch logs show successful authentication operations
+P7.5_ValidateMobileAppEndpoints,Confirm Mobile App endpoints are deployed and accessible from the tenant environment,Endpoints return successful responses
+,Verify all required API endpoints are present (authentication, member data, claims, etc.),Full endpoint catalog available per specifications
+,Test endpoints for correct HTTP response codes (200 for success, appropriate errors for failures),Responses use correct HTTP status codes
+,Confirm endpoints can authenticate and validate requests,Authentication mechanisms working correctly
+P7.5_ValidateMobileAppAuthentication,Test mobile app token generation and authentication flow,Authentication tokens generated successfully
+,Verify authenticated app can retrieve member-specific data,Data access controls working correctly
+,Confirm token expiration and refresh mechanisms function properly,Token lifecycle managed correctly
+,Check mobile app logs for any critical authentication errors,No critical errors in authentication logs

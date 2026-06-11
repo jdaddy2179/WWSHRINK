@@ -1,0 +1,63 @@
+Title,Step Action,Step Expected Result
+SearchMemberInfo,Log into the Windward application using test credentials,User is authenticated and lands on the home/dashboard page
+,Navigate to Member Info search,Member Info search page loads with input fields visible
+,"Enter a valid Member ID or Member Last Name in the search field",Search criteria is accepted without error
+,Click the Search button,Search executes without error or timeout
+,Review the returned results list,At least one matching member record is returned with name and plan information visible
+,Select a member record from the results,Member detail page loads displaying member demographics and enrollment details
+PeformClaimSearch,Log into the Windward application using test credentials,User is authenticated and lands on the home/dashboard page
+,Navigate to Claim Search,Claim search page loads with search input fields visible
+,"Enter a valid claim number or a date range in the search fields",Search criteria is accepted without error
+,"Apply at least one filter (e.g., Claim Status or Provider)",Filter is applied successfully
+,Click Search,Search executes and results are returned
+,"Verify results list displays claim records with status, provider, and service date","Claim records are listed with claim number, status, provider, and service date visible"
+NavigateToClaimAudit,Log into the Windward application using test credentials,User is authenticated and lands on the home/dashboard page
+,Navigate to Claims and open an existing claim record,Claim detail page loads successfully
+,Locate and click the Claim Audit link or tab within the claim record,Claim Audit page or section loads without error
+,Verify audit history entries are displayed,Audit trail shows timestamped entries with action descriptions and user information
+NavigateToSubGroupDrilldownDetails,Log into the Windward application using test credentials,User is authenticated and lands on the home/dashboard page
+,Navigate to Group Info and retrieve a group that has associated subgroups,Group detail page loads showing the subgroups list
+,Click on a subgroup link to access drilldown details,SubGroup Drilldown Details page loads without error
+,"Verify subgroup detail information is displayed (name, ID, member count, plan details)","Subgroup name, ID, member count, and plan details are visible and accurate"
+PeformProviderSearch,Log into the Windward application using test credentials,User is authenticated and lands on the home/dashboard page
+,Navigate to Provider Search,Provider search page loads with input fields visible
+,"Enter a valid Provider Name, NPI, or Tax ID in the search field",Search criteria is accepted without error
+,Click Search,Search executes without error
+,"Verify results return matching provider records","Provider records are listed with name, NPI, address, and specialty visible"
+,Select a provider record from the results,Provider detail page loads with complete provider information
+PeformFeesSearch,Log into the Windward application using test credentials,User is authenticated and lands on the home/dashboard page
+,Navigate to Fees Search,Fees search page loads with search criteria fields visible
+,"Enter search criteria (e.g., procedure code, fee schedule name, or effective date)",Search criteria is accepted without error
+,Click Search,Search executes without error or timeout
+,"Verify fee schedule results are returned","Fee records are listed with procedure code, fee amount, and effective dates visible"
+PeformGroupInfoSearch,Log into the Windward application using test credentials,User is authenticated and lands on the home/dashboard page
+,Navigate to Group Info Search,Group Info search page loads with input fields visible
+,"Enter a valid Group Number or Group Name in the search field",Search criteria is accepted without error
+,Click Search,Search executes without error
+,"Verify results return matching group records","Group records are listed with group name, group number, and plan details visible"
+,Select a group from the results,Group detail page loads with complete group and plan information
+PeformMemberSearch,Log into the Windward application using test credentials,User is authenticated and lands on the home/dashboard page
+,Navigate to Member Search,Member search page loads with search input fields visible
+,"Enter a valid Member ID, Last Name, or Date of Birth in the search field",Search criteria is accepted without error
+,Click Search,Search executes without error
+,"Verify results return matching member records","Member records are listed with member name, ID, date of birth, and plan visible"
+,Select a member record from the results,Member detail page loads with complete member information
+PeformProviderInfoSearch,Log into the Windward application using test credentials,User is authenticated and lands on the home/dashboard page
+,Navigate to Provider Info Search,Provider Info search page loads with search input fields visible
+,"Enter a valid Provider NPI, Name, or Tax ID in the search field",Search criteria is accepted without error
+,Click Search,Search executes without error
+,"Verify results display detailed provider information","Provider records returned include NPI, specialty, address, network participation status, and credentials"
+PeformFindAProviderSearch,Log into the Windward application using test credentials,User is authenticated and lands on the home/dashboard page
+,Navigate to Find A Provider,Find A Provider search page loads with location and specialty input fields visible
+,"Enter a valid zip code or city and select a dental specialty (e.g., General Dentistry)",Search criteria is accepted without error
+,Click Search or Find,Search executes without error
+,"Verify in-network dental providers are returned within the specified area","Provider results are listed with name, address, distance, and network status"
+,"Verify provider results can be filtered or sorted (e.g., by specialty or distance)",Results respond to filter/sort actions and list updates accordingly
+NavigateToCobEntryViewPageFromOperationsSidebar,Log into the Windward application using test credentials,User is authenticated and lands on the home/dashboard page
+,Locate the Operations sidebar or navigation menu,Operations menu is visible in the navigation
+,Click on the COB (Coordination of Benefits) Entry View option in the Operations menu,COB Entry View page loads without error
+,"Verify the COB Entry View page displays required fields and the entry grid","Page shows claim/member search fields and entry grid with no error messages displayed"
+NavigateToManualClaimEntryPageFromOperations,Log into the Windward application using test credentials,User is authenticated and lands on the home/dashboard page
+,Locate the Operations sidebar or navigation menu,Operations menu is visible in the navigation
+,Click on the Manual Claim Entry option in the Operations menu,Manual Claim Entry page loads without error
+,"Verify the Manual Claim Entry form displays all required input fields (member, provider, service dates, procedure codes)","All required form fields are visible and editable with no error messages displayed"

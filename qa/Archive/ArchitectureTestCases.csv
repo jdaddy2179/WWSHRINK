@@ -1,0 +1,130 @@
+Title,Step Action,Step Expected Result
+ARCH_WW1_WebTier_ServerProvisioning,Log into AWS console and navigate to EC2 Instances for the target environment,EC2 instances list is displayed
+,Locate windward-web-server1 and confirm Instance Type is m5.large,Instance type shows m5.large
+,Confirm windward-web-server1 OS is Windows Server 2022,Platform details show Windows 2022
+,Confirm windward-web-server1 is in Availability Zone AZ1,Availability Zone matches AZ1
+,Repeat all checks for windward-web-server2 (m5.large / Windows 2022 / AZ1),windward-web-server2 matches identical spec to windward-web-server1
+,Confirm both servers are in Running state with 2/2 status checks passed,Both servers show Running with no failed status checks
+ARCH_WW1_WebTier_DriveConfiguration,In EC2 select windward-web-server1 and navigate to the Storage tab,Storage volumes list is displayed
+,Verify C drive: 100GB gp3,C drive shows 100GB gp3 volume attached
+,Verify D drive: 100GB gp3,D drive shows 100GB gp3 volume attached
+,Verify P drive: 12GB gp3,P drive shows 12GB gp3 volume attached
+,Repeat drive verification for windward-web-server2 (C:100GB / D:100GB / P:12GB all gp3),windward-web-server2 drive configuration matches windward-web-server1 exactly
+ARCH_WW1_WebTier_LoadBalancer,In AWS console navigate to EC2 > Load Balancers and locate windward-web-loadbalancer-alb,ALB is present and in Active state
+,Confirm the load balancer type is ALB (Application Load Balancer),Load balancer type shows Application
+,Navigate to the Target Groups for windward-web-loadbalancer-alb,Target groups list is displayed
+,Confirm both windward-web-server1 and windward-web-server2 are registered as targets,Both web servers appear as registered targets
+,Confirm both targets show Healthy status,Both targets show healthy with no unhealthy or draining instances
+,Confirm ALB DNS name and IP are documented in the Environment Variables spreadsheet,Environment Variables spreadsheet ALB-Physical-LoadBalancer field is populated and matches the ALB DNS name shown in AWS
+ARCH_WW1_AppTier_ServerProvisioning,Log into AWS console and navigate to EC2 Instances for the target environment,EC2 instances list is displayed
+,Locate windward-app-server1 and confirm Instance Type is m5.large and OS is Windows 2022,Instance type is m5.large and platform shows Windows 2022
+,Confirm windward-app-server1 is in Availability Zone AZ1,AZ matches AZ1
+,Confirm windward-app-server2 is m5.large / Windows 2022 / AZ1,windward-app-server2 matches expected spec
+,Confirm windward-app-server3 is m5.large / Windows 2022 / AZ1,windward-app-server3 matches expected spec
+,Confirm all three app servers are in Running state with 2/2 status checks passed,All three servers show Running with no failed status checks
+ARCH_WW1_AppTier_DriveConfiguration,In EC2 select windward-app-server1 and navigate to the Storage tab,Storage volumes list is displayed
+,Verify C drive: 100GB gp3 / D drive: 100GB gp3 / P drive: 12GB gp3,All three volumes match expected sizes and type
+,Repeat for windward-app-server2: C:100GB gp3 / D:100GB gp3 / P:12GB gp3,windward-app-server2 drive configuration matches spec
+,Verify windward-app-server3: C:100GB gp3 / D:100GB gp3 / P:8GB gp3,windward-app-server3 P drive is 8GB gp3 (smaller than server1 and server2)
+ARCH_WW1_AppTier_LoadBalancers,In AWS console navigate to EC2 > Load Balancers and locate windward-app-NLB-loadbalancer,NLB is present and in Active state
+,Confirm type is NLB (Network Load Balancer),Load balancer type shows Network
+,Confirm windward-app-server2 and windward-app-server3 are registered as healthy targets in the NLB,Both servers show as healthy targets; windward-app-server1 (Utility) is NOT a target of the NLB
+,Locate windward-app-ALB-loadbalancer and confirm type is ALB,Load balancer type shows Application
+,Confirm windward-app-server2 and windward-app-server3 are registered as healthy targets in the App ALB,Both servers show as healthy targets
+,Locate windward-app-utility-ALB-loadbalancer and confirm windward-app-server1 is the sole registered healthy target,Only windward-app-server1 appears as a registered target with healthy status
+,Confirm NLB and ALB DNS names and IPs are documented in the Environment Variables spreadsheet,windward-app-NLB-loadbalancer and ALB-Physical-LoadBalancer fields are populated in the spreadsheet
+ARCH_WW1_AppTier_UtilityServerApplications,RDP or connect to windward-app-server1 (Utility) and verify the following APIs are installed and running: Group API / Member API / PCD API,All three APIs are present and running as IIS applications or Windows services with no stopped or errored state
+,Verify DataHub API (V4 / V5 / V6 variants) are installed on windward-app-server1,DataHub API versions are deployed and accessible on the Utility server
+,Verify the SSIS packages and TWS agent are installed on windward-app-server1,SSIS is installed; TWS agent service is present and running on app-server1
+,Verify app-server2 and app-server3 host the full Windward app tier application set (non-utility apps),Windward app tier applications are deployed and running on both app-server2 and app-server3
+ARCH_WW2_ServerProvisioning,Log into AWS console and navigate to EC2 Instances,EC2 instances list is displayed
+,Locate windward2-web-server1 and confirm Instance Type is m5.large / OS Windows 2022 / AZ1,Instance spec matches: m5.large, Windows 2022, AZ1
+,Confirm windward2-web-server1 drives: C:100GB gp3 / D:100GB gp3 / P:12GB gp3,All three drives match expected sizes and storage type
+,Locate windward2-app-server1 and confirm Instance Type is m5.large / OS Windows 2022 / AZ1,Instance spec matches: m5.large, Windows 2022, AZ1
+,Confirm windward2-app-server1 drives: C:100GB gp3 / D:100GB gp3 / P:12GB gp3,All three drives match expected sizes and storage type
+,Confirm both windward2 servers are Running with 2/2 status checks passed,Both servers are healthy with no failed status checks
+ARCH_WW2_Applications,Connect to windward2-web-server1 and confirm the Windward 2.0 Payment web application is installed and running,Payment application is deployed and accessible on windward2-web-server1
+,Confirm the Windward 2.0 Config (Configuration) web application is installed and running on windward2-web-server1,Config application is deployed and accessible on windward2-web-server1
+,Connect to windward2-app-server1 and confirm Payment and Config app tier components are installed and running,Both application tier components are present and running on windward2-app-server1
+,Verify windward2-web-server1 DNS aliases are configured: payment-webserver-alias and config-webserver-alias both resolve to windward2-web-server1 IP,Both DNS aliases resolve to the correct server IP documented in the Environment Variables spreadsheet
+,Verify windward2-web-server1 connects through windward2-app-server1 which connects to the WW1 Database Tier,Traffic flow follows the documented path: WW2 Web → WW2 App → WW1 DB Tier
+ARCH_DB_PrimaryServerProvisioning,Log into AWS console and locate windward-database-server in EC2 Instances,Server is present and in Running state
+,Confirm Instance Type is m5.2xlarge and OS is Windows Server 2022,Instance type shows m5.2xlarge and platform shows Windows 2022
+,Confirm Availability Zone is AZ1,Server is deployed in AZ1
+,Navigate to Storage tab and verify C:100GB / D:600GB / E:400GB / H:50GB / L:250GB / S:50GB / T:250GB / P:40GB / U:100GB (all gp3),All 9 drive volumes are present with correct sizes and gp3 storage type
+,Confirm SQL Server Standard edition is installed on windward-database-server,SQL Server version shows Standard edition
+ARCH_DB_FailoverServerProvisioning,Locate windward-database-failover-server in EC2 Instances,Server is present and in Running state
+,Confirm Instance Type is m5.2xlarge / OS Windows 2022 / Availability Zone AZ2,All three specs match — note AZ2 (different AZ from primary for HA)
+,Verify drives: C:100GB / D:600GB / E:400GB / L:250GB / S:50GB / T:250GB / U:100GB (all gp3),Drive configuration matches expected spec
+,Confirm SQL Server Standard edition is installed,SQL Server version shows Standard edition
+ARCH_DB_ReadOnlyServerProvisioning,Locate windward-database-read-only-server in EC2 Instances,Server is present and in Running state
+,Confirm Instance Type is m5.2xlarge / OS Windows 2022 / Availability Zone AZ1,All three specs match
+,"Verify drives: C:100GB / D:600GB / E:1.5TB / L:250GB / S:50GB / T:250GB / U:100GB (all gp3) — note E drive is 1.5TB, larger than primary",All drives present with correct sizes; E drive is 1.5TB gp3
+,Confirm SQL Server Standard edition is installed,SQL Server version shows Standard edition
+,Locate windward-database-read-only-failover-server and confirm matching spec in AZ2,Read-only failover server matches read-only server spec and is in AZ2
+ARCH_DB_DistributionServerProvisioning,Locate windward-database-distribution-server in EC2 Instances,Server is present and in Running state
+,Confirm Instance Type is m5.2xlarge / OS Windows 2022 / Availability Zone AZ2,All three specs match; note AZ2
+,Verify drives: C:100GB / D:500GB / L:250GB / T:250GB / U:250GB / H:50GB / S:50GB (all gp3),All 7 drives present with correct sizes; note D drive is 500GB (smaller than primary) and U drive is 250GB (larger than primary)
+,Confirm SQL Server Standard edition is installed and configured for replication distribution,SQL Server shows Standard edition and Distributor role is configured
+ARCH_DB_DatabaseInventory,Connect to windward-database-server (primary) and open SQL Server Management Studio or equivalent,Connection to primary database server succeeds
+,"Verify all required databases are present: ApplicationSecurity, CommonDB, Core, Core_Logging, Windward_Commercial, EDIdb, NSB_Config, NSB_Payment, Windward_Config, WindwardInterfaces_COM","All 10 databases are listed in the database inventory with Online status"
+,"Verify shell databases are present: TempDB_WW, XREF, WindwardInterfaces",All 3 shell databases are present
+,"Verify Windward_Payment_COM is present (created by Application Services team)",Windward_Payment_COM database exists and is accessible
+,Verify ASPState database is present (created during application install),ASPState database is present
+ARCH_DB_AvailabilityGroups,Connect to windward-database-server and navigate to Always On Availability Groups in SQL Server,Availability Groups configuration is visible
+,"Verify an individual Basic Availability Group exists for each required database: WW, AS, CMN, Core, CLog, NSB_Cfg, NSB_Pmt, TempDB_WW, WW_Cfg, WW_Intrf, WW_Intrf_Com, XREF, Edi (each suffixed with Tenant ID)","All 13 Availability Groups are present with names following the format DB_[TenantID]"
+,Verify each Availability Group shows Primary replica on windward-database-server (AZ1),All AGs show windward-database-server as the Primary replica
+,Verify each Availability Group shows Secondary replica on windward-database-failover-server (AZ2),All AGs show windward-database-failover-server as the Secondary replica in AZ2
+,Verify all Availability Groups show Synchronized state with no health warnings,All AGs show Synchronized status with no critical or warning states
+ARCH_DB_ReadOnlyAvailabilityGroups,Connect to windward-database-read-only-server and navigate to Always On Availability Groups,"Read-only Availability Groups are visible (WW_R, XREF_R, CMN_R, Core_R, TempDB_WW_R, WW_Cfg_R suffixed with Tenant ID)"
+,"Verify all 6 read-only AGs are present: WW, XREF, CMN, Core, TempDB_WW, WW_Cfg (each suffixed with Tenant ID and R)",All 6 read-only AGs are listed
+,Verify each read-only AG shows Primary on windward-database-read-only-server (AZ1) and Secondary on windward-database-read-only-failover-server (AZ2),All read-only AGs show correct primary/secondary replica assignment
+,Confirm all read-only AGs are in Synchronized state,All read-only AGs show Synchronized with no health warnings
+ARCH_DB_Replication,Connect to windward-database-distribution-server and verify the Distributor role is configured,Distribution database is present and Distributor is active
+,"Verify that the following databases are configured for replication from windward-database-server to windward-database-read-only-server: CommonDB, Core, Windward_Commercial, Windward_Config",All 4 databases appear as published databases in the replication topology
+,"Verify shell databases TempDB_WW and XREF are replicated",Both shell databases appear in the replication topology
+,Check Replication Monitor and confirm all publications show a Replication Status of Running with no errors or warnings,All publications show Running status with no latency alerts or errors
+,Confirm all tables with a primary key are included in the replication articles for each published database,Replication article configuration includes all tables with primary keys for each publication
+ARCH_DB_FailoverCluster,Connect to windward-database-server and open Windows Server Failover Cluster Manager,Cluster Manager opens and the cluster for windward-database-server is visible
+,Verify the cluster has two nodes: windward-database-server (AZ1) and windward-database-failover-server (AZ2),Both nodes appear in the cluster with Online status
+,Verify the Cluster IP and AG Listener IP are configured and match the values documented in the Environment Variables spreadsheet (cluster1 and listener1),Cluster IP and Listener IP match the spreadsheet values
+,Confirm the Quorum is configured to the FSW path: \\amznfsxrwhfzi9b\share\Quorum\,Quorum witness path matches the documented share path
+,Repeat cluster verification for the read-only cluster: windward-database-read-only-server (AZ1) + windward-database-read-only-failover-server (AZ2),Read-only cluster shows both nodes Online with Listener configured (cluster2 and listener2)
+ARCH_DB_BackupShare,From windward-database-server confirm access to the backup share: \\amznfsxxhwvhskd.dqdev.ad\share\SQL_Backups,Backup share path is accessible from the database server
+,Verify transaction log backup jobs are scheduled and have executed successfully,SQL Agent jobs for transaction log backups are present and last execution shows Succeeded
+,Confirm backup files are present in the share for the primary databases,Backup files exist in the share directory with recent timestamps
+ARCH_Security_AllAppAndWebServers,"For each web and app server (windward-web-server1, windward-web-server2, windward-app-server1, windward-app-server2, windward-app-server3, windward2-web-server1, windward2-app-server1) confirm SentinelOne agent is installed and active",SentinelOne agent shows as Active on all 7 servers
+,Confirm Qualys agent is installed and reporting on all 7 servers,Qualys agent shows as active and last scan time is recent
+,Confirm Imperva agent is installed and active on all 7 servers,Imperva agent is present and active
+,Confirm Forcepoint agent is installed and active on all 7 servers,Forcepoint agent is present and active
+,Confirm Exabeam agent is installed and active on all 7 servers,Exabeam agent is present and active
+ARCH_Security_DatabaseServers,"For each database server (windward-database-server, failover, read-only, read-only-failover, distribution) confirm SentinelOne / Qualys / Imperva / Forcepoint / Exabeam agents are installed and active",All 5 security agents show Active on all 5 database servers
+,Confirm Illumio agent is installed and active on all database servers (database servers have an additional security control),Illumio agent shows as active on all 5 database servers
+ARCH_Integration_WW1CoreChain,Access the Windward Web application URL (via windward-web-loadbalancer-alb alias) and perform a login,Login succeeds confirming Web Tier → App Tier → Database Tier chain is functioning
+,Perform a data-driven operation (e.g. member search) that requires a round-trip through Web → App → DB,Operation returns data successfully confirming all three tiers are communicating
+,Confirm the Web Tier is routing requests through the NLB (windward-app-NLB-loadbalancer) to app-server2 and app-server3,Traffic reaches app-server2 and app-server3 via the NLB (confirm via access logs or health check)
+,Confirm utility operations (Group API / Member API) are being served from windward-app-server1 via windward-app-utility-ALB-loadbalancer,Utility API endpoints are accessible through the utility ALB and served from app-server1
+ARCH_Integration_WW2Chain,Access the Windward 2.0 Payment web application URL (via payment-webserver-alias) and confirm it loads,Payment application loads successfully
+,Access the Windward 2.0 Config web application URL (via config-webserver-alias) and confirm it loads,Config application loads successfully
+,Perform a data-driven operation in each WW2 application that requires a database call,Operations return data confirming WW2 Web → WW2 App → WW1 DB Tier chain is functioning
+ARCH_Integration_NextGenServices,Confirm Business Services Lambda is reachable and returns a healthy response (via Postman or health endpoint),Business Services health check passes
+,Confirm Member Domain Lambda is reachable and health check passes,Member Domain health check passes
+,Confirm Claims Domain Lambda is reachable and health check passes,Claims Domain health check passes
+,Confirm Member Benefit Service is reachable and health check passes,Member Benefit Service health check passes
+,Confirm Business Services connects to Member Domain and Claims Domain by reviewing service logs or Postman integration test,Logs or Postman results confirm BS → MD and BS → CD connections are successful
+ARCH_Integration_APIConnectivity,Confirm Member API is accessible via its endpoint on windward-app-server1 and can query the Core database,Member API returns a valid response and database query succeeds
+,Confirm Group API is accessible via its endpoint on windward-app-server1 and can query the Core database,Group API returns a valid response and database query succeeds
+,Confirm Config application (WW2) can connect to the Windward_Config database on the WW1 DB Tier,Config app successfully connects to Windward_Config with no connection errors in logs
+,Confirm Payment application (WW2) can connect to the Windward_Payment_COM database on the WW1 DB Tier,Payment app successfully connects to Windward_Payment_COM with no connection errors in logs
+ARCH_Integration_OnPremConnectivity,Confirm the Windward DB Tier can write to the on-premises DataHub (OnPremDataHub) by reviewing replication or export job logs,Logs confirm successful data flow from DB Tier to OnPremDataHub with no connectivity errors
+,Confirm NextGen services can reach OnPremServices (AsyncService and PaperlessService) from the AWS Pilot environment,Service connectivity confirmed via health check or log review with no timeout or connection refused errors
+ARCH_JobTier_SSISAndTWS,Connect to windward-app-server1 (Utility) and verify the TWS agent service is installed,TWS agent service is present in Windows Services
+,Confirm the TWS agent service is Running and connected to the on-premises TWS server,Service status shows Running; TWS server connection is established
+,Confirm SSIS packages are deployed and scheduled on windward-app-server1,SSIS packages are present in SQL Server Agent or SSIS catalog on app-server1
+,Execute a test SSIS package (or review last execution history) and confirm it ran successfully,SSIS package execution shows Succeeded in execution history with no errors
+ARCH_AZDistribution,In AWS EC2 confirm windward-web-server1 and windward-web-server2 are both in AZ1,Both web servers show AZ1 as their Availability Zone
+,"Confirm windward-app-server1, windward-app-server2, windward-app-server3 are all in AZ1",All three app servers show AZ1
+,"Confirm windward2-web-server1 and windward2-app-server1 are in AZ1",Both WW2 servers show AZ1
+,Confirm windward-database-server and windward-database-read-only-server are in AZ1,Primary and read-only database servers are in AZ1
+,Confirm windward-database-failover-server and windward-database-read-only-failover-server are in AZ2,Failover servers are in AZ2 (cross-AZ HA)
+,Confirm windward-database-distribution-server is in AZ2,Distribution server is in AZ2

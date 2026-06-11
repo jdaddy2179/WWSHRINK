@@ -1,0 +1,146 @@
+Title,Step Action,Step Expected Result
+P1_ValidateEnvironmentVariablesCompleteness,Open the Environment Variables spreadsheet and navigate to the client-specific tab,Client tab exists and is accessible in SharePoint
+,Confirm all rows where Input Type = Manual in Column F have a value entered in Column C,No blank cells exist for any Manual input row
+,Confirm Fixed fields (Environment, Environment Prefix, Server Number) have not been modified,Fixed fields retain their pre-configured values and formulas are intact
+,Confirm Auto-Generated fields (AWS Account Name, Server Names) have calculated correctly from Manual inputs,Auto-Generated fields display values derived from the entered Manual inputs with no formula errors
+P1_ValidateTierCalculation,Open the Environment Variables spreadsheet and navigate to the client-specific tab,Client tab is accessible
+,Locate the Client Member Count value in Column C,Member count value is present and numeric
+,Verify the Tier value in Column C matches the correct threshold: Tier 1 if >= 1000000 / Tier 2 if >= 100000 / Tier 3 if < 100000,Tier value matches the expected threshold based on the member count entered
+P1_ValidateStakeholderDataAccuracy,Collect the signed-off values from stakeholders for Tenant Name / Tenant ID / Tenant Country Code / Member Count,Stakeholder confirmation is documented
+,Compare each stakeholder-provided value against the corresponding entry in Column C of the Environment Variables spreadsheet,All Manual fields match the stakeholder-provided values exactly with no discrepancies
+,Confirm Tenant ID is unique by checking it does not already exist in the Master_Sheet or other client tabs,Tenant ID is not duplicated across any existing tab in the workbook
+P2_ValidatePhase2SpreadsheetFields,Open the Environment Variables spreadsheet and navigate to the client-specific tab,Client tab is accessible
+,Confirm all Phase 2 Manual fields are populated in Column C: Cost Center / Primary Owner / Secondary Owner / Support Group / Application / ATG / New or Existing Role,No blank cells exist for any Phase 2 Manual field
+,Confirm the Cost Center value is a 6-digit numeric code,Cost Center field contains exactly 6 digits
+,Confirm Primary Owner is a valid email address and Secondary Owner is a distribution list email,Both email formats are valid and match stakeholder-provided values
+P2_ValidateServiceNowAWSAccountTicket,Log into DQ Service Now using Okta Tile,ServiceNow is accessible and the home page loads
+,Navigate to Service Catalog and locate the submitted AWS Accounts Request ticket,Ticket is present with status visible
+,Verify ticket Type of Request = Cloud Request and Cloud Provider = AWS,Both fields match the expected values
+,"Verify the Additional Comments table in the ticket contains the correct AWS Accounts, Cost Center, Environment, Environment Prefix, Primary Owner, Secondary Owner, Support Group, Application, ATG, and Role values","All values in the ticket match the corresponding entries in the Environment Variables spreadsheet with no discrepancies"
+,Confirm the ticket has been assigned to the Cloud Infrastructure Team,Ticket assignee is Erik Rodriguez or the Cloud Infrastructure Team group
+P2_ValidateAWSAccountsCreated,Confirm that Cloud Infrastructure Team has provided the new AWS account details,Account name and ID details received from Cloud Infrastructure Team
+,"Log into AWS via Okta SSO and verify the new accounts are visible (PROD, QAR, DEV)",All three environment accounts appear in the AWS account list
+,Confirm account names follow the Auto-Generated naming convention from the Environment Variables spreadsheet (e.g. Dental-SLE-PROD-us-east-1),Each account name matches exactly what is listed in the spreadsheet
+P2_1_ValidateAWSIAMRoles,Log into AWS via Okta SSO and switch to the tenant DEV account,DEV account is accessible without error
+,Navigate to IAM and confirm the expected roles exist (existing role base such as aws-oktaSSO or new custom roles as per Environment Variables),All required IAM roles are present in the account
+,Repeat role verification for QAR and PROD accounts,IAM roles exist and are correctly configured in all three environments
+P2_1_ValidateAWSOktaSSOAccess,Using an authorized team member account log into AWS DEV via the Okta Tile,Login succeeds and the AWS console is accessible for the DEV account
+,Switch to the appropriate tenant-specific IAM role within the DEV account,Role switch succeeds and the correct account ID is shown in the console header
+,Repeat login and role switch for QAR and PROD accounts,All three environments are accessible using the assigned IAM roles
+P3_ValidateJiraInfraProvisioningTicket,Log into Jira and navigate to the client-specific backlog,Backlog is accessible
+,Locate the Tenant AWS Provisioning user story for this tenant,User story exists with title matching Tenant AWS Provisioning - [Tenant Name]
+,Verify the description contains links to the Azure DevOps architecture folder and the Environment Variables spreadsheet,Both links are present and navigate to the correct resources
+,Verify Acceptance Criteria is set to: AWS cloud server infrastructure setup should be complete and infrastructure validated for the Tenant,Acceptance criteria text matches exactly
+,Confirm the ticket is assigned to the Cloud Infrastructure Team and status is Done or has a completion comment,Ticket indicates provisioning is complete
+P3_ValidateEC2ServersProvisioned,Log into AWS via Okta Tile and switch to the DEV environment role,AWS console is accessible for the DEV account
+,Navigate to EC2 and click Instances (running),EC2 instances list is displayed
+,Compare every running instance name against the expected server list in the Environment Variables spreadsheet for DEV,All expected servers from the spreadsheet are present in the running instances list with no missing servers
+,Verify each instance Status Check shows 2/2 checks passed (System Status Check and Instance Status Check),All instances show passing status checks with no failed checks
+,Repeat steps for QAR and PROD environments as each becomes available,All expected servers are running and passing status checks in each environment
+P3_1_ValidateInfrastructureInventoryDocumented,Open the Environment Variables spreadsheet and navigate to the client-specific tab,Client tab is accessible
+,"Verify that ALB Physical Load Balancer DNS name and IP are populated for PROD (Column C), QAR (Column D), and DEV (Column E)",All ALB fields are populated with no blank cells across all three environments
+,"Verify that NLB Load Balancer DNS name and IP are populated for PROD (Column C), QAR (Column D), and DEV (Column E)",All NLB fields are populated with no blank cells across all three environments
+,Verify that web server IP (windward2-web-server1-ip) is documented for all environments,Web server IP is populated for all three environments
+,Confirm documented values have been reviewed and approved by Daniel Hobert and Erik Rodriguez,Stakeholder review confirmation is recorded
+P3_1_ValidateDNSCNAMETicket,Log into DQ Service Now and locate the DNS Change ticket for this tenant,Ticket is present and accessible
+,Verify ticket Type of Request = Network and Type of Network Request = DNS Change and DNS Change Type = Cname,All three fields match the expected values
+,"Verify the Additional Comments contain correct alias mappings for: Windward Web ALB, Payment Web server, Utility App ALB, App ALB, and NLB load balancer","All five alias mappings are present with correct server names, IPs, and alias values from the Environment Variables spreadsheet"
+,Confirm the ticket has been completed and closed,Ticket status is Closed or Resolved
+P3_1_ValidateDNSAliasResolution,Using a network lookup tool (nslookup or equivalent) resolve the Windward Web alias from the Environment Variables spreadsheet,Alias resolves to the correct ALB DNS endpoint
+,Resolve the App ALB alias and confirm it points to the correct load balancer,Alias resolves to the correct ALB DNS endpoint
+,Resolve the NLB alias and confirm it points to the correct network load balancer,Alias resolves to the correct NLB DNS endpoint
+,Resolve the Payment Web and Utility App ALB aliases,Both aliases resolve to the correct endpoints with no DNS errors
+P3_2_ValidateSSLCertificateTickets,Log into DQ Service Now and locate the SSL Cert request ticket(s) for this tenant,Certificate ticket(s) are present and accessible
+,Verify ticket Type of Request = Network and Type of Network Request = New SSL Cert,Both fields match the expected values
+,Confirm tickets have been completed and closed by the Network Team,All certificate tickets have a Closed or Resolved status
+P3_2_ValidateHTTPSConnectivity,Open a browser and navigate to the Windward Web ALB alias using HTTPS,Page loads over HTTPS without SSL errors or certificate warnings
+,Click the padlock icon in the browser and inspect the certificate details,Certificate is valid, not expired, and the domain name matches the expected tenant domain
+,Navigate to the App ALB alias using HTTPS and verify the certificate,Page loads over HTTPS with a valid certificate matching the expected domain
+,Confirm no mixed-content or TLS version warnings appear in the browser developer tools,No security warnings or errors are reported
+P3_3_ValidateInfoSecControls,Confirm with the InfoSec key responsible person (Jamie Smith) that all required security controls have been implemented on the tenant AWS environment,Written confirmation or Jira ticket update received from InfoSec confirming completion
+,Verify that access and permission review documentation has been completed and stored,Access review documentation exists and is accessible in the designated location
+,Confirm required security evidence has been captured and stored per InfoSec requirements,Evidence package is complete and stored in the designated location
+,Confirm InfoSec sign-off has been received before proceeding to Phase 4,Formal sign-off documented from InfoSec team
+P4_ValidateDatabaseRestoration,Confirm with the DBA team (Vasudha Ramakrishnan) that all required databases have been restored to the provisioned database servers,DBA confirmation received that restoration is complete
+,Connect to the DEV database server and verify all expected databases are present,All required databases (Core DB, Logging DB, ApplicationSecurity DB, EDI DB, etc.) are listed on the server
+,Run a basic connectivity test to each database (ping or SELECT 1 query),Each database responds successfully to the connectivity test with no errors
+,Confirm database integrity checks have been executed and passed with no errors,DBA provides results showing no integrity issues across all restored databases
+,Repeat verification for QAR and PROD database servers,All databases are present and accessible on all three environment servers
+P4_1_ValidateDatabaseRightSizing,Log into the AWS console and navigate to EC2 for the DEV database server,Database server instance details page is accessible
+,Compare the instance type against the expected specification for the tenant Tier from the architecture documentation,Instance type matches the Tier specification (Tier 1 / Tier 2 / Tier 3) documented in architecture
+,Verify storage allocation matches the expected size for the tenant Tier,Storage capacity matches the Tier specification with no under-provisioning
+,Confirm DBA team has reviewed and approved the sizing,DBA sign-off documented
+,Repeat instance type and storage check for QAR and PROD database servers,All environment database servers match the Tier specification
+P5_ValidateApplicationDeploymentTickets,Log into Jira or ADO and navigate to the client-specific backlog,Backlog is accessible
+,Confirm a deployment ticket exists for each application that interacts with Windward (Web / Payment / Config / APIs),A ticket exists per application with the title format: [Application Name] Deployment - [Tenant Name]
+,Verify Acceptance Criteria on each ticket confirms the application is deployed and accessible,Acceptance criteria text is present and matches the expected format
+,Confirm all deployment tickets have a status of Done or Resolved,No open deployment tickets remain; all are marked complete
+P5_ValidateApplicationServersRunning,Log into AWS via Okta Tile and switch to the DEV environment,AWS console is accessible for DEV
+,Navigate to EC2 and verify application server instances are in Running state,All application tier EC2 instances show Running state
+,Confirm System Status Check and Instance Status Check are both passing (2/2) for each app server,No failed status checks on any application server instance
+,Repeat for QAR and PROD environments,All application servers are running with passing status checks in all environments
+P5_ValidateApplicationURLAccessibility_Playwright,Confirm the Playwright test suite is configured with the correct DEV base URL from the Environment Variables spreadsheet,Playwright environment file reflects the correct tenant DEV URL with no placeholder values
+,Execute the existing Playwright smoke test suite targeting the DEV environment,Playwright run completes with all tests passing and no failures reported
+,Review the Playwright test report and confirm URL accessibility tests pass for Windward Web / Payment Web / Configuration Web,All URL navigation tests show Pass status in the Playwright report
+,Raise a Jira defect for any Playwright test that fails and block phase exit until resolved,All failures are logged in Jira with Blocker severity and assigned to the Application Services Team
+,Reconfigure Playwright with the QAR base URL and repeat execution; then repeat for PROD,Playwright suite passes for QAR and PROD with no failures
+P5_ValidateApplicationHealthEndpoints_Playwright,Confirm the Playwright test suite health-check tests are included in the suite and configured for DEV,Health check test cases are present in the Playwright suite and pointing to the correct DEV environment
+,Execute the Playwright suite and confirm health endpoint test cases pass (Windward Web / APIs),All health endpoint tests in the Playwright report show Pass with HTTP 200 responses
+,Review Playwright output for any health endpoint returning an unexpected status or error,No health endpoint test failures exist in the report
+,Reconfigure for QAR and PROD and re-execute; confirm all health tests pass,Health endpoint tests pass across all three environments
+P5_ValidateLoadBalancerTargetHealth,Log into the AWS console and navigate to EC2 > Load Balancers for the DEV environment,Load Balancers list is displayed
+,Select the Application Load Balancer and click the Target Groups tab,Target groups associated with the ALB are displayed
+,Verify all registered targets show a status of healthy,No targets are listed as unhealthy or draining
+,Repeat target health verification for QAR and PROD environments,All load balancer targets are healthy across all environments
+P5_ValidateDatabaseConnectivityFromApp,Review CloudWatch Logs for the Windward Web application in DEV and confirm no database connection errors exist in startup logs,No database connection errors are present in the startup logs
+,Execute the Playwright suite and confirm any UI tests that perform a database-driven action (e.g. member search or claim lookup) pass successfully,Playwright tests that require a live database query all show Pass in the test report
+,Manually verify that application connection strings point to the correct tenant database server as documented in the Environment Variables spreadsheet,Connection strings in application settings match the database server names from the spreadsheet
+,Repeat CloudWatch log review and Playwright DB-driven test execution for QAR and PROD,No database connectivity errors in logs and Playwright DB tests pass across all environments
+P6_ValidateMemberDomainAWSDependencies,Log into the AWS console for the DEV account and verify an OpenSearch domain exists for the tenant,OpenSearch domain is present and in Active status
+,Navigate to KMS and confirm customer-managed KMS keys required for DynamoDB are created,KMS keys exist and are enabled
+,Navigate to DynamoDB and confirm required tables are present,DynamoDB tables are created and in Active status
+,Confirm SQS queues are configured and the SQS HTTP endpoint and ARN are documented,SQS queues exist and endpoint details have been provided by the CE team
+P6_ValidateMemberDomainServiceDeployment,Navigate to Azure DevOps and locate the Member Domain Service release pipeline,Pipeline is accessible
+,Confirm the most recent pipeline run completed successfully with no failed tasks,Pipeline run shows Succeeded status with no task failures
+,Review the pipeline variables and confirm tenant-specific values were used (not placeholder or dummy values),All pipeline variables contain real tenant values
+,Check CloudWatch Logs for the Member Domain Service in DEV and confirm no critical errors on startup,Startup logs show no critical errors or exceptions
+P6_ValidateMemberDomainServiceHealth_Postman,Configure the Postman environment file for the Member Domain Service with the tenant DEV base URL and required credentials,Postman environment variables are set with real tenant values and no placeholders remain
+,Execute the existing Member Domain Service Postman collection against the DEV environment,Postman collection run completes with all requests returning expected responses and all assertions passing
+,Review the Postman run results and confirm health endpoint and S3 / SQS / OpenSearch connectivity assertions all pass,No assertion failures exist in the Postman results; all connectivity checks show pass
+,Raise a Jira defect for any failed Postman assertion and block phase exit until resolved,All failures are logged in Jira and assigned to the responsible Domain Services Team member
+,Reconfigure the Postman environment for QAR and repeat execution; then repeat for PROD,Postman collection passes for QAR and PROD with no failures
+P6_1_ValidateClaimsDomainAWSDependencies,Log into the AWS console for the DEV account and verify KMS keys are present and enabled for Claims Domain DynamoDB tables,KMS keys exist and are in Enabled state
+,Confirm DynamoDB tables required by Claims Domain Service are created and in Active status,All required DynamoDB tables are present and active
+,Confirm OpenSearch domain is accessible by the Claims Domain Service,OpenSearch domain endpoint is reachable from the application tier
+P6_1_ValidateClaimsDomainServiceDeployment,Navigate to Azure DevOps and locate all three Claims Domain Service release pipelines,All three pipeline definitions are accessible
+,Confirm the most recent run for each of the three pipelines completed with Succeeded status,All three pipelines show Succeeded with no task failures
+,Review pipeline variables for each pipeline and confirm real tenant values are in use (not dummy or placeholder values),All three pipelines use correct tenant-specific variable values
+,Check CloudWatch Logs for the Claims Domain Service in DEV and confirm no critical errors on startup,Startup logs contain no critical errors or exceptions
+P6_1_ValidateClaimsDomainServiceHealth_Postman,Configure the Postman environment file for the Claims Domain Service with the tenant DEV base URL and required credentials,Postman environment variables are set with real tenant values and no placeholders remain
+,Execute the existing Claims Domain Service Postman collection against the DEV environment,Postman collection run completes with all requests returning expected responses
+,Review the Postman results and confirm health endpoint and DynamoDB / OpenSearch / SQS connectivity assertions all pass,No assertion failures exist; all dependency connectivity checks show pass
+,Raise a Jira defect for any failed Postman assertion and block phase exit until resolved,All failures are logged in Jira and assigned to the Domain Services Team
+,Reconfigure the Postman environment for QAR and repeat execution; then repeat for PROD,Postman collection passes for QAR and PROD with no failures
+P6_2_ValidateBusinessServiceDeployment,Navigate to Azure DevOps and locate the Business Service release pipeline,Pipeline is accessible
+,Confirm the most recent pipeline run completed with Succeeded status and no task failures,Pipeline run shows Succeeded status
+,Review pipeline variables and confirm database connection strings point to the correct tenant database servers,Connection string values match the database server names from the Environment Variables spreadsheet
+,Check CloudWatch Logs for the Business Service in DEV and confirm no critical errors on startup,Startup logs contain no critical errors or exceptions
+P6_2_ValidateBusinessServiceHealth_Postman,Configure the Postman environment file for the Business Service with the tenant DEV base URL and required credentials,Postman environment variables are set with real tenant values and no placeholders remain
+,Execute the existing Business Service Postman collection against the DEV environment,Postman collection run completes with all requests returning expected responses
+,Review the Postman results and confirm health endpoint and upstream/downstream service connectivity assertions all pass,No assertion failures exist; all service connectivity checks show pass
+,Raise a Jira defect for any failed Postman assertion and block phase exit until resolved,All failures are logged in Jira and assigned to the Domain Services Team
+,Reconfigure the Postman environment for QAR and repeat execution; then repeat for PROD,Postman collection passes for QAR and PROD with no failures
+P6_3_ValidateDataPublisherConfiguration,Locate the deployed appsettings.json for the Data Publisher in DEV and open it,appsettings.json is accessible on the deployment target
+,Confirm the BucketUrl value matches the S3 bucket URL provided by the CE team,BucketUrl is populated with the correct tenant-specific S3 bucket URL
+,Confirm the AccessKey and SecretKey values are populated and match the credentials provided by the CE team,AccessKey and SecretKey are present and not placeholder values
+,Confirm WindwardCoreDBConnection string points to the correct tenant Core database server,Connection string matches the Core DB server name from the Environment Variables spreadsheet
+,Confirm LoggingDBConnection string points to the correct tenant Logging database server,Connection string matches the Logging DB server name from the Environment Variables spreadsheet
+P6_3_ValidateDataPublisherDeployment,Navigate to Azure DevOps (or TFS) and locate the Data Publisher release pipeline,Pipeline definition is accessible
+,Confirm the most recent pipeline run completed with Succeeded status and no task failures,Pipeline run shows Succeeded status
+,Confirm the pipeline executed the PowerShell step that reads RouteInfo.json and injects values into appsettings.json,Pipeline logs show the RouteInfo.json read step completed without errors
+,Check CloudWatch Logs for the Data Publisher in DEV and confirm no critical errors on startup,Startup logs contain no critical errors or exceptions
+P6_3_ValidateDataPublisherS3Connectivity_Postman,Configure the Postman environment file for the Data Publisher with the tenant DEV base URL and S3 credentials (Bucket URL / Access Key / Secret Key),Postman environment variables are set with the correct tenant values from appsettings.json with no placeholders
+,Execute the existing Data Publisher Postman collection against the DEV environment,Postman collection run completes with all requests returning expected responses
+,Review the Postman results and confirm S3 write/read connectivity assertions and service health checks all pass,No assertion failures exist; S3 connectivity check shows pass and CDP credentials are confirmed active
+,Raise a Jira defect for any failed Postman assertion and block phase exit until resolved,All failures are logged in Jira and assigned to the responsible team
+,Reconfigure the Postman environment for QAR and repeat execution; then repeat for PROD,Postman collection passes for QAR and PROD with no failures
