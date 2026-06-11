@@ -7,6 +7,7 @@ Test strategy and test cases validating the AWS onboarding / Windward tenant-cre
 |----------|---------|
 | [`TestStrategy.md`](TestStrategy.md) | Master strategy: scope, approach, environments, roles, risk, defects, gaps |
 | [`TraceabilityMatrix.md`](TraceabilityMatrix.md) | Phase → test-case coverage across the full playbook |
+| [`JiraPlaybookMatrix.md`](JiraPlaybookMatrix.md) | Jira ↔ Playbook matrix: each phase × environment → CCP "Execute Phase" story, status, SQA sign-off sub-task, and test cases |
 | [`TestCases.xlsx`](TestCases.xlsx) | Formatted Excel workbook — Overview tab + All-Cases tab + one tab per workstream, with color-coded priorities, frozen panes, filters and wrapped text |
 | [`TestCases.csv`](TestCases.csv) | All 180 test cases as a flat, importable grid (ID, workstream, phase, priority, environments, title, steps, pass/fail) |
 | [`TestCases_StepLevel.csv`](TestCases_StepLevel.csv) | Same 180 cases expanded to **one row per step** (398 step rows) in Azure DevOps Test Plans import layout (Title / Test Step / Step Action / Step Expected Result) |
