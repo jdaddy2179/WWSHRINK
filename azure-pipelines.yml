@@ -1,0 +1,218 @@
+parameters:
+  - name: testEnv
+    type: string
+    default: 'TS06'
+    values:
+      - 'PROD'
+      - 'QAR'
+      - 'TS06'
+
+  - name: category
+    type: string
+    default: 'TestEnv'
+    values:
+      - 'TestEnv'
+      - 'Prod'
+
+  - name: testPlanId
+    type: number
+    default: 60360
+    displayName: 'Test Plan ID'
+
+trigger:
+ - ProdSmokeTest
+
+pool:
+  name: AppSvcs-OnPrem-SQA
+  demands: []
+
+variables:
+  - name: TEST_ENV
+    value: ${{ parameters.testEnv }}
+  - name: buildConfiguration
+    value: 'Debug'
+  - name: NUGET_PACKAGES
+    value: $(Pipeline.Workspace)/.nuget/packages
+  - name: AZDO_ORG
+    value: 'EnterpriseRepo'
+  - name: AZDO_PROJECT
+    value: 'Application Services'
+
+stages:
+  - stage: Build
+    displayName: 'Build and Setup'
+    jobs:
+      - job: Build
+        displayName: 'Build Solution'
+        steps:
+          - checkout: self
+
+          - task: UseDotNet@2
+            displayName: 'Use .NET SDK 8.x'
+            inputs:
+              packageType: 'sdk'
+              version: '8.0.x'
+
+          # Clear NuGet cache to avoid permission issues
+          - script: |
+              if exist "$(NUGET_PACKAGES)" rmdir /s /q "$(NUGET_PACKAGES)"
+            displayName: 'Clear NuGet cache folder'
+            continueOnError: true
+
+          - task: Cache@2
+            displayName: 'Cache NuGet packages'
+            continueOnError: true
+            inputs:
+              key: 'nuget-v2 | "$(Agent.OS)" | **/*.csproj'
+              path: $(NUGET_PACKAGES)
+              restoreKeys: |
+                nuget-v2 | "$(Agent.OS)"
+
+          - script: dotnet restore --packages "$(NUGET_PACKAGES)"
+            displayName: 'dotnet restore'
+
+          - script: dotnet build --configuration $(buildConfiguration) --no-restore
+            displayName: 'dotnet build'
+
+          - task: PublishPipelineArtifact@1
+            displayName: 'Pipeline build Artifact'
+            continueOnError: true
+            inputs:
+              targetPath: '$(Pipeline.Workspace)'
+              artifact: 'build'
+              publishLocation: 'pipeline'
+
+  - stage: Test
+    displayName: 'Run Tests by BU'
+    dependsOn: Build
+    jobs:
+      - job: TestBU
+        displayName: 'Test'
+        strategy:
+          matrix:
+            BCBSM:
+              buFilter: 'FullyQualifiedName~Bcbsm'
+              buName: 'BCBSM'
+              suiteId: '74578'
+            COM:
+              buFilter: 'FullyQualifiedName~ComNavigation|FullyQualifiedName~ComSearches'
+              buName: 'COM'
+              suiteId: '74577'
+            ComDelta:
+              buFilter: 'FullyQualifiedName~ComDelta'
+              buName: 'ComDelta'
+              suiteId: '74576'
+            GOV:
+              buFilter: 'FullyQualifiedName~GovNavigation|FullyQualifiedName~GovSearches'
+              buName: 'GOV'
+              suiteId: '74575'
+            MassHealth:
+              buFilter: 'FullyQualifiedName~MassHealth'
+              buName: 'MassHealth'
+              suiteId: '74579'
+            WW2:
+              buFilter: 'FullyQualifiedName~Ww2|FullyQualifiedName~WW2'
+              buName: 'WW2'
+              suiteId: '74580'
+            WebServer:
+              buFilter: 'FullyQualifiedName~WebServer'
+              buName: 'WebServer'
+              suiteId: '60361'
+          maxParallel: 6
+
+        steps:
+          - checkout: self
+
+          - task: UseDotNet@2
+            displayName: 'Use .NET SDK 8.x'
+            inputs:
+              packageType: 'sdk'
+              version: '8.0.x'
+
+          # Skip cache in test stage - just restore fresh
+          - script: dotnet restore
+            displayName: 'dotnet restore'
+
+          - script: dotnet build --configuration $(buildConfiguration) --no-restore
+            displayName: 'dotnet build'
+
+          - script: |
+              echo "Listing global dotnet tools"
+              dotnet tool list -g || true
+              echo "Installing Microsoft.Playwright.CLI global tool if missing"
+              dotnet tool list -g | findstr /I Microsoft.Playwright.CLI || dotnet tool install --global Microsoft.Playwright.CLI
+            displayName: 'Ensure Playwright CLI installed'
+
+          - task: PowerShell@2
+            displayName: 'Install Playwright msedge'
+            inputs:
+              targetType: 'inline'
+              script: |
+                $dotnetTools = "$env:USERPROFILE\\.dotnet\\tools"
+                $env:PATH = "$dotnetTools;$env:PATH"
+                playwright install msedge
+              pwsh: false
+
+          - task: PowerShell@2
+            displayName: 'Create TestResults folder'
+            inputs:
+              targetType: 'inline'
+              script: |
+                $path = "$(System.DefaultWorkingDirectory)\TestResults"
+                if (!(Test-Path $path)) {
+                    New-Item -ItemType Directory -Path $path | Out-Null
+                }
+
+          - task: PowerShell@2
+            displayName: 'Run $(buName) Tests'
+            continueOnError: true
+            inputs:
+              targetType: 'inline'
+              script: |
+                $env:PLAYWRIGHT_USERNAME = '$(PLAYWRIGHT_USERNAME1)'
+                $env:PLAYWRIGHT_PASSWORD = '$(PLAYWRIGHT_PASSWORD)'
+
+                Write-Host "Running tests for BU: $(buName)"
+                Write-Host "Filter: $(buFilter)"
+
+                dotnet test --filter "($(buFilter))&Category=${{ parameters.category }}" `
+                  --logger "trx;LogFileName=$(buName)_TestResults.trx" `
+                  --configuration $(buildConfiguration) `
+                  --results-directory "$(System.DefaultWorkingDirectory)/TestResults"
+
+                Write-Host "Tests completed"
+                exit 0
+              pwsh: false
+
+          - task: PublishTestResults@2
+            displayName: 'Publish $(buName) Test Results'
+            inputs:
+              testResultsFormat: 'VSTest'
+              testResultsFiles: '$(System.DefaultWorkingDirectory)/TestResults/*.trx'
+              testRunTitle: '$(buName) - ${{ parameters.testEnv }}'
+              failTaskOnFailedTests: false
+
+          - task: PowerShell@2
+            displayName: 'Update Test Plan results for $(buName)'
+            condition: always()
+            inputs:
+              targetType: 'filePath'
+              filePath: '$(System.DefaultWorkingDirectory)/scripts/Publish-To-AzureDevOps-TestPlan.ps1'
+              arguments: >-
+                -TrxPath "$(System.DefaultWorkingDirectory)/TestResults"
+                -Org "$(AZDO_ORG)"
+                -Project "$(AZDO_PROJECT)"
+                -Pat "$(AZDO_PAT)"
+                -TestPlanId ${{ parameters.testPlanId }}
+                -SuiteId $(suiteId)
+                -RunTitle "$(buName) - ${{ parameters.testEnv }}"
+                -TestConfigurationId 22
+              pwsh: false
+
+          - task: PublishPipelineArtifact@1
+            displayName: 'Publish $(buName) TestResults'
+            condition: always()
+            inputs:
+              targetPath: '$(System.DefaultWorkingDirectory)/TestResults'
+              artifact: 'TestResults-$(buName)'
+              publishLocation: 'pipeline'
