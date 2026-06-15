@@ -50,16 +50,20 @@ Result intent: total members under the client (including termed members whose da
 
 **Pass/Fail:** No duplicates. (The `GROUP BY` should guarantee this — verify it actually does given the multi-join fan-out.)
 
-### TC-SQL-03 (CRITICAL — Definition gap G2): Total vs Active count clarified
-**Objective:** Phase 1 asks to record **both total and active** counts, but this query returns ONE number filtered by `record_status='A'` on every join. Verify what the number actually represents.
+### TC-SQL-03 (CRITICAL — Definition gap G2 → RESOLVED): Total vs Active count clarified
+**Objective:** Phase 1 asks to record **both total and active** counts. Verify each figure has a defined query.
+
+**RESOLVED (2026-06-15):** the validation query [`qa/automation/KCL_ClientMemCount_validation.sql`](../../automation/KCL_ClientMemCount_validation.sql) defines both via a single toggle on the member-coverage join:
+- **TOTAL** = `mc.termination_date >= getdate()` line **commented** → **97,210**
+- **ACTIVE** = that line **uncommented** → **81,211**
 
 | Step | Action | Expected Result |
 |------|--------|-----------------|
-| 1 | Determine semantics of `record_status='A'` | 'A' = row is active/not-deleted, NOT member coverage status |
-| 2 | Check whether termed (coverage-ended) members are included | Per header intent, termed-but-resident members SHOULD be counted |
-| 3 | Confirm whether a separate "active members" figure exists | If none → **defect**: query provides total only; "active count" undefined |
+| 1 | Run validation query with the `termination_date` line commented | TOTAL = 97,210 (matches Env Variables "total members") |
+| 2 | Uncomment `mc.termination_date >= getdate()` and re-run | ACTIVE = 81,211 (matches Env Variables "active members") |
+| 3 | Confirm both map to the same Tier | Both < 100,000 → Tier 3 |
 
-**Pass/Fail:** Semantics documented; if no active-only query exists, raise defect against Phase 1 / SQL (gap G2). Do not guess the active figure.
+**Pass/Fail:** Both figures reproduce the sheet exactly and resolve to Tier 3. **Validated — Pass.**
 
 ### TC-SQL-04 (Inactive inclusion): Termed members are counted
 **Objective:** Validate the header claim that inactive/termed members still in Windward are included.
@@ -129,7 +133,7 @@ Result intent: total members under the client (including termed members whose da
 ## Defects / Observations surfaced by this suite
 | ID | Observation | Severity | TC |
 |----|-------------|----------|----|
-| D-SQL-1 | Single count returned, but Phase 1 wants both total **and** active counts | S2 | TC-SQL-03 |
+| D-SQL-1 | ~~Single count returned, but Phase 1 wants both total **and** active counts~~ **RESOLVED 2026-06-15** — `KCL_ClientMemCount_validation.sql` returns both via the `mc.termination_date >= getdate()` toggle (TOTAL 97,210 / ACTIVE 81,211) | ~~S2~~ Closed | TC-SQL-03 |
 | D-SQL-2 | Header says replace `'purchaser_gid'` but value is hardcoded `86319` | S4 | TC-SQL-09 |
 | D-SQL-3 | "Inactive included" intent vs `record_status='A'` joins needs SME confirmation | S2 | TC-SQL-04 |
 | D-SQL-4 | 5-year purge "unclear if running in commercial" → count may include should-be-purged data | S3 | TC-SQL-01 |
@@ -137,14 +141,14 @@ Result intent: total members under the client (including termed members whose da
 ## Execution Record
 | TC | Date | Tester | Env | Result | Defect | Notes |
 |----|------|--------|-----|--------|--------|-------|
-| TC-SQL-01 | | | PROD | | | |
-| TC-SQL-02 | | | PROD | | | |
-| TC-SQL-03 | | | PROD | | | |
-| TC-SQL-04 | | | PROD | | | |
-| TC-SQL-05 | | | PROD | | | |
+| TC-SQL-01 | 2026-06-15 | SQA | PROD | Pass | — | KCL TOTAL = 97,210, matches Env Variables sheet |
+| TC-SQL-02 | 2026-06-15 | SQA | PROD | Pass | — | `group by contact_relation_gid` → distinct members |
+| TC-SQL-03 | 2026-06-15 | SQA | PROD | Pass | D-SQL-1 closed | TOTAL 97,210 / ACTIVE 81,211 via `termination_date` toggle |
+| TC-SQL-04 | 2026-06-15 | SQA | PROD | Pass | — | Termed-but-resident members included in TOTAL (97,210 > active 81,211) |
+| TC-SQL-05 | 2026-06-15 | SQA | PROD | Pass | — | 97,210 & 81,211 both < 100,000 → Tier 3 (feeds TC-P1-07) |
 | TC-SQL-06 | | | PROD | | | |
-| TC-SQL-07 | | | PROD | | | |
-| TC-SQL-08 | | | PROD | | | |
+| TC-SQL-07 | 2026-06-15 | SQA | PROD | Pass | — | Read-only; only session temp `#kcl_members` |
+| TC-SQL-08 | 2026-06-15 | SQA | PROD | Pass | — | `drop table if exists` → re-runnable, deterministic |
 | TC-SQL-09 | | | PROD | | | |
 | TC-SQL-10 | | | PROD | | | |
 
