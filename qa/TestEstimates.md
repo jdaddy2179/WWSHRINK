@@ -75,11 +75,11 @@ Columns are SQA person-days per environment. "—" = phase does not run in that 
 | 3.2 Load Balancers / DNS | 1.0 | 0.6 | 0.7 | 0.5 | **2.8** | Exec: Cloud Infra + App & Network (validate) • SQA: **follow-up** |
 | 3.3 Certificates | 1.0 | 0.6 | 0.7 | 0.5 | **2.8** | Exec: App & Network + Infra (validate) • SQA: **follow-up** |
 | 3.4 Infrastructure Security | 1.5 | 0.9 | 1.05 | 0.75 | **4.2** | Exec: InfoSec Team (deploy + validate) • SQA: **follow-up** (IT-intake / story QA) |
-| 4 Setup Databases | 1.5 | 0.9 | 1.05 | 0.75 | **4.2** | Exec: DBA (create/configure) • SQA: **real** (SSMS connectivity, Step 2) |
-| 4.1 Bring COM DB Offline (PROD/HFX) | — | — | 2.0 | 1.0 | **3.0** | Exec: DBA • SQA: **follow-up** (confirm offline status) |
-| 4.2 Backup & Restore | 2.0 | 1.2 | 1.4 | 1.0 | **5.6** | Exec: DBA (backup/restore + integrity) • SQA: **real** (SSMS connectivity) + follow-up |
-| 4.3 **WW Shrink (WW1.0/Config)** ⬆ | 4.5 | 2.7 | 3.15 | 2.25 | **12.6** | Exec: DBA (runs shrinker) • SQA: **real** (verify shrink results / scoping / no data loss, Step 2) |
-| 4.5 Replication | 2.0 | 1.2 | 1.4 | 1.0 | **5.6** | Exec: DBA • SQA: **real** (read-only replica connectivity/consistency) + follow-up |
+| 4 Setup Databases *(→ new 4.1)* | 1.5 | 0.9 | 1.05 | 0.75 | **4.2** | Exec: DBA (create/configure) • SQA: **real** (SSMS connectivity, Step 2) |
+| 4.1 Bring COM DB Offline *(→ new 4.1)* | — | — | 2.0 | 1.0 | **3.0** | Exec: DBA • SQA: **follow-up** (confirm offline status) |
+| 4.2 Backup & Restore *(→ new 4.1)* | 2.0 | 1.2 | 1.4 | 1.0 | **5.6** | Exec: DBA (backup/restore + integrity) • SQA: **real** (SSMS connectivity) + follow-up |
+| 4.3 **WW Shrink (WW1.0/Config)** *(→ new Phase 4)* ⬆ | 4.5 | 2.7 | 3.15 | 2.25 | **12.6** | Exec: WW Shrinker Owner (Nabeel Syed) • SQA: **real** (verify shrink results / scoping / no data loss, Step 2) |
+| 4.5 Replication *(→ new 4.2)* | 2.0 | 1.2 | 1.4 | 1.0 | **5.6** | Exec: DBA • SQA: **real** (read-only replica connectivity/consistency) + follow-up |
 | 5 Deploy WW1.0 & Config (functional) | 2.5 | 1.5 | 1.75 | 1.25 | **7.0** | Exec: Application Services Team • SQA: **real** (Citrix functional) + follow-up |
 | 5.1 App Security WW1.0/Config | 2.0 | 1.2 | 1.4 | 1.0 | **5.6** | Exec: InfoSec + Identity (deploy + validate) • SQA: **follow-up** |
 | 6 Deploy Domain Services (4 services) | 2.5 | 1.5 | 1.75 | 1.25 | **7.0** | Exec: NextGen Services Team • SQA: **real** (smoke) + follow-up |
@@ -88,7 +88,7 @@ Columns are SQA person-days per environment. "—" = phase does not run in that 
 ### Workstream 2 — Payments & Oracle
 | Phase | DEV | QAR | PROD | HFX | Total | Notes — executing team / SQA role |
 |-------|----:|----:|-----:|----:|------:|------|
-| 4.4 **WW Payment Shrink** ⬆ | 3.75 | 2.25 | 2.625 | 1.875 | **10.5** | Exec: DBA (runs shrinker) • SQA: **real** (verify payment shrink / scoping / reconcile, Step 2) |
+| 4.4 **WW Payment Shrink** *(→ new 4.3)* ⬆ | 3.75 | 2.25 | 2.625 | 1.875 | **10.5** | Exec: WW Shrinker Owner (Nabeel Syed) • SQA: **real** (verify payment shrink / scoping / reconcile, Step 2) |
 | 5.2 Deploy WW Payments (functional) ⬆ | 3.0 | 1.8 | 2.1 | 1.5 | **8.4** | Exec: Application Services Team • SQA: **real** (Citrix Payment UI) + follow-up |
 | 5.3 App Security Payments ⬆ | 2.25 | 1.35 | 1.575 | 1.125 | **6.3** | Exec: InfoSec + Identity • SQA: **follow-up** |
 | 8 Oracle Integration *(P)* ⬆ | 3.0 | 1.8 | 2.1 | 1.5 | **8.4** | Exec: Integration / Oracle Team *(TBD)* • SQA: **real** (data-flow reconciliation) — TBD |
@@ -211,11 +211,11 @@ Phase X (E2E+perf+UAT)        ░░▓▓▓▓▓▓▓▓▓▓░  (QAR/PROD
 | 3.2 Load Balancers / DNS | 6.5 | 3.9 | 4.6 | 3.3 | **18.2** |
 | 3.3 Certificates | 6.5 | 3.9 | 4.6 | 3.3 | **18.2** |
 | 3.4 Infrastructure Security | 9.8 | 5.9 | 6.8 | 4.9 | **27.3** |
-| 4 Setup Databases | 9.8 | 5.9 | 6.8 | 4.9 | **27.3** |
+| 4 Setup Databases *(→ new 4.1)* | 9.8 | 5.9 | 6.8 | 4.9 | **27.3** |
 | 4.1 Bring COM DB Offline | — | — | 13.0 | 6.5 | **19.5** |
-| 4.2 Backup & Restore | 13.0 | 7.8 | 9.1 | 6.5 | **36.4** |
-| 4.3 **WW Shrink (WW1.0/Config)** ⬆ | 29.3 | 17.6 | 20.5 | 14.6 | **81.9** |
-| 4.5 Replication | 13.0 | 7.8 | 9.1 | 6.5 | **36.4** |
+| 4.2 Backup & Restore *(→ new 4.1)* | 13.0 | 7.8 | 9.1 | 6.5 | **36.4** |
+| 4.3 **WW Shrink (WW1.0/Config)** *(→ new Phase 4)* ⬆ | 29.3 | 17.6 | 20.5 | 14.6 | **81.9** |
+| 4.5 Replication *(→ new 4.2)* | 13.0 | 7.8 | 9.1 | 6.5 | **36.4** |
 | 5 Deploy WW1.0 & Config | 16.3 | 9.8 | 11.4 | 8.1 | **45.5** |
 | 5.1 App Security WW1.0/Config | 13.0 | 7.8 | 9.1 | 6.5 | **36.4** |
 | 6 Deploy Domain Services | 16.3 | 9.8 | 11.4 | 8.1 | **45.5** |
@@ -224,7 +224,7 @@ Phase X (E2E+perf+UAT)        ░░▓▓▓▓▓▓▓▓▓▓░  (QAR/PROD
 ### Workstream 2 — Payments & Oracle
 | Phase | DEV h | QAR h | PROD h | HFX h | **Total h** |
 |-------|------:|------:|-------:|------:|------------:|
-| 4.4 **WW Payment Shrink** ⬆ | 24.4 | 14.6 | 17.1 | 12.2 | **68.3** |
+| 4.4 **WW Payment Shrink** *(→ new 4.3)* ⬆ | 24.4 | 14.6 | 17.1 | 12.2 | **68.3** |
 | 5.2 Deploy WW Payments ⬆ | 19.5 | 11.7 | 13.7 | 9.8 | **54.6** |
 | 5.3 App Security Payments ⬆ | 14.6 | 8.8 | 10.2 | 7.3 | **41.0** |
 | 8 Oracle Integration *(P)* ⬆ | 19.5 | 11.7 | 13.7 | 9.8 | **54.6** |

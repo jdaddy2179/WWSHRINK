@@ -81,15 +81,17 @@ Maps each playbook **phase × environment** to its Jira "Execute Phase" story in
 | HFX (ForcePoint DSS KCL) | [CCP-1533](https://dentaquest.atlassian.net/browse/CCP-1533) | To Do | — | ″ |
 | PROD (ForcePoint DSS KCL) | [CCP-1534](https://dentaquest.atlassian.net/browse/CCP-1534) | To Do | — | ″ |
 
+> **⚠️ Phase 4 restructured (2026‑06).** The playbook reorganized Phase 4 (6 files → 4): **WW Shrink** is now the main **Phase 4** (was 4.3); **DB Setup & Migration** is **4.1** (consolidates old Setup‑DBs + Bring‑COM‑Offline + Backup/Restore); **Replication** is **4.2** (was 4.5); **WW Payment Shrink** is **4.3** (was 4.4). Test‑case links below now point to the new/consolidated suites. The Jira "Execute Phase" story numbering below still reflects the **old** layout and needs re-aligning (tracked as **D‑P4‑STRUCT** in `DocumentationFixes.md`). The sections below are retained as-is pending that Jira re-numbering.
+
 ### Phase 04.1 — Bring COM DB Offline (PROD/HFX)
 | Env | Execute Story | Status | SQA Sign-off | Test Cases |
 |-----|---------------|--------|--------------|-----------|
-| PROD *(marked "HOTFIX??")* | [CCP-1556](https://dentaquest.atlassian.net/browse/CCP-1556) | To Do | — | [TC_Phase04.1](test-cases/WS1-Core-Infra-DB-Deploy/TC_Phase04.1_BringComDBOfflinePROD.md) |
+| PROD *(marked "HOTFIX??")* | [CCP-1556](https://dentaquest.atlassian.net/browse/CCP-1556) | To Do | — | [TC_Phase04.1](test-cases/WS1-Core-Infra-DB-Deploy/TC_Phase04.1_DatabaseSetup_Migration.md) |
 
 ### Phase 04.2 — Database Backup and Restore
 | Env | Execute Story | Status | SQA Sign-off | Test Cases |
 |-----|---------------|--------|--------------|-----------|
-| DEV | [CCP-1558](https://dentaquest.atlassian.net/browse/CCP-1558) | To Do | — | [TC_Phase04.2](test-cases/WS1-Core-Infra-DB-Deploy/TC_Phase04.2_BackupRestore.md) |
+| DEV | [CCP-1558](https://dentaquest.atlassian.net/browse/CCP-1558) | To Do | — | [TC_Phase04.2](test-cases/WS1-Core-Infra-DB-Deploy/TC_Phase04.1_DatabaseSetup_Migration.md) |
 | QAR | [CCP-1559](https://dentaquest.atlassian.net/browse/CCP-1559) | To Do | — | ″ |
 | PROD | [CCP-1561](https://dentaquest.atlassian.net/browse/CCP-1561) | To Do | — | ″ |
 | HFX | [CCP-1560](https://dentaquest.atlassian.net/browse/CCP-1560) | To Do | — | ″ |
@@ -97,7 +99,7 @@ Maps each playbook **phase × environment** to its Jira "Execute Phase" story in
 ### Phase 04.3 — WW Shrink for WW1.0 & Config
 | Env | Execute Story | Status | SQA Sign-off | Test Cases |
 |-----|---------------|--------|--------------|-----------|
-| DEV | [CCP-1563](https://dentaquest.atlassian.net/browse/CCP-1563) | To Do | — | [TC_Phase04.3](test-cases/WS1-Core-Infra-DB-Deploy/TC_Phase04.3_WWShrinkWW1.0AndConfig.md) |
+| DEV | [CCP-1563](https://dentaquest.atlassian.net/browse/CCP-1563) | To Do | — | [TC_Phase04.3](test-cases/WS1-Core-Infra-DB-Deploy/TC_Phase04_WWShrinkWW1AndConfig.md) |
 | QAR | [CCP-1564](https://dentaquest.atlassian.net/browse/CCP-1564) | To Do | — | ″ |
 | PROD | [CCP-1566](https://dentaquest.atlassian.net/browse/CCP-1566) | To Do | — | ″ |
 | HFX | [CCP-1565](https://dentaquest.atlassian.net/browse/CCP-1565) | To Do | — | ″ |
@@ -105,7 +107,7 @@ Maps each playbook **phase × environment** to its Jira "Execute Phase" story in
 ### Phase 04.5 — Database Replication Setup
 | Env | Execute Story | Status | SQA Sign-off | Test Cases |
 |-----|---------------|--------|--------------|-----------|
-| DEV | [CCP-1568](https://dentaquest.atlassian.net/browse/CCP-1568) | To Do | — | [TC_Phase04.5](test-cases/WS1-Core-Infra-DB-Deploy/TC_Phase04.5_Replication.md) |
+| DEV | [CCP-1568](https://dentaquest.atlassian.net/browse/CCP-1568) | To Do | — | [TC_Phase04.5](test-cases/WS1-Core-Infra-DB-Deploy/TC_Phase04.2_Replication.md) |
 | QAR | [CCP-1569](https://dentaquest.atlassian.net/browse/CCP-1569) | To Do | — | ″ |
 | PROD | [CCP-1571](https://dentaquest.atlassian.net/browse/CCP-1571) | To Do | — | ″ |
 | HFX | [CCP-1570](https://dentaquest.atlassian.net/browse/CCP-1570) | To Do | — | ″ |

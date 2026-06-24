@@ -15,12 +15,10 @@ Workstream and phase list per `Introduction.md`. Hand-off phases (ticket → spe
 | 3.2 | Load Balancers | 1 | P3 | LB config, DNS CNAME, rollback | `TC-P3.2-*` + HO | **Authored** |
 | 3.3 | Attach SSL/TLS Certificates | 1 | P2 | Cert validity, binding, 3.2 dependency | `TC-P3.3-*` + HO | **Authored** |
 | 3.4 | Infrastructure-level Security | 1 | P1 | IT-Intake decision table, PHI gate | `TC-P3.4-01..08` | **Authored** |
-| 4 | Setup SQL Servers & DB Config | 1 | P1 | DB sizing/config, SSMS connectivity (comma-port) | `TC-P4-*` + HO | **Authored** |
-| 4.1 | Bring COM DB Offline (PROD/HFX) | 1 | **P1** | Irreversible/PROD, change ctrl, env gate | `TC-P4.1-01..07` | **Authored** |
-| 4.2 | Database Backup & Restore | 1 | P1 | Backup/restore integrity, seq env | `TC-P4.2-01..08` | **Authored** |
-| 4.3 | WW Shrink (WW1.0) & Config | 1 | P1 | Scoping IDs, no data loss, backup safety | `TC-P4.3-01..09` | **Authored** |
-| 4.4 | WW Shrink (WW Payment) | 2 | P1 | Payment integrity, scoping, backup safety | `TC-P4.4-01..07` | **Authored** |
-| 4.5 | Database Replication | 1 | P2 | Replica=source consistency, AG failover, on-prem perf | `TC-P4.5-*` + HO | **Authored** |
+| 4 | **WW Shrink (WW1.0 & Config)** *(restructured — now main Phase 4)* | 1 | **P1** | Scoping IDs (CCP‑1897), no data loss, backup safety, `Verify_Shrink_Results.sql` | `TC-P4-01..10` + HO | **Authored** |
+| 4.1 | Database Setup & Migration *(setup + backup/restore + COM offline + connectivity)* | 1 | **P1** | DB sizing/config, integrity, PROD/HFX offline change-ctrl, SSMS comma-port | `TC-P4.1-01..11` + HO | **Authored** |
+| 4.2 | Database Replication | 1 | P2 | Replica=source consistency, AG failover, on-prem perf | `TC-P4.2-01..05` + HO | **Authored** |
+| 4.3 | WW Shrink (WW Payment) | 2 | P1 | Payment integrity, scoping, backup safety | `TC-P4.3-01..07` + HO | **Authored** |
 | 5 | Deploy WW1.0 & Config | 1 | P2 | Deploy + functional (Citrix), seq env | `TC-P5-*` + HO | **Authored** |
 | 5.1 | App Security: WW1.0 & Config | 1 | P1 | Okta SSO, auth, ForcePoint DSS PHI | `TC-P5.1-*` | **Authored** |
 | 5.2 | Deploy WW Payments | 2 | P1 | Payment deploy + functional, Tier file | `TC-P5.2-*` + HO | **Authored** |

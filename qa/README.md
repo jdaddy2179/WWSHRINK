@@ -35,11 +35,9 @@ Suites live in workstream folders under [`test-cases/`](test-cases/), matching t
 | `TC_Phase03.2_LoadBalancers.md` | Phase 3.2 LB + DNS CNAME + rollback |
 | `TC_Phase03.3_Certificates.md` | Phase 3.3 SSL/TLS certs + 3.2 dependency |
 | `TC_Phase03.4_Infrastructure_Security.md` | Phase 3.4 InfoSec **decision table** + PHI gate |
-| `TC_Phase04_SetupDBs.md` | Phase 4 DB setup + SSMS connectivity (comma-port) |
-| `TC_Phase04.1_BringComDBOfflinePROD.md` | Phase 4.1 PROD/HFX offline, change control, env gate |
-| `TC_Phase04.2_BackupRestore.md` | Phase 4.2 backup/restore integrity, sequential env |
-| `TC_Phase04.3_WWShrinkWW1.0AndConfig.md` | Phase 4.3 **WW Shrink** scoping/no-loss/backup safety |
-| `TC_Phase04.5_Replication.md` | Phase 4.5 replication consistency, AG failover, on-prem |
+| `TC_Phase04_WWShrinkWW1AndConfig.md` | **Phase 4 (restructured)** WW Shrink (WW1.0 & Config): scoping/no-loss/backup safety + `Verify_Shrink_Results.sql` validation |
+| `TC_Phase04.1_DatabaseSetup_Migration.md` | Phase 4.1 DB setup + backup/restore + COM offline (PROD/HFX) + SSMS connectivity *(consolidates old Phase 4/4.1/4.2)* |
+| `TC_Phase04.2_Replication.md` | Phase 4.2 replication consistency, AG failover, on-prem |
 | `TC_Phase05_DeployWW1.0AndConfig.md` | Phase 5 deploy + functional (Citrix) + performance |
 | `TC_Phase05.1_AppSecurity_WW1_Config.md` | Phase 5.1 Okta SSO/auth/ForcePoint DSS PHI |
 | `TC_Phase06_DeployDomainServices.md` | Phase 6 four NextGen domain services deploy/health |
@@ -48,7 +46,7 @@ Suites live in workstream folders under [`test-cases/`](test-cases/), matching t
 ### [`WS2-Payments-Oracle/`](test-cases/WS2-Payments-Oracle/) — payments & Oracle
 | File | Covers |
 |------|--------|
-| `TC_Phase04.4_WWShrinkPayment.md` | Phase 4.4 **WW Payment Shrink** integrity/scoping |
+| `TC_Phase04.3_WWShrinkPayment.md` | Phase 4.3 **WW Payment Shrink** integrity/scoping |
 | `TC_Phase05.2_DeployWWPayments.md` | Phase 5.2 payments deploy + functional + Tier file |
 | `TC_Phase05.3_AppSecurity_Payments.md` | Phase 5.3 payments security (correct instance) |
 | *(Phase 8 Oracle — placeholder, not QA-ready)* | — |

@@ -73,8 +73,15 @@ In `Phase09_TrustedView.md` and `Phase09.1_ProviderCopyJob.md`, the Description'
 | `ClientMemCount.sql` | D-SQL-3 | "Inactive members included" intent vs `record_status='A'` joins needs SME confirmation | header vs joins | S2 | Confirm with AJ; document what the count includes |
 | `ClientMemCount.sql` | D-SQL-4 | 5-year purge "not clear if running in commercial" | header comment | S3 | Confirm purge status; note impact on count |
 | Phase 3 | D-P3-1 | Step 2.3.d "Connect to AWS server" is an unfinished `TODO` | Step 2 | S3 | Author the connect-to-server steps |
-| Phase 4.1 | D-P4.1-1 | Scope inconsistency: filename/Intro "PROD ONLY" vs H1 "PROD and HFX" vs AC "PRODUCTION" | title/body/AC | S2 | Decide scope; make title, body, AC, and Intro consistent |
-| Phase 4.1 | D-P4.1-2 | No documented rollback/abort if offline fails or window overruns | phase | S3 | Add rollback/abort + reschedule guidance |
+| Phase 4 *(restructured)* | D-P4-STRUCT | **Phase 4 reorganized** (6 files → 4; WW Shrink is now main Phase 4, runs **before** DB Setup 4.1; old 4/4.1/4.2 consolidated into 4.1; Replication→4.2; Payment Shrink→4.3). Jira "Execute Phase" stories + SQA sub-tasks + matrices still use old numbering | playbook structure | S2 | Re-align Jira story numbering and all cross-references to the new layout |
+| Phase 4 (Shrink) | D-P4-1 | `Verify_Shrink_Results.sql` linked as `Testing/Verify_Shrink_Results.sql` — file actually at `qa/Archive/Verify_Shrink_Results.sql` | Step 2 link | S3 | Fix the link path |
+| Phase 4 (Shrink) | D-P4-2 | **`Verify_Shrink_Results.sql` hardcodes `Windward_Commercial_SunLife` / `TempDB_WW` (SLE)** — validates the wrong DB; must re-point to the client's shrunk DB (`Windward_KCL`) | verify script | **S1** | Parameterize the DB name per client/env before SQA use |
+| Phase 4 (Shrink) | D-P4-4 | Completion-checklist header says "Phase **4.3**" (copy-paste) | checklist | S4 | Change to "Phase 4" |
+| Phase 4 (Shrink) | D-P4-7 | Example scoping IDs are the **SLE** values (`090033`, `0900331001`, `0900332001‑12`) — risk of re-cloning to a new client (see CCP‑1897) | Step 1 prereq table | S2 | Label "example only"; require client-specific IDs from Mandy Willms |
+| Phase 4.2 (Replication) | D-P4.2-1 | Completion-checklist header says "Phase **4.5**"; checklist typo "**SWA** Teams" | checklist | S4 | "Phase 4.2" / "SQA Teams" |
+| Phase 4 / 4.1 / 4.2 | D-P4-QA | QA/Testing References show "Phase Test Cases: **TBD**" | QA refs | S4 | Link the corresponding `TC_Phase04*` suites |
+| Phase 4.1 | D-P4.1-1 | Scope inconsistency: COM-offline stated as "PROD ONLY" vs "PROD and HFX" across the doc | body/AC | S2 | Decide scope; make title, body, AC consistent |
+| Phase 4.1 | D-P4.1-2 | No documented rollback/abort if COM offline fails or window overruns | phase | S3 | Add rollback/abort + reschedule guidance |
 | Phase 5 | D-P5-1 | Config module mislabeled "Windward 2.0" in Step 2 prereq | Step 2 | S3 | Call it "Windward Config Module" consistently |
 | Phase 5.1 | D-P5.1-2 | Reference links are relative `../architecture/...` — may not resolve from a Jira ticket | Description | S3 | Use absolute ADO URLs like other phases |
 | Phase 5.2 | D-P5.2-2 | Description link #4 ("tier file") duplicates link #3 (`applications-deployment-WW`) | Description | S3 | Point to the correct tier-specific file |
@@ -89,7 +96,7 @@ In `Phase09_TrustedView.md` and `Phase09.1_ProviderCopyJob.md`, the Description'
 | Introduction | D-INT-1 | Workstream column shows **TBD** for Phases 9.1, 9.2, 10, 11, 12, X | phase table | S3 | Assign workstream ownership |
 | Multiple | D-GEN-1 | `Target Future State` left "To be determined" in nearly every phase | each phase | S4 | Populate or remove the section |
 | Phase 5 / X | D-GEN-2 | Phase X expects the test strategy at `/Testing/TestStrategy.md`; QA artifacts now live in `qa/` | repo layout | S3 | Decide canonical location (move `qa/`→`Testing/` or update Phase X links) |
-| Phase 4.3/4.4 | D-GEN-3 | Destructive "replace original DB with reduced version" relies on backup as sole safety net — not stated as a hard precondition | WW Shrink phases | S2 | State "verified restorable backup required before shrink" as a blocking prerequisite |
+| Phase 4 / 4.3 | D-GEN-3 | Destructive "replace original DB with reduced version" relies on backup as sole safety net — not stated as a hard precondition | WW Shrink phases | S2 | State "verified restorable backup required before shrink" as a blocking prerequisite |
 
 ---
 
