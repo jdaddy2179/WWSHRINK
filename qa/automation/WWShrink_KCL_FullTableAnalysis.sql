@@ -171,30 +171,51 @@ select
 -- row-count impact to each datashrink step, and reconcile the two views.
 --
 -- Adjust [TempDB_WW] if the KCL run used a different working DB — the value is
--- in TrimShrink_Run.TempDbName (see the Reconciliation/Verify scripts, section 6).
--- The step-to-table match assumes the table name appears inside StepName; if your
--- StepName format differs, tweak the CHARINDEX predicate in #shrink_steps.
+-- in TrimShrink_Run.TempDbName. The latest run is max(RunId). The step-to-table
+-- match looks for the table name inside StepName + ScriptFile; if your naming
+-- differs, tweak the match_text / CHARINDEX predicate. Short table names can match
+-- as substrings of longer ones (e.g. 'Address' in 'Member_Address') — a step may
+-- then show several candidate tables; treat section 7 matches as best-effort.
 -- -----------------------------------------------------------------
 
--- 6) Pull the latest datashrink run's step log and best-effort the table it hit
+-- 5b) LATEST DATASHRINK RUN — context/config (real TrimShrink_Run columns)
+select top 1
+       RunId,
+       run_state = case State when 1 then 'Running' when 2 then 'Succeeded'
+                              when 3 then 'Failed' else cast(State as varchar(10)) end,
+       StartedAt, EndedAt,
+       duration_sec = cast(datediff(second, StartedAt, EndedAt) as bigint),
+       RequestedBy, SourceServer, SourceDb, TempDbServer, TempDbName,
+       SelectorType, SelectorValues, LastCompletedOrdinal, LastErrorText
+from [TempDB_WW].dbo.TrimShrink_Run
+order by RunId desc;
+
+-- 6) Pull the latest datashrink run's step log (latest run = max RunId)
 drop table if exists #shrink_steps;
 
 select rsl.Ordinal,
+       rsl.ScriptFile,
        rsl.StepName,
-       rsl.ExecutionSeconds,
-       rsl.ExecutedAt,
-       rsl.CompletedAt,
-       error_flag = case when rsl.ErrorText is not null and rsl.ErrorText <> '' then 1 else 0 end
+       rsl.TargetDb,
+       rsl.Status,
+       duration_sec = cast(rsl.DurationMs / 1000.0 as decimal(18,2)),
+       rsl.StartedAt,
+       rsl.EndedAt,
+       error_flag = case when rsl.ErrorText is not null and rsl.ErrorText <> '' then 1 else 0 end,
+       match_text = isnull(rsl.StepName, '') + ' ' + isnull(rsl.ScriptFile, '')
 into #shrink_steps
 from [TempDB_WW].dbo.TrimShrink_RunStepLog rsl
-where rsl.RunId = (select top 1 RunId from [TempDB_WW].dbo.TrimShrink_Run order by RunDateTime desc);
+where rsl.RunId = (select max(RunId) from [TempDB_WW].dbo.TrimShrink_Run);
 
--- 7) DATASHRINK-DRIVEN — each touched table (matched to its step) + row impact
+-- 7) DATASHRINK-DRIVEN — each step (matched to its table) + row impact
 --    One row per (datashrink step, matched table). Steps that match no table and
 --    tables changed without a step both surface in section 8.
 select
     st.Ordinal,
+    st.ScriptFile,
     st.StepName,
+    st.TargetDb,
+    st.Status,
     matched_schema  = isnull(s.schema_name, t.schema_name),
     matched_table   = isnull(s.table_name,  t.table_name),
     commercial_rows = isnull(s.row_count, 0),
@@ -202,29 +223,29 @@ select
     rows_removed    = isnull(s.row_count, 0) - isnull(t.row_count, 0),
     pct_retained    = case when isnull(s.row_count,0) = 0 then null
                            else cast(isnull(t.row_count,0) * 100.0 / s.row_count as decimal(6,2)) end,
-    st.ExecutionSeconds,
+    st.duration_sec,
     step_errored    = st.error_flag
 from #shrink_steps st
-left join #src_tbl s on charindex(s.table_name, st.StepName) > 0
+left join #src_tbl s on charindex(s.table_name, st.match_text) > 0
 left join #tgt_tbl t on t.schema_name = s.schema_name and t.table_name = s.table_name
 order by st.Ordinal;
 
 -- 8) RECONCILE the two definitions of "touched"
 --    A: datashrink steps that matched NO table (naming mismatch — review match rule)
 --    B: tables whose rows changed but NO datashrink step references them (unexpected)
-select 'A: step with no matched table' as finding, st.Ordinal, st.StepName,
+select 'A: step with no matched table' as finding, st.Ordinal, st.StepName, st.ScriptFile,
        null as schema_name, null as table_name
 from #shrink_steps st
-where not exists (select 1 from #src_tbl s where charindex(s.table_name, st.StepName) > 0)
-  and not exists (select 1 from #tgt_tbl t where charindex(t.table_name, st.StepName) > 0)
+where not exists (select 1 from #src_tbl s where charindex(s.table_name, st.match_text) > 0)
+  and not exists (select 1 from #tgt_tbl t where charindex(t.table_name, st.match_text) > 0)
 union all
-select 'B: table changed, no datashrink step', null, null,
+select 'B: table changed, no datashrink step', null, null, null,
        isnull(s.schema_name, t.schema_name), isnull(s.table_name, t.table_name)
 from #src_tbl s
 full outer join #tgt_tbl t on t.schema_name = s.schema_name and t.table_name = s.table_name
 where (isnull(s.row_count,0) <> isnull(t.row_count,0) or s.table_name is null or t.table_name is null)
   and not exists (select 1 from #shrink_steps st
-                  where charindex(isnull(s.table_name, t.table_name), st.StepName) > 0)
+                  where charindex(isnull(s.table_name, t.table_name), st.match_text) > 0)
 order by finding, table_name;
 
 drop table if exists #src_tbl;
