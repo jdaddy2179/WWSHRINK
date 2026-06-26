@@ -17,7 +17,7 @@
 --   * Phase 4 shrink scoping validation (Purchaser_ID list, TC-P4-03)
 -- =================================================================
 
-SELECT distinct p.Purchaser, p.Purchaser_PKID
+SELECT distinct p.purchaser_id, p.Purchaser_PKID
 from [dbo].[Contracts] c
 join [dbo].[Contract_Relation] cr on cr.[contract_gid] = c.[contract_gid]
                                  and cr.effective_date <= getdate()
@@ -38,4 +38,4 @@ join [dbo].[member_coverage] mc on mc.[Subscriber_Coverage_PKID] = sc.[Subscribe
                               -- and mc.termination_date >= getdate()
 where c.[contract_class_code] IN ('055001','055002')
   and c.record_status = 'A'
-order by p.Purchaser;
+order by p.purchaser_id;

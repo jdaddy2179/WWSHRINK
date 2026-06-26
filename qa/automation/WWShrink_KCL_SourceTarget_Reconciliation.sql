@@ -44,7 +44,7 @@ set nocount on;
 -- -----------------------------------------------------------------
 drop table if exists #kcl_purchasers;
 
-SELECT distinct p.Purchaser, p.Purchaser_PKID
+SELECT distinct p.purchaser_id, p.Purchaser_PKID
 into #kcl_purchasers
 from [windward_commercial].[dbo].[Contracts] c
 join [windward_commercial].[dbo].[Contract_Relation] cr on cr.[contract_gid] = c.[contract_gid]
@@ -67,7 +67,7 @@ where c.[contract_class_code] IN ('055001','055002')
   and c.record_status = 'A';
 
 -- Show the purchaser scope being reconciled (audit evidence for the run)
-select Purchaser, Purchaser_PKID from #kcl_purchasers order by Purchaser;
+select purchaser_id, Purchaser_PKID from #kcl_purchasers order by 1;
 
 -- -----------------------------------------------------------------
 -- 1) SOURCE — KCL members in windward_commercial (scoped to KCL purchasers)
