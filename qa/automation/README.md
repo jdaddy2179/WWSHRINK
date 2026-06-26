@@ -2,8 +2,8 @@
 
 ## WW Shrink — KCL source-vs-target SQL validation
 
-Run on **`AWWW2SQLKCL01D`** (both DBs on one instance), PROD/PHI, by an authorized
-US-based operator with read-only credentials. Three-part naming means no `USE` switch.
+Run on **`AWWW2SQLKCL01D`** (both DBs on one instance) — non-PHI test data,
+read-only / least-privilege credentials recommended. Three-part naming means no `USE` switch.
 
 | Script | What it does | Test case |
 |--------|--------------|-----------|
@@ -16,8 +16,8 @@ US-based operator with read-only credentials. Three-part naming means no `USE` s
 is insufficient — the set-level diff is what makes it a real reconciliation. Any
 discrepancy routes to the WW Shrinker Owner (Nabeel Syed) per TC-P4-07.
 
-> These run against live PHI on an internal SQL Server and are **not** executable from
-> CI / this repo — they are operator-run scripts whose output is captured as test evidence.
+> These run against an internal SQL Server (`AWWW2SQLKCL01D`) and are **not** executable
+> from CI / this repo — they are operator-run scripts whose output is captured as test evidence.
 
 ---
 

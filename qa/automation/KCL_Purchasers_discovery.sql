@@ -9,7 +9,7 @@
 --
 -- Server      : AWWW2SQLKCL01D
 -- Run against : windward_commercial   (full source DB — the source of truth)
--- Environment : PRODUCTION / PHI — authorized US-based operator, read-only creds.
+-- Environment : Non-PHI test data. Read-only / least-privilege creds recommended.
 -- SME         : AJ Schmucker (alan.schmucker@greatdentalplans.com)
 --
 -- Use the output as the scoping input for:

@@ -60,14 +60,17 @@
 **Pass/Fail:** All scoping IDs correct, complete, well-formed (or validly NA). Any gap = Fail (S1 — data correctness). **Gated by CCP‑1897 until KCL's real IDs are confirmed.**
 
 ### TC-P4-04 (CRITICAL — Data integrity post‑shrink): Verify_Shrink_Results.sql passes; no missing recent data
+**Primary tool (KCL):** [`qa/automation/WWShrink_KCL_SourceTarget_Reconciliation.sql`](../../automation/WWShrink_KCL_SourceTarget_Reconciliation.sql) — reconciles the KCL member set between `windward_commercial` (source) and `windward_KCL` (shrunk target) on `AWWW2SQLKCL01D`, scoped to the KCL purchaser set ([`KCL_Purchasers_discovery.sql`](../../automation/KCL_Purchasers_discovery.sql), TC-P4-03). One execution returns a `PASS`/`FAIL` verdict for **both TOTAL and ACTIVE** scopes plus row-level diffs. This is the clean KCL replacement for the SLE-hardcoded `Verify_Shrink_Results.sql` (D-P4-2).
+
 | Step | Action | Expected Result |
 |------|--------|-----------------|
 | 1 | Run the shrink-verification query (see TC-P4-09 for location/parameterization) | Run State = `Succeeded`, no failed steps |
-| 2 | Confirm reduced DB contains **only** the target client's data | No other clients' data remains |
-| 3 | Confirm target client's data is **complete** — members, recent activity, claims not missing | Complete |
-| 4 | Spot-check known members for the client are present | Present |
+| 2 | Run `WWShrink_KCL_SourceTarget_Reconciliation.sql`; read the verdict rows | `reconciliation_result = PASS` for TOTAL **and** ACTIVE (`count_delta = 0`) |
+| 3 | Confirm reduced DB contains **only** the target client's data | Section 5 (`extra_member...`) returns **0 rows** — no other clients' data leaked in |
+| 4 | Confirm target client's data is **complete** — members not missing | Section 4 (`lost_member...`) returns **0 rows**; Section 6 (active-status mismatch) returns 0 rows |
+| 5 | Spot-check known members for the client are present | Present |
 
-**Pass/Fail:** Reduced DB = exactly the client's complete data, nothing extra, nothing missing.
+**Pass/Fail:** Reduced DB = exactly the client's complete data, nothing extra, nothing missing. Reconciliation `PASS` for both scopes with all three diagnostic sections empty.
 
 ### TC-P4-05 (Metrics): Before/after size documented and reduction confirmed
 | Step | Action | Expected Result |
@@ -150,7 +153,7 @@
 | TC-P4-01 | | | | | | |
 | TC-P4-02 | | | | | | |
 | TC-P4-03 | | | | | | |
-| TC-P4-04 | | | | | | |
+| TC-P4-04 | | | | Pending exec | | Tool ready: `WWShrink_KCL_SourceTarget_Reconciliation.sql` (purchaser-scoped, source vs target, TOTAL+ACTIVE). Awaiting operator run on AWWW2SQLKCL01D |
 | TC-P4-05 | | | | | | |
 | TC-P4-06 | | | | | | |
 | TC-P4-07 | | | | | | |
@@ -163,4 +166,4 @@
 ## Playbook Reference
 This suite validates the playbook item **[Phase04_WWShrinkWW1AndConfig.md](https://dev.azure.com/EnterpriseRepo/Application%20Services/_git/com-client-pilot?path=/Playbook/Phase04_WWShrinkWW1AndConfig.md&version=GBmain)** (`com-client-pilot/Playbook/`).
 
-Related: [Jira ↔ Playbook matrix](../../JiraPlaybookMatrix.md) · [Test Strategy](../../TestStrategy.md) · [Traceability Matrix](../../TraceabilityMatrix.md) · [`Verify_Shrink_Results.sql`](../../Archive/Verify_Shrink_Results.sql)
+Related: [Jira ↔ Playbook matrix](../../JiraPlaybookMatrix.md) · [Test Strategy](../../TestStrategy.md) · [Traceability Matrix](../../TraceabilityMatrix.md) · [`WWShrink_KCL_SourceTarget_Reconciliation.sql`](../../automation/WWShrink_KCL_SourceTarget_Reconciliation.sql) · [`KCL_Purchasers_discovery.sql`](../../automation/KCL_Purchasers_discovery.sql) · [`Verify_Shrink_Results.sql`](../../Archive/Verify_Shrink_Results.sql)

@@ -8,8 +8,8 @@
 -- Server      : AWWW2SQLKCL01D   (both DBs live on this instance)
 -- Source DB   : windward_commercial   (full commercial DB, all clients)
 -- Target DB   : windward_KCL          (shrunk DB — KCL data only)
--- Environment : PRODUCTION / PHI — run ONLY as an authorized US-based operator,
---               with read-only / least-privilege credentials.
+-- Environment : Non-PHI test data. Run from a host with network access to the
+--               instance; read-only / least-privilege credentials recommended.
 -- SME         : AJ Schmucker (alan.schmucker@greatdentalplans.com)
 -- Owners      : SQA validation (Joshua Ernstoff, Keerthan Tumuganti)
 --
@@ -19,15 +19,18 @@
 --   currently-effective Contract_Relation). The same member query — filtered to
 --   that purchaser set — is then run against BOTH databases via three-part
 --   naming, so no USE / batch-switch is needed and both sides use an identical
---   purchaser scope. One execution returns the verdict. The shrink PASSES only when:
---      (a) source count  == target count, AND
---      (b) the member sets are identical (zero rows in either EXCEPT diff).
---   Count parity alone can hide a swap (one lost member + one extra) — the
---   set-level diff (sections 4-5) is what makes this a real reconciliation.
+--   purchaser scope.
 --
---   TOTAL vs ACTIVE: leave the mc.termination_date line commented for TOTAL
---   (expected 97,210, 2026-06-15); uncomment it in BOTH blocks for ACTIVE
---   (expected 81,211). Keep the two blocks identical or the compare is invalid.
+--   TOTAL vs ACTIVE in ONE run: instead of toggling the termination_date filter,
+--   each member is captured with an is_active flag (1 = has at least one member-
+--   coverage row with termination_date >= getdate()). Section 3 then reports BOTH
+--   the TOTAL and ACTIVE reconciliation in a single result set.
+--
+--   The shrink PASSES (per scope) only when:
+--      (a) source count == target count, AND
+--      (b) the member sets are identical (zero rows lost and zero extra).
+--   Count parity alone can hide a swap (one lost member + one extra) — the
+--   set-level diff (sections 4-6) is what makes this a real reconciliation.
 -- =================================================================
 
 set nocount on;
@@ -68,10 +71,12 @@ select Purchaser, Purchaser_PKID from #kcl_purchasers order by Purchaser;
 
 -- -----------------------------------------------------------------
 -- 1) SOURCE — KCL members in windward_commercial (scoped to KCL purchasers)
+--    is_active = 1 if the member has any currently-effective member_coverage row.
 -- -----------------------------------------------------------------
 drop table if exists #src_members;
 
-SELECT mc.contact_relation_gid
+SELECT mc.contact_relation_gid,
+       max(case when mc.termination_date >= getdate() then 1 else 0 end) as is_active
 into #src_members
 from [windward_commercial].[dbo].[Contracts] c
 join [windward_commercial].[dbo].[Contract_Relation] cr on cr.[contract_gid] = c.[contract_gid]
@@ -90,7 +95,6 @@ join [windward_commercial].[dbo].[Subscriber_Coverage] sc ON sc.[Sub_Group_PKID]
                                    AND sc.[record_status] = 'A'
 join [windward_commercial].[dbo].[member_coverage] mc on mc.[Subscriber_Coverage_PKID] = sc.[Subscriber_Coverage_PKID]
                                and mc.record_status = 'A'
-                              -- and mc.termination_date >= getdate()   -- UNCOMMENT (both blocks) for ACTIVE
 where c.[contract_class_code] IN ('055001','055002')
   and c.record_status = 'A'
   and p.[Purchaser_PKID] in (select Purchaser_PKID from #kcl_purchasers)   -- filter to the KCL purchaser set
@@ -101,7 +105,8 @@ group by mc.contact_relation_gid;
 -- -----------------------------------------------------------------
 drop table if exists #tgt_members;
 
-SELECT mc.contact_relation_gid
+SELECT mc.contact_relation_gid,
+       max(case when mc.termination_date >= getdate() then 1 else 0 end) as is_active
 into #tgt_members
 from [windward_KCL].[dbo].[Contracts] c
 join [windward_KCL].[dbo].[Contract_Relation] cr on cr.[contract_gid] = c.[contract_gid]
@@ -120,56 +125,79 @@ join [windward_KCL].[dbo].[Subscriber_Coverage] sc ON sc.[Sub_Group_PKID] = sg.[
                                    AND sc.[record_status] = 'A'
 join [windward_KCL].[dbo].[member_coverage] mc on mc.[Subscriber_Coverage_PKID] = sc.[Subscriber_Coverage_PKID]
                                and mc.record_status = 'A'
-                              -- and mc.termination_date >= getdate()   -- UNCOMMENT (both blocks) for ACTIVE
 where c.[contract_class_code] IN ('055001','055002')
   and c.record_status = 'A'
   and p.[Purchaser_PKID] in (select Purchaser_PKID from #kcl_purchasers)   -- filter to the KCL purchaser set
 group by mc.contact_relation_gid;
 
 -- -----------------------------------------------------------------
--- 3) VERDICT — count parity + set-identity in one row
+-- 3) VERDICT — TOTAL and ACTIVE reconciliation, one row each
 -- -----------------------------------------------------------------
-declare @src        int = (select count(*) from #src_members);
-declare @tgt        int = (select count(*) from #tgt_members);
-declare @lost       int = (select count(*) from (select contact_relation_gid from #src_members
-                                                 except
-                                                 select contact_relation_gid from #tgt_members) d);  -- in source, not in target
-declare @extra      int = (select count(*) from (select contact_relation_gid from #tgt_members
-                                                 except
-                                                 select contact_relation_gid from #src_members) d);  -- in target, not in source
-
-select 'AWWW2SQLKCL01D'                       as server_name,
-       @src                                   as commercial_kcl_members,   -- source (full DB, KCL-scoped)
-       @tgt                                   as kcl_members,              -- target (shrunk DB)
-       @tgt - @src                            as count_delta,
-       @lost                                  as members_lost_by_shrink,   -- MUST be 0
-       @extra                                 as members_extra_in_target,  -- MUST be 0 (no other client leaked in)
-       case when @src = @tgt and @lost = 0 and @extra = 0
-            then 'PASS' else 'FAIL' end        as reconciliation_result;
+;with v as (
+    select 'TOTAL' as scope,
+           (select count(*) from #src_members) as src,
+           (select count(*) from #tgt_members) as tgt,
+           (select count(*) from (select contact_relation_gid from #src_members
+                                  except select contact_relation_gid from #tgt_members) d) as lost,
+           (select count(*) from (select contact_relation_gid from #tgt_members
+                                  except select contact_relation_gid from #src_members) d) as extra
+    union all
+    select 'ACTIVE' as scope,
+           (select count(*) from #src_members where is_active = 1),
+           (select count(*) from #tgt_members where is_active = 1),
+           (select count(*) from (select contact_relation_gid from #src_members where is_active = 1
+                                  except select contact_relation_gid from #tgt_members where is_active = 1) d),
+           (select count(*) from (select contact_relation_gid from #tgt_members where is_active = 1
+                                  except select contact_relation_gid from #src_members where is_active = 1) d)
+)
+select 'AWWW2SQLKCL01D'        as server_name,
+       scope,
+       src                     as commercial_kcl_members,   -- source (full DB, KCL-scoped)
+       tgt                     as kcl_members,               -- target (shrunk DB)
+       tgt - src               as count_delta,
+       lost                    as members_lost_by_shrink,    -- MUST be 0
+       extra                   as members_extra_in_target,   -- MUST be 0 (no other client leaked in)
+       case when src = tgt and lost = 0 and extra = 0
+            then 'PASS' else 'FAIL' end as reconciliation_result
+from v
+order by case scope when 'TOTAL' then 1 else 2 end;
 
 -- -----------------------------------------------------------------
--- 4) DIAGNOSTIC — members the shrink DROPPED (present in source, absent in target)
+-- 4) DIAGNOSTIC — members the shrink DROPPED (in source, absent in target)
 --    Any rows here = data loss. Route to WW Shrinker Owner (Nabeel Syed). FAIL.
 -- -----------------------------------------------------------------
-select contact_relation_gid as lost_member_contact_relation_gid
-from #src_members
-except
-select contact_relation_gid from #tgt_members;
+select s.contact_relation_gid as lost_member_contact_relation_gid,
+       s.is_active            as was_active_in_source
+from #src_members s
+where not exists (select 1 from #tgt_members t where t.contact_relation_gid = s.contact_relation_gid);
 
 -- -----------------------------------------------------------------
 -- 5) DIAGNOSTIC — members present in target but NOT in source
---    Any rows here = another client's data leaked into the shrunk DB, or a
---    scoping mismatch. FAIL (cross-client contamination). Route to Shrinker Owner.
+--    Any rows here = another client's data leaked in, or a scoping mismatch.
+--    FAIL (cross-client contamination). Route to Shrinker Owner.
 -- -----------------------------------------------------------------
-select contact_relation_gid as extra_member_contact_relation_gid
-from #tgt_members
-except
-select contact_relation_gid from #src_members;
+select t.contact_relation_gid as extra_member_contact_relation_gid,
+       t.is_active            as is_active_in_target
+from #tgt_members t
+where not exists (select 1 from #src_members s where s.contact_relation_gid = t.contact_relation_gid);
 
--- Expected (KCL, TOTAL — termination_date line commented in BOTH blocks):
---   commercial_kcl_members = 97,210   kcl_members = 97,210
---   count_delta = 0   members_lost_by_shrink = 0   members_extra_in_target = 0
---   reconciliation_result = PASS   (sections 4 & 5 return zero rows)
+-- -----------------------------------------------------------------
+-- 6) DIAGNOSTIC — members in BOTH DBs but whose ACTIVE status differs
+--    Member survived the shrink but its active/termed state changed — investigate
+--    (e.g. coverage rows dropped). Empty result expected.
+-- -----------------------------------------------------------------
+select s.contact_relation_gid,
+       s.is_active as source_is_active,
+       t.is_active as target_is_active
+from #src_members s
+join #tgt_members t on t.contact_relation_gid = s.contact_relation_gid
+where s.is_active <> t.is_active;
+
+-- Expected (KCL, 2026-06-15 baseline):
+--   scope=TOTAL : commercial_kcl_members = 97,210  kcl_members = 97,210
+--   scope=ACTIVE: commercial_kcl_members = 81,211  kcl_members = 81,211
+--   count_delta = 0, members_lost_by_shrink = 0, members_extra_in_target = 0
+--   reconciliation_result = PASS for both scopes; sections 4-6 return zero rows.
 
 drop table if exists #src_members;
 drop table if exists #tgt_members;
