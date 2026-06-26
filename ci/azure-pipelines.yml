@@ -1,61 +1,34 @@
 # ============================================================================
-# PlaywrightAutomation — Azure DevOps (Cloud) pipeline
+# WW Smoke — run automated tests from Azure Test Plans (YAML-native)
 # ----------------------------------------------------------------------------
-# Replaces the on-prem TFS *release* pipeline
-#   tfs.dq.ad:8080/tfs/WindwardCollection/Application Services (releaseId 8471)
-# with a cloud YAML pipeline in
-#   dev.azure.com/EnterpriseRepo/Application Services
+# Replaces the on-prem classic release "PlaywrightAutoRelease". Instead of a
+# 9-stage release, this single YAML pipeline runs the automated tests that are
+# associated with the test cases in:
+#       Test Plan 79388  /  Suite 79389  /  Configuration 45  ("WW Smoke")
+# and publishes pass/fail back onto the test points, so results show up in
+# Azure Test Plans.
 #
-# PLACEMENT: this file is authored here for review. In ADO Cloud it must live
-# at the ROOT of the PlaywrightAutomation repo (next to PlaywrightAutomation.sln),
-# committed as `azure-pipelines.yml`, then imported via
-#   Pipelines -> New pipeline -> Azure Repos Git -> Existing YAML file.
+# Pick the target environment at run time (Run pipeline -> set 'testEnv').
+# The app reads TEST_ENV and loads appsettings.<ENV>.json itself, so no
+# File Transform step is needed (legacy used File Transform; not required here).
 #
-# IMPORTANT — agent placement:
-#   The suite targets internal hosts only (BaseUrl *.dqtest.ad, SQL Server
-#   TSSLFTWWSQL.DQTEST.AD, on-prem NuGet feed CHTFS02PV.DQ.AD). Microsoft-hosted
-#   agents CANNOT reach these. This pipeline therefore runs on a SELF-HOSTED
-#   agent pool inside the DQ network. See ci/README-ADO-Cloud-Migration.md.
+# Runs on a SELF-HOSTED pool (AppSvcs-OnPrem-SQA): the suite targets internal
+# *.dqtest.ad hosts, on-prem SQL, and an on-prem NuGet feed that Microsoft-
+# hosted agents cannot reach.
 # ============================================================================
 
-# The old release was run on demand / on a schedule, not on every commit.
 trigger: none
 pr: none
 
 parameters:
   - name: testEnv
-    displayName: 'Target environment (selects appsettings.<ENV>.json)'
+    displayName: 'Target environment (appsettings.<ENV>.json)'
     type: string
     default: QAR
-    values:
-      - DS01
-      - DS10
-      - QAR
-      - PROD
-      - TS06
-      - TSHF
-      - TSNB5
-      - TSNB6
-      - TSNB7
-      - TSSLADJ
-  - name: testCategory
-    displayName: 'NUnit category to run'
-    type: string
-    default: TestEnv
-    values:
-      - TestEnv
-      - Prod
-      - WebServer
-      - Regression
-      - All
-  - name: agentPool
-    displayName: 'Self-hosted agent pool (must reach *.dqtest.ad)'
-    type: string
-    default: 'DQ-SelfHosted'
+    values: [DS01, DS10, QAR, PROD, TS06, TSHF, TSNB5, TSNB6, TSNB7, TSSLADJ]
 
-# Optional nightly run against QAR. Adjust or remove as needed.
 schedules:
-  - cron: '0 6 * * *'            # 06:00 UTC daily
+  - cron: '0 6 * * *'
     displayName: 'Nightly QAR run'
     branches:
       include:
@@ -63,30 +36,16 @@ schedules:
     always: false
 
 pool:
-  name: ${{ parameters.agentPool }}
+  name: AppSvcs-OnPrem-SQA
 
 variables:
-  # Variable group holding the secrets the suite reads from the environment:
+  # Library variable group with the secrets the suite reads from the env:
   #   PLAYWRIGHT_USERNAME, DbSettings__DbUserId, DbSettings__DbPassword
-  # Create it under Pipelines -> Library and link Key Vault if available.
   - group: PlaywrightAutomation-Secrets
   - name: buildConfiguration
     value: 'Release'
   - name: solution
     value: 'PlaywrightAutomation.sln'
-  - name: testProject
-    value: 'PlaywrightAutomation/PlaywrightAutomation.csproj'
-  # NuGet.Config in the repo points at the on-prem feed; restore needs it.
-  - name: nugetConfig
-    value: 'NuGet.Config'
-  # Build the dotnet test category filter from the parameter.
-  # "All" => no filter (run everything).
-  - ${{ if eq(parameters.testCategory, 'All') }}:
-      - name: testFilterArg
-        value: ''
-  - ${{ if ne(parameters.testCategory, 'All') }}:
-      - name: testFilterArg
-        value: '--filter "TestCategory=${{ parameters.testCategory }}"'
 
 steps:
   - checkout: self
@@ -98,13 +57,19 @@ steps:
       packageType: 'sdk'
       version: '8.x'
 
+  - task: VisualStudioTestPlatformInstaller@1
+    displayName: 'Install VSTest platform'
+    inputs:
+      packageFeedSelector: 'nugetOrg'
+      versionSelector: 'latestStable'
+
   - task: DotNetCoreCLI@2
-    displayName: 'Restore (on-prem + nuget.org feeds)'
+    displayName: 'Restore'
     inputs:
       command: 'restore'
       projects: '$(solution)'
       feedsToUse: 'config'
-      nugetConfigPath: '$(nugetConfig)'
+      nugetConfigPath: 'NuGet.Config'
 
   - task: DotNetCoreCLI@2
     displayName: 'Build ($(buildConfiguration))'
@@ -113,51 +78,35 @@ steps:
       projects: '$(solution)'
       arguments: '--configuration $(buildConfiguration) --no-restore'
 
-  # Ensure the Edge/Chromium channel Playwright drives is present on the agent.
-  # The install script is generated next to the test assembly after build.
   - powershell: |
       $script = Get-ChildItem -Path "$(Build.SourcesDirectory)" -Recurse -Filter "playwright.ps1" |
                 Where-Object { $_.FullName -like "*\bin\$(buildConfiguration)\*" } |
                 Select-Object -First 1
-      if (-not $script) { Write-Error "playwright.ps1 not found - did the build succeed?"; exit 1 }
-      Write-Host "Using $($script.FullName)"
+      if (-not $script) { Write-Error "playwright.ps1 not found - build may have failed"; exit 1 }
       & $script.FullName install msedge
     displayName: 'Install Playwright browser (msedge channel)'
 
-  - task: DotNetCoreCLI@2
-    displayName: 'Run Playwright tests (${{ parameters.testCategory }} on ${{ parameters.testEnv }})'
+  # Runs the automated tests for the test points in Plan/Suite/Config and
+  # writes their outcomes back to Azure Test Plans (testSelector: testPlan).
+  - task: VSTest@2
+    displayName: 'Run WW Smoke test plan (${{ parameters.testEnv }})'
     inputs:
-      command: 'test'
-      projects: '$(testProject)'
-      arguments: >-
-        --configuration $(buildConfiguration)
-        --no-build
-        $(testFilterArg)
-        --logger "trx;LogFileName=test-results.trx"
-        --results-directory $(Agent.TempDirectory)/TestResults
-      publishTestResults: true
+      testSelector: 'testPlan'
+      testPlan: '79388'
+      testSuite: '79389'
+      testConfiguration: '45'
+      searchFolder: '$(System.DefaultWorkingDirectory)'
+      testAssemblyVer2: |
+        **\*PlaywrightAutomation*.dll
+        !**\*TestAdapter.dll
+        !**\obj\**
+      uiTests: true
+      runInParallel: false
+      codeCoverageEnabled: false
+      otherConsoleOptions: '/Shuffle'
+      testRunTitle: 'WW Smoke - ${{ parameters.testEnv }}'
     env:
       TEST_ENV: ${{ parameters.testEnv }}
-      # Secrets are not auto-mapped into the process env; map them explicitly.
       PLAYWRIGHT_USERNAME: $(PLAYWRIGHT_USERNAME)
       DbSettings__DbUserId: $(DbSettings__DbUserId)
       DbSettings__DbPassword: $(DbSettings__DbPassword)
-
-  - task: PublishTestResults@2
-    displayName: 'Publish test results'
-    condition: succeededOrFailed()
-    inputs:
-      testResultsFormat: 'VSTest'
-      testResultsFiles: '$(Agent.TempDirectory)/TestResults/**/*.trx'
-      testRunTitle: 'Playwright ${{ parameters.testCategory }} - ${{ parameters.testEnv }}'
-      mergeTestResults: true
-
-  # On-failure screenshots are written to the NUnit work directory and attached
-  # to the test result; also publish any stray .png as a build artifact.
-  - task: PublishPipelineArtifact@1
-    displayName: 'Publish failure screenshots'
-    condition: succeededOrFailed()
-    inputs:
-      targetPath: '$(Agent.TempDirectory)/TestResults'
-      artifact: 'playwright-screenshots'
-      publishLocation: 'pipeline'
