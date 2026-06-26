@@ -136,10 +136,13 @@ steps:
         !**\*TestAdapter.dll
         !**\ref\**
         !**\obj\**
+      # Use the modern platform from VisualStudioTestPlatformInstaller@1.
+      # Without this, VSTest falls back to the agent's legacy 14.0 platform,
+      # which cannot load .NET 8 / NUnit3 assemblies (discovers 0 tests).
+      vsTestVersion: 'toolsInstaller'
       uiTests: true
       runInParallel: false
       codeCoverageEnabled: false
-      otherConsoleOptions: '/Shuffle'
       testRunTitle: 'WW Smoke - ${{ parameters.testEnv }}'
     env:
       TEST_ENV: ${{ parameters.testEnv }}
