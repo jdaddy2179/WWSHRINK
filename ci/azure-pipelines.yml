@@ -97,8 +97,9 @@ steps:
       testConfiguration: '45'
       searchFolder: '$(System.DefaultWorkingDirectory)'
       testAssemblyVer2: |
-        **\*PlaywrightAutomation*.dll
+        **\bin\**\PlaywrightAutomation.dll
         !**\*TestAdapter.dll
+        !**\ref\**
         !**\obj\**
       uiTests: true
       runInParallel: false
