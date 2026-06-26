@@ -30,6 +30,11 @@ parameters:
     displayName: 'Generate & publish Allure HTML report'
     type: boolean
     default: false
+  - name: browserChannel
+    displayName: 'Browser to run on'
+    type: string
+    default: msedge
+    values: [msedge, chrome]
 
 schedules:
   - cron: '0 6 * * *'
@@ -106,27 +111,32 @@ steps:
 
   - powershell: |
       $ErrorActionPreference = 'Continue'
-      # The suite drives the system-installed Microsoft Edge (Channel = "msedge").
-      # If Edge is already on the agent, Playwright refuses to install over it
+      $channel = "${{ parameters.browserChannel }}"
+      # The suite drives the system-installed browser (Channel = msedge|chrome).
+      # If it is already on the agent, Playwright refuses to install over it
       # (exits 1, "already installed") - which is the desired state. So when the
-      # system Edge is present we skip the download entirely; we only run
-      # 'playwright install' if Edge is genuinely missing.
-      $edgePaths = @(
-        "$Env:ProgramFiles\Microsoft\Edge\Application\msedge.exe",
-        "${Env:ProgramFiles(x86)}\Microsoft\Edge\Application\msedge.exe"
-      )
-      if ($edgePaths | Where-Object { Test-Path $_ }) {
-        Write-Host "System Microsoft Edge found; Channel=msedge will use it. Skipping Playwright browser download."
+      # system browser is present we skip the download; we only run
+      # 'playwright install <channel>' if it is genuinely missing.
+      $systemPaths = @{
+        'msedge' = @(
+          "$Env:ProgramFiles\Microsoft\Edge\Application\msedge.exe",
+          "${Env:ProgramFiles(x86)}\Microsoft\Edge\Application\msedge.exe")
+        'chrome' = @(
+          "$Env:ProgramFiles\Google\Chrome\Application\chrome.exe",
+          "${Env:ProgramFiles(x86)}\Google\Chrome\Application\chrome.exe")
+      }
+      if ($systemPaths[$channel] | Where-Object { Test-Path $_ }) {
+        Write-Host "System '$channel' found; Channel=$channel will use it. Skipping browser download."
         exit 0
       }
-      Write-Host "System Edge not found; installing Playwright's msedge build."
+      Write-Host "System '$channel' not found; installing it via Playwright."
       $script = Get-ChildItem -Path "$(Build.SourcesDirectory)" -Recurse -Filter "playwright.ps1" |
                 Where-Object { $_.FullName -like "*\bin\$(buildConfiguration)\*" } |
                 Select-Object -First 1
       if (-not $script) { Write-Error "playwright.ps1 not found - build may have failed"; exit 1 }
-      & $script.FullName install msedge
+      & $script.FullName install $channel
       exit 0
-    displayName: 'Ensure Playwright browser (msedge channel)'
+    displayName: 'Ensure Playwright browser (${{ parameters.browserChannel }})'
 
   # Runs the automated tests for the test points in Plan/Suite/Config and
   # writes their outcomes back to Azure Test Plans (testSelector: testPlan).
@@ -153,6 +163,7 @@ steps:
       testRunTitle: 'WW Smoke - ${{ parameters.testEnv }}'
     env:
       TEST_ENV: ${{ parameters.testEnv }}
+      PLAYWRIGHT_BROWSER_CHANNEL: ${{ parameters.browserChannel }}
       PLAYWRIGHT_USERNAME: $(PLAYWRIGHT_USERNAME)
       DbSettings__DbUserId: $(DbSettings__DbUserId)
       DbSettings__DbPassword: $(DbSettings__DbPassword)
@@ -206,6 +217,9 @@ steps:
         } catch {
           Write-Host "##[warning]Could not generate Allure HTML (CLI/Java missing). Raw results are still published. $_"
         }
+        # Reporting is best-effort: never let a non-zero CLI exit fail the step.
+        $global:LASTEXITCODE = 0
+        exit 0
       displayName: 'Generate Allure report'
       condition: succeededOrFailed()
       continueOnError: true
