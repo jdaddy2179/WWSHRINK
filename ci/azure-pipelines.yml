@@ -26,6 +26,10 @@ parameters:
     type: string
     default: QAR
     values: [DS01, DS10, QAR, PROD, TS06, TSHF, TSNB5, TSNB6, TSNB7, TSSLADJ]
+  - name: enableAllure
+    displayName: 'Generate & publish Allure HTML report'
+    type: boolean
+    default: false
 
 schedules:
   - cron: '0 6 * * *'
@@ -95,7 +99,10 @@ steps:
     inputs:
       command: 'build'
       projects: '$(solution)'
-      arguments: '--configuration $(buildConfiguration) --no-restore'
+      # EnableAllure=true defines the ALLURE symbol so the [AllureNUnit] hook
+      # compiles in; false (default) leaves the normal run unaffected.
+      # MSBuild '==' is case-insensitive, so the True/False value works directly.
+      arguments: '--configuration $(buildConfiguration) --no-restore /p:EnableAllure=${{ parameters.enableAllure }}'
 
   - powershell: |
       $ErrorActionPreference = 'Continue'
@@ -151,71 +158,70 @@ steps:
       DbSettings__DbPassword: $(DbSettings__DbPassword)
 
   # ---- Reporting ----------------------------------------------------------
-  # Playwright trace + video + failure screenshots are attached to each test
-  # result by the fixture (visible in the run's "Tests" tab -> Attachments),
-  # which is the ADO-native reporting path. Below we additionally build an
-  # Allure HTML report from the allure-results the tests emit.
-
-  # Collect allure-results (written next to the test assembly) into a stable
-  # staging folder, regardless of where on the agent the test host ran.
-  - powershell: |
-      $staging = "$(Build.ArtifactStagingDirectory)\allure-results"
-      New-Item -ItemType Directory -Force -Path $staging | Out-Null
-      $found = Get-ChildItem -Path "$(System.DefaultWorkingDirectory)" -Recurse -Directory -Filter "allure-results" -ErrorAction SilentlyContinue
-      $count = 0
-      foreach ($d in $found) {
-        Copy-Item -Path (Join-Path $d.FullName '*') -Destination $staging -Recurse -Force -ErrorAction SilentlyContinue
-        $count++
-      }
-      Write-Host "Collected allure-results from $count folder(s) into $staging"
-      Write-Host "##vso[task.setvariable variable=AllureResultsCount]$((Get-ChildItem $staging -ErrorAction SilentlyContinue).Count)"
-    displayName: 'Collect Allure results'
-    condition: succeededOrFailed()
-
-  # Generate the HTML report. Non-blocking: if the Allure CLI / Java is not on
-  # the agent, the raw results are still published (render later or via the
-  # Allure Azure DevOps extension). Install once on the agent for live reports:
-  #   npm i -g allure-commandline   (requires Java 8+ on PATH)
-  - powershell: |
-      $results = "$(Build.ArtifactStagingDirectory)\allure-results"
-      $report  = "$(Build.ArtifactStagingDirectory)\allure-report"
-      if (-not (Test-Path $results) -or -not (Get-ChildItem $results -ErrorAction SilentlyContinue)) {
-        Write-Host "No allure-results found; skipping report generation."
-        exit 0
-      }
-      $allure = (Get-Command allure -ErrorAction SilentlyContinue)
-      try {
-        if ($allure) {
-          & allure generate $results --clean -o $report
-        } else {
-          Write-Host "Allure CLI not found on PATH; trying 'npx allure-commandline'..."
-          & npx --yes allure-commandline generate $results --clean -o $report
+  # Playwright trace + video + failure screenshots are ALWAYS attached to each
+  # test result by the fixture (visible in the run's "Tests" tab -> Attachments)
+  # - the ADO-native path. The Allure HTML report below is opt-in via the
+  # 'enableAllure' parameter so the default run stays lean.
+  - ${{ if eq(parameters.enableAllure, true) }}:
+    # Collect allure-results (written next to the test assembly) into a stable
+    # staging folder, regardless of where on the agent the test host ran.
+    - powershell: |
+        $staging = "$(Build.ArtifactStagingDirectory)\allure-results"
+        New-Item -ItemType Directory -Force -Path $staging | Out-Null
+        $found = Get-ChildItem -Path "$(System.DefaultWorkingDirectory)" -Recurse -Directory -Filter "allure-results" -ErrorAction SilentlyContinue
+        $count = 0
+        foreach ($d in $found) {
+          Copy-Item -Path (Join-Path $d.FullName '*') -Destination $staging -Recurse -Force -ErrorAction SilentlyContinue
+          $count++
         }
-        if (Test-Path (Join-Path $report 'index.html')) {
-          Write-Host "Allure HTML report generated at $report"
-          Write-Host "##vso[task.setvariable variable=AllureReportGenerated]true"
-        } else {
-          Write-Host "##[warning]Allure generate ran but no index.html was produced."
+        Write-Host "Collected allure-results from $count folder(s) into $staging"
+      displayName: 'Collect Allure results'
+      condition: succeededOrFailed()
+
+    # Generate the HTML report. Non-blocking: if the Allure CLI / Java is not on
+    # the agent, the raw results are still published (render later or via the
+    # Allure Azure DevOps extension). Install once on the agent for live reports:
+    #   npm i -g allure-commandline   (requires Java 8+ on PATH)
+    - powershell: |
+        $results = "$(Build.ArtifactStagingDirectory)\allure-results"
+        $report  = "$(Build.ArtifactStagingDirectory)\allure-report"
+        if (-not (Test-Path $results) -or -not (Get-ChildItem $results -ErrorAction SilentlyContinue)) {
+          Write-Host "No allure-results found; skipping report generation."
+          exit 0
         }
-      } catch {
-        Write-Host "##[warning]Could not generate Allure HTML (CLI/Java missing). Raw results are still published. $_"
-      }
-    displayName: 'Generate Allure report'
-    condition: succeededOrFailed()
-    continueOnError: true
+        $allure = (Get-Command allure -ErrorAction SilentlyContinue)
+        try {
+          if ($allure) {
+            & allure generate $results --clean -o $report
+          } else {
+            Write-Host "Allure CLI not found on PATH; trying 'npx allure-commandline'..."
+            & npx --yes allure-commandline generate $results --clean -o $report
+          }
+          if (Test-Path (Join-Path $report 'index.html')) {
+            Write-Host "Allure HTML report generated at $report"
+            Write-Host "##vso[task.setvariable variable=AllureReportGenerated]true"
+          } else {
+            Write-Host "##[warning]Allure generate ran but no index.html was produced."
+          }
+        } catch {
+          Write-Host "##[warning]Could not generate Allure HTML (CLI/Java missing). Raw results are still published. $_"
+        }
+      displayName: 'Generate Allure report'
+      condition: succeededOrFailed()
+      continueOnError: true
 
-  - task: PublishPipelineArtifact@1
-    displayName: 'Publish Allure results'
-    condition: succeededOrFailed()
-    inputs:
-      targetPath: '$(Build.ArtifactStagingDirectory)/allure-results'
-      artifact: 'allure-results-${{ parameters.testEnv }}'
-      publishLocation: 'pipeline'
+    - task: PublishPipelineArtifact@1
+      displayName: 'Publish Allure results'
+      condition: succeededOrFailed()
+      inputs:
+        targetPath: '$(Build.ArtifactStagingDirectory)/allure-results'
+        artifact: 'allure-results-${{ parameters.testEnv }}'
+        publishLocation: 'pipeline'
 
-  - task: PublishPipelineArtifact@1
-    displayName: 'Publish Allure HTML report'
-    condition: and(succeededOrFailed(), eq(variables['AllureReportGenerated'], 'true'))
-    inputs:
-      targetPath: '$(Build.ArtifactStagingDirectory)/allure-report'
-      artifact: 'allure-report-${{ parameters.testEnv }}'
-      publishLocation: 'pipeline'
+    - task: PublishPipelineArtifact@1
+      displayName: 'Publish Allure HTML report'
+      condition: and(succeededOrFailed(), eq(variables['AllureReportGenerated'], 'true'))
+      inputs:
+        targetPath: '$(Build.ArtifactStagingDirectory)/allure-report'
+        artifact: 'allure-report-${{ parameters.testEnv }}'
+        publishLocation: 'pipeline'
