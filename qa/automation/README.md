@@ -9,6 +9,7 @@ read-only / least-privilege credentials recommended. Three-part naming means no 
 |--------|--------------|-----------|
 | `KCL_Purchasers_discovery.sql` | Distinct KCL **Purchaser** set from `windward_commercial` (the canonical client scope that drives the shrink) | TC-P4-03 |
 | `WWShrink_KCL_SourceTarget_Reconciliation.sql` | Reconciles the KCL member set between `windward_commercial` (source) and `windward_KCL` (shrunk target), scoped to that purchaser set. One execution → `PASS`/`FAIL` + row-level diff of any lost/extra members | **TC-P4-04** |
+| `WWShrink_KCL_FullTableAnalysis.sql` | Full table-level analysis of every table touched by the datashrink: per-table row-count/size impact (source vs target), classified UNCHANGED/TRIMMED/EMPTIED/dropped, plus a TrimShrink step-log-driven view that reconciles "what the shrink logged" against "what actually changed" | TC-P4-04 / TC-P4-05 |
 | `KCL_ClientMemCount_validation.sql` | Single-DB KCL member count (TOTAL 97,210 / ACTIVE 81,211 toggle) that drives Tier | TC-SQL-01/03 |
 
 **PASS** = source count == target count **and** both EXCEPT diffs return zero rows
