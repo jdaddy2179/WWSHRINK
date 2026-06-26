@@ -1,4 +1,27 @@
-# Automation — Environment Variables spreadsheet validation
+# Automation
+
+## WW Shrink — KCL source-vs-target SQL validation
+
+Run on **`AWWW2SQLKCL01D`** (both DBs on one instance), PROD/PHI, by an authorized
+US-based operator with read-only credentials. Three-part naming means no `USE` switch.
+
+| Script | What it does | Test case |
+|--------|--------------|-----------|
+| `KCL_Purchasers_discovery.sql` | Distinct KCL **Purchaser** set from `windward_commercial` (the canonical client scope that drives the shrink) | TC-P4-03 |
+| `WWShrink_KCL_SourceTarget_Reconciliation.sql` | Reconciles the KCL member set between `windward_commercial` (source) and `windward_KCL` (shrunk target), scoped to that purchaser set. One execution → `PASS`/`FAIL` + row-level diff of any lost/extra members | **TC-P4-04** |
+| `KCL_ClientMemCount_validation.sql` | Single-DB KCL member count (TOTAL 97,210 / ACTIVE 81,211 toggle) that drives Tier | TC-SQL-01/03 |
+
+**PASS** = source count == target count **and** both EXCEPT diffs return zero rows
+(no member lost by the shrink, no other client's data leaked in). Count parity alone
+is insufficient — the set-level diff is what makes it a real reconciliation. Any
+discrepancy routes to the WW Shrinker Owner (Nabeel Syed) per TC-P4-07.
+
+> These run against live PHI on an internal SQL Server and are **not** executable from
+> CI / this repo — they are operator-run scripts whose output is captured as test evidence.
+
+---
+
+# Environment Variables spreadsheet validation
 
 ## Recommendation (why not Playwright)
 The Environment Variables workbook lives in **SharePoint behind Okta/M365 SSO + MFA**, and "validating the spreadsheet" means checking **cell values/formulas**, not UI behaviour. Browser automation (Playwright) would have to script a corporate login and scrape Excel‑Online's DOM — fragile and inappropriate for prod/PHI auth. **Validate the data directly** instead: read the `.xlsx` and assert the playbook rules. Deterministic, fast, repeatable, and it maps 1:1 to the Phase 1 / 2.1 test cases.
