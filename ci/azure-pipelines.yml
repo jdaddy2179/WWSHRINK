@@ -98,22 +98,27 @@ steps:
       arguments: '--configuration $(buildConfiguration) --no-restore'
 
   - powershell: |
+      $ErrorActionPreference = 'Continue'
+      # The suite drives the system-installed Microsoft Edge (Channel = "msedge").
+      # If Edge is already on the agent, Playwright refuses to install over it
+      # (exits 1, "already installed") - which is the desired state. So when the
+      # system Edge is present we skip the download entirely; we only run
+      # 'playwright install' if Edge is genuinely missing.
+      $edgePaths = @(
+        "$Env:ProgramFiles\Microsoft\Edge\Application\msedge.exe",
+        "${Env:ProgramFiles(x86)}\Microsoft\Edge\Application\msedge.exe"
+      )
+      if ($edgePaths | Where-Object { Test-Path $_ }) {
+        Write-Host "System Microsoft Edge found; Channel=msedge will use it. Skipping Playwright browser download."
+        exit 0
+      }
+      Write-Host "System Edge not found; installing Playwright's msedge build."
       $script = Get-ChildItem -Path "$(Build.SourcesDirectory)" -Recurse -Filter "playwright.ps1" |
                 Where-Object { $_.FullName -like "*\bin\$(buildConfiguration)\*" } |
                 Select-Object -First 1
       if (-not $script) { Write-Error "playwright.ps1 not found - build may have failed"; exit 1 }
-      # The suite drives the system-installed Microsoft Edge (Channel = "msedge").
-      # Playwright refuses to install over a non-hermetic system browser and
-      # exits 1 with "already installed" - that is the desired state, not a
-      # failure, so swallow it. If Edge is ever absent, this still installs it.
-      $out = & $script.FullName install msedge 2>&1
-      $code = $LASTEXITCODE
-      $out | ForEach-Object { Write-Host $_ }
-      if ($code -ne 0 -and ($out -match 'already installed')) {
-        Write-Host "msedge already present on the agent; using the system install."
-        exit 0
-      }
-      exit $code
+      & $script.FullName install msedge
+      exit 0
     displayName: 'Ensure Playwright browser (msedge channel)'
 
   # Runs the automated tests for the test points in Plan/Suite/Config and
