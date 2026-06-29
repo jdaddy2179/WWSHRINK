@@ -211,7 +211,16 @@ jobs:
           }
           Write-Host "Suite selection '$sel' -> suite id $id"
           Write-Host "##vso[task.setvariable variable=resolvedSuiteId]$id"
-        displayName: 'Resolve suite selection (${{ parameters.testSuite }})'
+
+          # Map the environment to its Test Configuration so results are tracked
+          # per environment. Environments without a dedicated config fall back to
+          # 45 (the plan default). Keep in sync with the Test Plan configurations.
+          $cfgMap = @{ 'DS10' = '46'; 'TS06' = '47'; 'PROD' = '48' }
+          $env = "${{ parameters.testEnv }}"
+          $cfg = $cfgMap[$env]; if ([string]::IsNullOrWhiteSpace($cfg)) { $cfg = '45' }
+          Write-Host "Environment '$env' -> configuration id $cfg"
+          Write-Host "##vso[task.setvariable variable=resolvedConfigId]$cfg"
+        displayName: 'Resolve suite + config (${{ parameters.testSuite }} / ${{ parameters.testEnv }})'
 
       # Runs the automated tests for the test points in Plan/Suite/Config and
       # writes their outcomes back to Azure Test Plans (testSelector: testPlan).
@@ -222,7 +231,7 @@ jobs:
           testSelector: 'testPlan'
           testPlan: '79388'
           testSuite: '$(resolvedSuiteId)'
-          testConfiguration: '45'
+          testConfiguration: '$(resolvedConfigId)'
           searchFolder: '$(System.DefaultWorkingDirectory)'
           testAssemblyVer2: |
             **\bin\**\PlaywrightAutomation.dll
