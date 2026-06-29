@@ -55,6 +55,10 @@ parameters:
       - 'WW2 Payment'                   # 79805 - WW2 Payment
       - 'WW2 Config'                    # 79804 - WW2 Config
       - 'WebServer Validation (Prod)'   # 79800 - run with testEnv=PROD
+  - name: notifyEmail
+    displayName: 'Email the run summary when finished'
+    type: boolean
+    default: true
 
 schedules:
   - cron: '0 6 * * *'
@@ -72,6 +76,20 @@ variables:
     value: 'Release'
   - name: solution
     value: 'PlaywrightAutomation.sln'
+  # ---- Email (Option B) -------------------------------------------------
+  # Set smtpServer to your internal SMTP relay to turn on emailed summaries.
+  # While it is blank the email job runs but skips sending (logs a warning),
+  # so the pipeline never fails just because email isn't wired up yet.
+  # Tip: keep smtpServer/emailFrom in the variable group instead if you'd
+  # rather not have them in the YAML.
+  - name: smtpServer
+    value: ''                                   # e.g. 'smtp.dq.ad'
+  - name: smtpPort
+    value: '25'
+  - name: emailFrom
+    value: 'WW-Smoke-NoReply@greatdentalplans.com'
+  - name: emailTo
+    value: 'eh07@greatdentalplans.com'          # comma-separate for multiple
 
 jobs:
   - job: RunWWSmoke
@@ -299,3 +317,89 @@ jobs:
             targetPath: '$(Build.ArtifactStagingDirectory)/allure-report'
             artifact: 'allure-report-${{ parameters.testEnv }}-$(System.JobPositionInPhase)'
             publishLocation: 'pipeline'
+
+  # ==========================================================================
+  # Email the run summary (Option B). Runs once after ALL test slices finish
+  # (dependsOn), reads the aggregated pass/fail for this build from the Test
+  # REST API, and emails "X/Y passed" + a link via the internal SMTP relay.
+  # Included only when notifyEmail=true; if smtpServer is blank it logs the
+  # summary and skips sending so the pipeline still succeeds.
+  # Requires: pipeline "Allow scripts to access the OAuth token" (System.AccessToken).
+  # ==========================================================================
+  - ${{ if eq(parameters.notifyEmail, true) }}:
+    - job: EmailResults
+      displayName: 'Email run summary'
+      dependsOn: RunWWSmoke
+      condition: succeededOrFailed()
+      pool:
+        name: AppSvcs-OnPrem-SQA
+      variables:
+        - name: testOutcome
+          value: $[ dependencies.RunWWSmoke.result ]
+      steps:
+        - checkout: none
+        - powershell: |
+            $ErrorActionPreference = 'Continue'
+            $hdr     = @{ Authorization = "Bearer $env:SYSTEM_ACCESSTOKEN" }
+            $base    = "$(System.CollectionUri)".TrimEnd('/') + "/" + [uri]::EscapeDataString("$(System.TeamProject)")
+            $buildId = "$(Build.BuildId)"
+
+            $passed=0; $failed=0; $other=0; $total=0
+            try {
+              $runs = Invoke-RestMethod -Headers $hdr -Uri "$base/_apis/test/runs?buildIds=$buildId&api-version=7.1"
+              foreach ($r in $runs.value) {
+                $d = Invoke-RestMethod -Headers $hdr -Uri "$base/_apis/test/runs/$($r.id)?api-version=7.1"
+                foreach ($s in $d.runStatistics) {
+                  switch ($s.outcome) {
+                    'Passed' { $passed += [int]$s.count }
+                    'Failed' { $failed += [int]$s.count }
+                    default  { $other  += [int]$s.count }
+                  }
+                }
+                $total += [int]$d.totalTests
+              }
+            } catch { Write-Host "##[warning]Could not read test results from REST API: $_" }
+            if ($total -eq 0) { $total = $passed + $failed + $other }
+
+            $envName = "${{ parameters.testEnv }}"
+            $bu      = "${{ parameters.testSuite }}"
+            $status  = if ($failed -gt 0) { 'FAILED' } elseif ($total -gt 0) { 'PASSED' } else { 'NO RESULTS' }
+            $color   = if ($failed -gt 0) { '#c0392b' } elseif ($total -gt 0) { '#1e8e3e' } else { '#8a6d00' }
+            $link    = "$base/_build/results?buildId=$buildId&view=ms.vss-test-web.build-test-results-tab"
+
+            $subject = "WW Smoke [$envName / $bu]: $passed/$total passed"
+            if ($failed -gt 0) { $subject += " - $failed FAILED" }
+
+            $body = @"
+            <div style="font-family:Segoe UI,Arial,sans-serif;font-size:14px;color:#222">
+              <h2 style="margin:0 0 4px">WW Smoke Tests - <span style="color:$color">$status</span></h2>
+              <p style="margin:0 0 12px;color:#666">Business unit <b>$bu</b> &middot; Environment <b>$envName</b> &middot; Browser <b>${{ parameters.browserChannel }}</b></p>
+              <table cellpadding="6" style="border-collapse:collapse">
+                <tr><td style="border:1px solid #ddd">Passed</td><td style="border:1px solid #ddd"><b>$passed</b></td></tr>
+                <tr><td style="border:1px solid #ddd">Failed</td><td style="border:1px solid #ddd;color:#c0392b"><b>$failed</b></td></tr>
+                <tr><td style="border:1px solid #ddd">Other</td><td style="border:1px solid #ddd">$other</td></tr>
+                <tr><td style="border:1px solid #ddd">Total</td><td style="border:1px solid #ddd"><b>$total</b></td></tr>
+              </table>
+              <p style="margin:14px 0"><a href="$link" style="background:#2563eb;color:#fff;padding:9px 16px;border-radius:6px;text-decoration:none">View results in Azure DevOps</a></p>
+              <p style="color:#888;font-size:12px">Build $buildId &middot; pipeline result: $(testOutcome)</p>
+            </div>
+            "@
+
+            $smtp = "${{ parameters.smtpServer }}"
+            if ([string]::IsNullOrWhiteSpace($smtp)) {
+              Write-Host "##[warning]smtpServer is not set - skipping email. Summary: $subject"
+              exit 0
+            }
+            $to = "${{ parameters.emailTo }}".Split(',') | ForEach-Object { $_.Trim() } | Where-Object { $_ }
+            $toList = $to -join ', '
+            try {
+              Send-MailMessage -SmtpServer $smtp -Port ${{ parameters.smtpPort }} `
+                -From "${{ parameters.emailFrom }}" -To $to -Subject $subject -Body $body -BodyAsHtml
+              Write-Host "Sent run summary to $toList via $smtp"
+            } catch {
+              Write-Host "##[warning]Failed to send summary email via $smtp : $_"
+            }
+          displayName: 'Send result summary email'
+          condition: succeededOrFailed()
+          env:
+            SYSTEM_ACCESSTOKEN: $(System.AccessToken)
