@@ -212,8 +212,20 @@ jobs:
       # Translate the friendly scope into a VSTest test-case filter (NUnit
       # categories map to TestCategory; Delta is excluded by class/namespace).
       - powershell: |
+          # 'Smoke (TestEnv)' = all TestEnv tests, minus Delta, minus the 10
+          # TestEnv tests that were NOT in the legacy curated smoke set (4 claim-
+          # image validations + 6 nav tests) so the count matches exactly 173.
+          $smoke = 'TestCategory=TestEnv' +
+                   '&FullyQualifiedName!~Delta' +
+                   '&FullyQualifiedName!~ClaimImage' +
+                   '&FullyQualifiedName!~NavigateToIncrementalRateChangeLog' +
+                   '&FullyQualifiedName!~NavigateToRetroactivitySubmitter' +
+                   '&FullyQualifiedName!~NavigateToBillingConfigPreview' +
+                   '&FullyQualifiedName!~NavigateToClientUpdateTools' +
+                   '&FullyQualifiedName!~NavigateToReferenceValues' +
+                   '&FullyQualifiedName!~NavigateToWw2PaymentandBack'
           $map = @{
-            'Smoke (TestEnv)'  = 'TestCategory=TestEnv&FullyQualifiedName!~Delta'
+            'Smoke (TestEnv)'  = $smoke
             'WebServer (Prod)' = 'TestCategory=WebServer'
             'Regression'       = 'TestCategory=Regression'
             'All (no Delta)'   = 'FullyQualifiedName!~Delta'
