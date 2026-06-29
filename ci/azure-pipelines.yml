@@ -21,11 +21,6 @@ trigger: none
 pr: none
 
 parameters:
-  - name: testEnv
-    displayName: 'Target environment (appsettings.<ENV>.json)'
-    type: string
-    default: QAR
-    values: [DS01, DS10, QAR, PROD, TS06, TSHF, TSNB5, TSNB6, TSNB7, TSSLADJ]
   - name: enableAllure
     displayName: 'Generate & publish Allure HTML report'
     type: boolean
@@ -40,24 +35,17 @@ parameters:
     type: number
     default: 1
   - name: testSuite
-    displayName: 'Business unit / suite to run'
+    displayName: 'Environment suite to run'
     type: string
-    default: 'All (TestEnv)'
-    # Friendly names; mapped to the numeric Test Plan suite id by the
-    # 'Resolve suite selection' step below so the Run dialog shows BU names
-    # instead of raw ids. Keep this list in sync with that step's map.
+    default: 'Env - TS06'
+    # Each Env suite is a 173-case leaf bound to that environment's
+    # configuration. Selecting it forces the matching environment + config
+    # (see the resolve step), so the run is self-consistent. Mapped to the
+    # numeric Test Plan suite id below - keep in sync with that step's map.
     values:
-      - 'All (TestEnv)'                 # 79389 - all 173 test-env cases (excludes prod WebServer)
-      - 'GOV'                           # 79803 - Government
-      - 'COM'                           # 79802 - Commercial
-      - 'BCBSM'                         # 79801 - BCBSM
-      - 'MH'                            # 79806 - MassHealth
-      - 'WW2 Payment'                   # 79805 - WW2 Payment
-      - 'WW2 Config'                    # 79804 - WW2 Config
-      - 'WebServer Validation (Prod)'   # 79800 - run with testEnv=PROD
-      - 'Env - DS10'                    # 79807 - all cases, forces env/config DS10
-      - 'Env - TS06'                    # 79808 - all cases, forces env/config TS06
-      - 'Env - PROD'                    # 79809 - all cases, forces env/config PROD
+      - 'Env - DS10'                    # 79807 - forces env/config DS10
+      - 'Env - TS06'                    # 79808 - forces env/config TS06
+      - 'Env - PROD'                    # 79809 - forces env/config PROD
   - name: notifyEmail
     displayName: 'Email the run summary when finished'
     type: boolean
@@ -96,7 +84,7 @@ variables:
 
 jobs:
   - job: RunWWSmoke
-    displayName: 'WW Smoke (${{ parameters.testEnv }})'
+    displayName: 'WW Smoke (${{ parameters.testSuite }})'
     timeoutInMinutes: 120
     pool:
       name: AppSvcs-OnPrem-SQA
@@ -197,17 +185,9 @@ jobs:
       # Keep this map in sync with the 'testSuite' parameter values above.
       - powershell: |
           $map = @{
-            'All (TestEnv)'               = '79389'
-            'GOV'                         = '79803'
-            'COM'                         = '79802'
-            'BCBSM'                       = '79801'
-            'MH'                          = '79806'
-            'WW2 Payment'                 = '79805'
-            'WW2 Config'                  = '79804'
-            'WebServer Validation (Prod)' = '79800'
-            'Env - DS10'                  = '79807'
-            'Env - TS06'                  = '79808'
-            'Env - PROD'                  = '79809'
+            'Env - DS10' = '79807'
+            'Env - TS06' = '79808'
+            'Env - PROD' = '79809'
           }
           $sel = "${{ parameters.testSuite }}"
           $id  = $map[$sel]
@@ -218,18 +198,11 @@ jobs:
           Write-Host "Suite selection '$sel' -> suite id $id"
           Write-Host "##vso[task.setvariable variable=resolvedSuiteId]$id"
 
-          # Resolve environment + Test Configuration so results are tracked per
-          # environment. The 'Env - <ENV>' suites force their own environment so
-          # the chosen suite is self-consistent; every other suite uses the
-          # testEnv parameter. Environments without a dedicated config fall back
-          # to 45 (plan default). Keep in sync with the Test Plan configurations.
+          # The chosen 'Env - <ENV>' suite determines the environment, so the run
+          # loads appsettings.<ENV>.json and records on that environment's Test
+          # Configuration. Keep this map in sync with the Test Plan configurations.
           $cfgMap = @{ 'DS10' = '46'; 'TS06' = '47'; 'PROD' = '48' }
-          if ($sel -like 'Env - *') {
-            $env = $sel -replace '^Env - ', ''
-            Write-Host "Env suite selected - forcing environment '$env'."
-          } else {
-            $env = "${{ parameters.testEnv }}"
-          }
+          $env = $sel -replace '^Env - ', ''
           $cfg = $cfgMap[$env]; if ([string]::IsNullOrWhiteSpace($cfg)) { $cfg = '45' }
           Write-Host "Environment '$env' -> configuration id $cfg"
           Write-Host "##vso[task.setvariable variable=resolvedTestEnv]$env"
@@ -240,7 +213,7 @@ jobs:
       # writes their outcomes back to Azure Test Plans (testSelector: testPlan).
       # With strategy.parallel > 1, VSTest distributes the points across agents.
       - task: VSTest@2
-        displayName: 'Run WW Smoke test plan (${{ parameters.testEnv }})'
+        displayName: 'Run WW Smoke test plan (${{ parameters.testSuite }})'
         inputs:
           testSelector: 'testPlan'
           testPlan: '79388'
@@ -332,7 +305,7 @@ jobs:
           condition: succeededOrFailed()
           inputs:
             targetPath: '$(Build.ArtifactStagingDirectory)/allure-results'
-            artifact: 'allure-results-${{ parameters.testEnv }}-$(System.JobPositionInPhase)'
+            artifact: 'allure-results-$(resolvedTestEnv)-$(System.JobPositionInPhase)'
             publishLocation: 'pipeline'
 
         - task: PublishPipelineArtifact@1
@@ -340,7 +313,7 @@ jobs:
           condition: and(succeededOrFailed(), eq(variables['AllureReportGenerated'], 'true'))
           inputs:
             targetPath: '$(Build.ArtifactStagingDirectory)/allure-report'
-            artifact: 'allure-report-${{ parameters.testEnv }}-$(System.JobPositionInPhase)'
+            artifact: 'allure-report-$(resolvedTestEnv)-$(System.JobPositionInPhase)'
             publishLocation: 'pipeline'
 
   # ==========================================================================
@@ -386,8 +359,8 @@ jobs:
             } catch { Write-Host "##[warning]Could not read test results from REST API: $_" }
             if ($total -eq 0) { $total = $passed + $failed + $other }
 
-            $envName = "${{ parameters.testEnv }}"
             $bu      = "${{ parameters.testSuite }}"
+            $envName = $bu -replace '^Env - ', ''
             $status  = if ($failed -gt 0) { 'FAILED' } elseif ($total -gt 0) { 'PASSED' } else { 'NO RESULTS' }
             $color   = if ($failed -gt 0) { '#c0392b' } elseif ($total -gt 0) { '#1e8e3e' } else { '#8a6d00' }
             $link    = "$base/_build/results?buildId=$buildId&view=ms.vss-test-web.build-test-results-tab"
@@ -398,7 +371,7 @@ jobs:
             $body = @"
             <div style="font-family:Segoe UI,Arial,sans-serif;font-size:14px;color:#222">
               <h2 style="margin:0 0 4px">WW Smoke Tests - <span style="color:$color">$status</span></h2>
-              <p style="margin:0 0 12px;color:#666">Business unit <b>$bu</b> &middot; Environment <b>$envName</b> &middot; Browser <b>${{ parameters.browserChannel }}</b></p>
+              <p style="margin:0 0 12px;color:#666">Suite <b>$bu</b> &middot; Environment <b>$envName</b> &middot; Browser <b>${{ parameters.browserChannel }}</b></p>
               <table cellpadding="6" style="border-collapse:collapse">
                 <tr><td style="border:1px solid #ddd">Passed</td><td style="border:1px solid #ddd"><b>$passed</b></td></tr>
                 <tr><td style="border:1px solid #ddd">Failed</td><td style="border:1px solid #ddd;color:#c0392b"><b>$failed</b></td></tr>

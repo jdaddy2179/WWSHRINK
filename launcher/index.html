@@ -61,7 +61,7 @@
 <body>
 <header>
   <h1>🧪 WW Smoke Tests — Launcher</h1>
-  <p>Pick a business unit and environment, then launch the run in Azure DevOps. You sign in with your normal ADO account — no tokens needed.</p>
+  <p>Pick an environment, then launch the run in Azure DevOps. You sign in with your normal ADO account — no tokens needed.</p>
 </header>
 
 <main>
@@ -69,14 +69,10 @@
   <div class="grid">
     <!-- LEFT: choices -->
     <section class="card">
-      <h2>1 · Business unit</h2>
+      <h2>1 · Environment</h2>
       <div id="buGrid" class="bu-grid"></div>
 
       <h2 style="margin-top:22px">2 · Options</h2>
-      <div class="field">
-        <label for="env">Environment <span class="pill">appsettings.&lt;ENV&gt;.json</span></label>
-        <select id="env"></select>
-      </div>
       <div class="field">
         <label for="browser">Browser</label>
         <select id="browser">
@@ -103,8 +99,7 @@
       <p class="note">Azure DevOps doesn't pre-fill the form from a link, so in the dialog that opens, set these values:</p>
       <ol class="steps">
         <li>Click <b>Run pipeline</b> (top-right).</li>
-        <li>Set <b>Business unit / suite to run</b> = <span id="s-bu">—</span></li>
-        <li>Set <b>Target environment</b> = <span id="s-env">—</span></li>
+        <li>Set <b>Environment suite to run</b> = <span id="s-bu">—</span></li>
         <li>Set <b>Browser</b> = <span id="s-browser">—</span>, <b>Agents</b> = <span id="s-agents">—</span><span id="s-allure"></span></li>
         <li>Click <b>Run</b>. Results appear in the run's <b>Tests</b> tab and in Test Plans.</li>
       </ol>
@@ -133,50 +128,32 @@ const CONFIG = {
   parentSuiteId: "79389"
 };
 
-/* Business units → Test Plan suite ids (keep in sync with azure-pipelines.yml). */
-const BUS = [
-  { key:"All (TestEnv)",               label:"All (TestEnv)",      suite:"79389", count:173, env:null   },
-  { key:"GOV",                         label:"GOV — Government",   suite:"79803", count:71,  env:null   },
-  { key:"COM",                         label:"COM — Commercial",   suite:"79802", count:38,  env:null   },
-  { key:"BCBSM",                       label:"BCBSM",              suite:"79801", count:32,  env:null   },
-  { key:"WW2 Payment",                 label:"WW2 Payment",        suite:"79805", count:14,  env:null   },
-  { key:"MH",                          label:"MH — MassHealth",    suite:"79806", count:10,  env:null   },
-  { key:"WW2 Config",                  label:"WW2 Config",         suite:"79804", count:8,   env:null   },
-  { key:"WebServer Validation (Prod)", label:"WebServer (Prod)",   suite:"79800", count:116, env:"PROD" },
-  { key:"Env - DS10",                  label:"Env: DS10",          suite:"79807", count:173, env:"DS10" },
-  { key:"Env - TS06",                  label:"Env: TS06",          suite:"79808", count:173, env:"TS06" },
-  { key:"Env - PROD",                  label:"Env: PROD",          suite:"79809", count:173, env:"PROD" },
+/* Environment suites → Test Plan suite ids (keep in sync with azure-pipelines.yml).
+   Each Env suite is a 173-case leaf that forces its own environment + config. */
+const SUITES = [
+  { key:"Env - TS06", label:"TS06", suite:"79808", count:173, env:"TS06" },
+  { key:"Env - DS10", label:"DS10", suite:"79807", count:173, env:"DS10" },
+  { key:"Env - PROD", label:"PROD", suite:"79809", count:173, env:"PROD" },
 ];
-
-const ENVS = ["QAR","TS06","DS01","DS10","TSHF","TSNB5","TSNB6","TSNB7","TSSLADJ","PROD"];
 
 const enc = encodeURIComponent;
 const orgUrl = `https://dev.azure.com/${enc(CONFIG.org)}/${enc(CONFIG.project)}`;
 
-let selectedBU = BUS[0];
+let selected = SUITES[0];
 
-/* Build BU cards */
+/* Build environment cards */
 const buGrid = document.getElementById("buGrid");
-BUS.forEach(bu => {
+SUITES.forEach(s => {
   const el = document.createElement("div");
-  el.className = "bu" + (bu === selectedBU ? " sel" : "");
-  el.innerHTML = `<span class="nm">${bu.label}</span><span class="ct">${bu.count}</span>`;
+  el.className = "bu" + (s === selected ? " sel" : "");
+  el.innerHTML = `<span class="nm">${s.label}</span><span class="ct">${s.count} tests</span>`;
   el.onclick = () => {
-    selectedBU = bu;
+    selected = s;
     document.querySelectorAll(".bu").forEach(n => n.classList.remove("sel"));
     el.classList.add("sel");
-    if (bu.env) document.getElementById("env").value = bu.env;   // prod suite → PROD
     render();
   };
   buGrid.appendChild(el);
-});
-
-/* Env dropdown */
-const envSel = document.getElementById("env");
-ENVS.forEach(e => {
-  const o = document.createElement("option"); o.value = e; o.textContent = e;
-  if (e === "QAR") o.selected = true;
-  envSel.appendChild(o);
 });
 
 /* Result links */
@@ -200,43 +177,28 @@ function pipelineUrl(){
 }
 
 function render(){
-  const env     = envSel.value;
   const browser = document.getElementById("browser").value;
   const agents  = Math.max(1, parseInt(document.getElementById("agents").value || "1", 10));
   const allure  = document.getElementById("allure").checked;
 
   const sum = document.getElementById("summary");
   sum.innerHTML = `
-    <div class="kv"><span class="k">Business unit</span><span class="v">${selectedBU.label} <span class="pill">${selectedBU.count} cases</span></span></div>
-    <div class="kv"><span class="k">Suite param</span><span class="v">${selectedBU.key}</span></div>
-    <div class="kv"><span class="k">Environment</span><span class="v">${env}</span></div>
+    <div class="kv"><span class="k">Environment</span><span class="v">${selected.env} <span class="pill">${selected.count} tests</span></span></div>
+    <div class="kv"><span class="k">Suite param</span><span class="v">${selected.key}</span></div>
     <div class="kv"><span class="k">Browser</span><span class="v">${browser}</span></div>
     <div class="kv"><span class="k">Agents</span><span class="v">${agents}</span></div>
     <div class="kv"><span class="k">Allure report</span><span class="v">${allure ? "Yes" : "No"}</span></div>`;
 
-  document.getElementById("s-bu").textContent      = selectedBU.key;
-  document.getElementById("s-env").textContent     = env;
+  document.getElementById("s-bu").textContent      = selected.key;
   document.getElementById("s-browser").textContent = browser;
   document.getElementById("s-agents").textContent  = agents;
   document.getElementById("s-allure").textContent  = allure ? ", Allure report = on" : "";
 
-  // Warn if the prod-only suite is paired with a non-PROD env.
-  if (selectedBU.env === "PROD" && env !== "PROD"){
-    showWarn(`The <b>${selectedBU.label}</b> suite is prod-only — set Environment to <code>PROD</code>.`);
-  } else if (selectedBU.env !== "PROD" && env === "PROD"){
-    showWarn(`You picked <b>PROD</b> for a test-environment suite. Double-check that's intended.`);
-  } else {
-    hideWarn();
-  }
-
   document.getElementById("runBtn").href = pipelineUrl();
 }
 
-function showWarn(html){ const w=document.getElementById("cfgWarn"); w.innerHTML="⚠️ "+html; w.style.display="block"; }
-function hideWarn(){ const w=document.getElementById("cfgWarn"); if(!w.dataset.cfg) w.style.display="none"; }
-
 ["change","input"].forEach(ev=>{
-  ["env","browser","agents","allure"].forEach(id=>document.getElementById(id).addEventListener(ev,render));
+  ["browser","agents","allure"].forEach(id=>document.getElementById(id).addEventListener(ev,render));
 });
 
 /* Config sanity check */
