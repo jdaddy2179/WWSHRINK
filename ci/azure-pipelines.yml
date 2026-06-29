@@ -39,6 +39,13 @@ parameters:
     displayName: 'Agents to distribute tests across (parallel)'
     type: number
     default: 1
+  - name: testSuite
+    displayName: 'Test suite to run'
+    type: string
+    default: '79389'
+    values:
+      - '79389'   # WW Smoke - TestEnv (default; excludes prod WebServer tests)
+      - '79800'   # WW Smoke - WebServer Validation (Prod)
 
 schedules:
   - cron: '0 6 * * *'
@@ -164,7 +171,7 @@ jobs:
         inputs:
           testSelector: 'testPlan'
           testPlan: '79388'
-          testSuite: '79389'
+          testSuite: '${{ parameters.testSuite }}'
           testConfiguration: '45'
           searchFolder: '$(System.DefaultWorkingDirectory)'
           testAssemblyVer2: |
