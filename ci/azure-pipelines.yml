@@ -109,15 +109,16 @@ jobs:
         clean: true
 
       # Reclaim disk before the heavy restore/build. Best-effort: never fails the
-      # run. Safe to prune the GLOBAL Playwright cache because the run installs
-      # browsers/ffmpeg locally (PLAYWRIGHT_BROWSERS_PATH=0, next to the build).
+      # run. NOTE: do NOT delete %LOCALAPPDATA%\ms-playwright - the runtime
+      # resolves ffmpeg (video) from there; wiping it makes every test throw
+      # "ffmpeg-win64.exe doesn't exist". The big repeated cost is _work, which
+      # 'workspace: clean: all' already handles.
       - powershell: |
           $ErrorActionPreference = 'SilentlyContinue'
           function Free { (Get-PSDrive -Name ($env:SystemDrive.TrimEnd(':'))).Free/1GB }
           Write-Host ("Free before: {0:N1} GB" -f (Free))
-          Remove-Item "$env:TEMP\*"                         -Recurse -Force
-          Remove-Item "$env:LOCALAPPDATA\ms-playwright\*"   -Recurse -Force
-          Remove-Item "$env:LOCALAPPDATA\Temp\*"            -Recurse -Force
+          Remove-Item "$env:TEMP\*"               -Recurse -Force
+          Remove-Item "$env:LOCALAPPDATA\Temp\*"  -Recurse -Force
           # NuGet http cache (not the global-packages restore needs); safe to drop.
           & dotnet nuget locals http-cache --clear 2>$null
           Write-Host ("Free after:  {0:N1} GB" -f (Free))
@@ -254,8 +255,11 @@ jobs:
         env:
           TEST_ENV: ${{ parameters.testEnv }}
           PLAYWRIGHT_BROWSER_CHANNEL: ${{ parameters.browserChannel }}
-          # Enable video (ffmpeg installed above). Set to '' in the run to disable.
-          PLAYWRIGHT_RECORD_VIDEO: 'true'
+          # Video is OFF (empty). It is the only thing that needs ffmpeg and has
+          # been a recurring failure source; Playwright trace + failure
+          # screenshots (no ffmpeg) give richer debugging anyway. Set to 'true'
+          # to re-enable once ffmpeg is reliably present on every agent.
+          PLAYWRIGHT_RECORD_VIDEO: ''
           PLAYWRIGHT_USERNAME: $(PLAYWRIGHT_USERNAME)
           DbSettings__DbUserId: $(DbSettings__DbUserId)
           DbSettings__DbPassword: $(DbSettings__DbPassword)
