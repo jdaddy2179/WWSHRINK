@@ -35,6 +35,10 @@ parameters:
     type: string
     default: msedge
     values: [msedge, chrome]
+  - name: agentCount
+    displayName: 'Agents to distribute tests across (parallel)'
+    type: number
+    default: 1
 
 schedules:
   - cron: '0 6 * * *'
@@ -43,9 +47,6 @@ schedules:
       include:
         - main
     always: false
-
-pool:
-  name: AppSvcs-OnPrem-SQA
 
 variables:
   # Library variable group with the secrets the suite reads from the env:
@@ -56,194 +57,206 @@ variables:
   - name: solution
     value: 'PlaywrightAutomation.sln'
 
-steps:
-  - checkout: self
-    clean: true
+jobs:
+  - job: RunWWSmoke
+    displayName: 'WW Smoke (${{ parameters.testEnv }})'
+    timeoutInMinutes: 120
+    pool:
+      name: AppSvcs-OnPrem-SQA
+    # Distribute the test plan's test points across N agents. VSTest distributed
+    # testing slices the cases automatically - each agent builds and runs its
+    # slice, publishing to the same test run. Needs N agents free in the pool.
+    strategy:
+      parallel: ${{ parameters.agentCount }}
+    steps:
+      - checkout: self
+        clean: true
 
-  # Fail fast with a clear message if required secrets are missing, instead of
-  # hanging at the app Sign In page (PLAYWRIGHT_USERNAME) or erroring deep in a
-  # DB call (DbSettings__*). Catches an unauthorized/missing variable group too.
-  - powershell: |
-      $missing = @()
-      if ([string]::IsNullOrWhiteSpace($env:PLAYWRIGHT_USERNAME))   { $missing += 'PLAYWRIGHT_USERNAME' }
-      if ([string]::IsNullOrWhiteSpace($env:DbSettings__DbUserId))   { $missing += 'DbSettings__DbUserId' }
-      if ([string]::IsNullOrWhiteSpace($env:DbSettings__DbPassword)) { $missing += 'DbSettings__DbPassword' }
-      if ($missing.Count -gt 0) {
-        Write-Host "##vso[task.logissue type=error]Missing required variable(s): $($missing -join ', '). Check that the 'PlaywrightAutomation-Secrets' variable group is linked AND authorized for this pipeline (Library -> group -> Pipeline permissions)."
-        exit 1
-      }
-      Write-Host "All required variables are present."
-    displayName: 'Verify required variables'
-    env:
-      PLAYWRIGHT_USERNAME: $(PLAYWRIGHT_USERNAME)
-      DbSettings__DbUserId: $(DbSettings__DbUserId)
-      DbSettings__DbPassword: $(DbSettings__DbPassword)
+      # Fail fast with a clear message if required secrets are missing, instead of
+      # hanging at the app Sign In page (PLAYWRIGHT_USERNAME) or erroring deep in a
+      # DB call (DbSettings__*). Catches an unauthorized/missing variable group too.
+      - powershell: |
+          $missing = @()
+          if ([string]::IsNullOrWhiteSpace($env:PLAYWRIGHT_USERNAME))   { $missing += 'PLAYWRIGHT_USERNAME' }
+          if ([string]::IsNullOrWhiteSpace($env:DbSettings__DbUserId))   { $missing += 'DbSettings__DbUserId' }
+          if ([string]::IsNullOrWhiteSpace($env:DbSettings__DbPassword)) { $missing += 'DbSettings__DbPassword' }
+          if ($missing.Count -gt 0) {
+            Write-Host "##vso[task.logissue type=error]Missing required variable(s): $($missing -join ', '). Check that the 'PlaywrightAutomation-Secrets' variable group is linked AND authorized for this pipeline (Library -> group -> Pipeline permissions)."
+            exit 1
+          }
+          Write-Host "All required variables are present."
+        displayName: 'Verify required variables'
+        env:
+          PLAYWRIGHT_USERNAME: $(PLAYWRIGHT_USERNAME)
+          DbSettings__DbUserId: $(DbSettings__DbUserId)
+          DbSettings__DbPassword: $(DbSettings__DbPassword)
 
-  - task: UseDotNet@2
-    displayName: 'Install .NET 8 SDK'
-    inputs:
-      packageType: 'sdk'
-      version: '8.x'
+      - task: UseDotNet@2
+        displayName: 'Install .NET 8 SDK'
+        inputs:
+          packageType: 'sdk'
+          version: '8.x'
 
-  - task: VisualStudioTestPlatformInstaller@1
-    displayName: 'Install VSTest platform'
-    inputs:
-      packageFeedSelector: 'nugetOrg'
-      versionSelector: 'latestStable'
+      - task: VisualStudioTestPlatformInstaller@1
+        displayName: 'Install VSTest platform'
+        inputs:
+          packageFeedSelector: 'nugetOrg'
+          versionSelector: 'latestStable'
 
-  - task: DotNetCoreCLI@2
-    displayName: 'Restore'
-    inputs:
-      command: 'restore'
-      projects: '$(solution)'
-      feedsToUse: 'config'
-      nugetConfigPath: 'NuGet.Config'
+      - task: DotNetCoreCLI@2
+        displayName: 'Restore'
+        inputs:
+          command: 'restore'
+          projects: '$(solution)'
+          feedsToUse: 'config'
+          nugetConfigPath: 'NuGet.Config'
 
-  - task: DotNetCoreCLI@2
-    displayName: 'Build ($(buildConfiguration))'
-    inputs:
-      command: 'build'
-      projects: '$(solution)'
-      # EnableAllure=true defines the ALLURE symbol so the [AllureNUnit] hook
-      # compiles in; false (default) leaves the normal run unaffected.
-      # MSBuild '==' is case-insensitive, so the True/False value works directly.
-      arguments: '--configuration $(buildConfiguration) --no-restore /p:EnableAllure=${{ parameters.enableAllure }}'
+      - task: DotNetCoreCLI@2
+        displayName: 'Build ($(buildConfiguration))'
+        inputs:
+          command: 'build'
+          projects: '$(solution)'
+          # EnableAllure=true defines the ALLURE symbol so the [AllureNUnit] hook
+          # compiles in; false (default) leaves the normal run unaffected.
+          # MSBuild '==' is case-insensitive, so the True/False value works directly.
+          arguments: '--configuration $(buildConfiguration) --no-restore /p:EnableAllure=${{ parameters.enableAllure }}'
 
-  - powershell: |
-      $ErrorActionPreference = 'Continue'
-      $channel = "${{ parameters.browserChannel }}"
-      # Match the fixture: keep Playwright's browsers/ffmpeg next to the package so
-      # what we install here is found at runtime.
-      $env:PLAYWRIGHT_BROWSERS_PATH = '0'
-      $script = Get-ChildItem -Path "$(Build.SourcesDirectory)" -Recurse -Filter "playwright.ps1" |
-                Where-Object { $_.FullName -like "*\bin\$(buildConfiguration)\*" } |
-                Select-Object -First 1
-      if (-not $script) { Write-Error "playwright.ps1 not found - build may have failed"; exit 1 }
+      - powershell: |
+          $ErrorActionPreference = 'Continue'
+          $channel = "${{ parameters.browserChannel }}"
+          # Match the fixture: keep Playwright's browsers/ffmpeg next to the package so
+          # what we install here is found at runtime.
+          $env:PLAYWRIGHT_BROWSERS_PATH = '0'
+          $script = Get-ChildItem -Path "$(Build.SourcesDirectory)" -Recurse -Filter "playwright.ps1" |
+                    Where-Object { $_.FullName -like "*\bin\$(buildConfiguration)\*" } |
+                    Select-Object -First 1
+          if (-not $script) { Write-Error "playwright.ps1 not found - build may have failed"; exit 1 }
 
-      # ffmpeg is required for video recording and is NOT bundled with the system
-      # browser. Install it (small) so PLAYWRIGHT_RECORD_VIDEO works.
-      & $script.FullName install ffmpeg
+          # ffmpeg is required for video recording and is NOT bundled with the system
+          # browser. Install it (small) so PLAYWRIGHT_RECORD_VIDEO works.
+          & $script.FullName install ffmpeg
 
-      # Ensure the browser channel. If the system browser is already on the agent,
-      # Playwright refuses to install over it (exits 1, "already installed") - the
-      # desired state - so use the system install; otherwise download the channel.
-      $systemPaths = @{
-        'msedge' = @(
-          "$Env:ProgramFiles\Microsoft\Edge\Application\msedge.exe",
-          "${Env:ProgramFiles(x86)}\Microsoft\Edge\Application\msedge.exe")
-        'chrome' = @(
-          "$Env:ProgramFiles\Google\Chrome\Application\chrome.exe",
-          "${Env:ProgramFiles(x86)}\Google\Chrome\Application\chrome.exe")
-      }
-      if ($systemPaths[$channel] | Where-Object { Test-Path $_ }) {
-        Write-Host "System '$channel' found; Channel=$channel will use it. Skipping browser download."
-      } else {
-        Write-Host "System '$channel' not found; installing it via Playwright."
-        & $script.FullName install $channel
-      }
-      exit 0
-    displayName: 'Ensure Playwright browser + ffmpeg (${{ parameters.browserChannel }})'
-
-  # Runs the automated tests for the test points in Plan/Suite/Config and
-  # writes their outcomes back to Azure Test Plans (testSelector: testPlan).
-  - task: VSTest@2
-    displayName: 'Run WW Smoke test plan (${{ parameters.testEnv }})'
-    inputs:
-      testSelector: 'testPlan'
-      testPlan: '79388'
-      testSuite: '79389'
-      testConfiguration: '45'
-      searchFolder: '$(System.DefaultWorkingDirectory)'
-      testAssemblyVer2: |
-        **\bin\**\PlaywrightAutomation.dll
-        !**\*TestAdapter.dll
-        !**\ref\**
-        !**\obj\**
-      # Use the modern platform from VisualStudioTestPlatformInstaller@1.
-      # Without this, VSTest falls back to the agent's legacy 14.0 platform,
-      # which cannot load .NET 8 / NUnit3 assemblies (discovers 0 tests).
-      vsTestVersion: 'toolsInstaller'
-      uiTests: true
-      runInParallel: false
-      codeCoverageEnabled: false
-      testRunTitle: 'WW Smoke - ${{ parameters.testEnv }}'
-    env:
-      TEST_ENV: ${{ parameters.testEnv }}
-      PLAYWRIGHT_BROWSER_CHANNEL: ${{ parameters.browserChannel }}
-      # Enable video (ffmpeg installed above). Set to '' in the run to disable.
-      PLAYWRIGHT_RECORD_VIDEO: 'true'
-      PLAYWRIGHT_USERNAME: $(PLAYWRIGHT_USERNAME)
-      DbSettings__DbUserId: $(DbSettings__DbUserId)
-      DbSettings__DbPassword: $(DbSettings__DbPassword)
-
-  # ---- Reporting ----------------------------------------------------------
-  # Playwright trace + video + failure screenshots are ALWAYS attached to each
-  # test result by the fixture (visible in the run's "Tests" tab -> Attachments)
-  # - the ADO-native path. The Allure HTML report below is opt-in via the
-  # 'enableAllure' parameter so the default run stays lean.
-  - ${{ if eq(parameters.enableAllure, true) }}:
-    # Collect allure-results (written next to the test assembly) into a stable
-    # staging folder, regardless of where on the agent the test host ran.
-    - powershell: |
-        $staging = "$(Build.ArtifactStagingDirectory)\allure-results"
-        New-Item -ItemType Directory -Force -Path $staging | Out-Null
-        $found = Get-ChildItem -Path "$(System.DefaultWorkingDirectory)" -Recurse -Directory -Filter "allure-results" -ErrorAction SilentlyContinue
-        $count = 0
-        foreach ($d in $found) {
-          Copy-Item -Path (Join-Path $d.FullName '*') -Destination $staging -Recurse -Force -ErrorAction SilentlyContinue
-          $count++
-        }
-        Write-Host "Collected allure-results from $count folder(s) into $staging"
-      displayName: 'Collect Allure results'
-      condition: succeededOrFailed()
-
-    # Generate the HTML report. Non-blocking: if the Allure CLI / Java is not on
-    # the agent, the raw results are still published (render later or via the
-    # Allure Azure DevOps extension). Install once on the agent for live reports:
-    #   npm i -g allure-commandline   (requires Java 8+ on PATH)
-    - powershell: |
-        $results = "$(Build.ArtifactStagingDirectory)\allure-results"
-        $report  = "$(Build.ArtifactStagingDirectory)\allure-report"
-        if (-not (Test-Path $results) -or -not (Get-ChildItem $results -ErrorAction SilentlyContinue)) {
-          Write-Host "No allure-results found; skipping report generation."
+          # Ensure the browser channel. If the system browser is already on the agent,
+          # Playwright refuses to install over it (exits 1, "already installed") - the
+          # desired state - so use the system install; otherwise download the channel.
+          $systemPaths = @{
+            'msedge' = @(
+              "$Env:ProgramFiles\Microsoft\Edge\Application\msedge.exe",
+              "${Env:ProgramFiles(x86)}\Microsoft\Edge\Application\msedge.exe")
+            'chrome' = @(
+              "$Env:ProgramFiles\Google\Chrome\Application\chrome.exe",
+              "${Env:ProgramFiles(x86)}\Google\Chrome\Application\chrome.exe")
+          }
+          if ($systemPaths[$channel] | Where-Object { Test-Path $_ }) {
+            Write-Host "System '$channel' found; Channel=$channel will use it. Skipping browser download."
+          } else {
+            Write-Host "System '$channel' not found; installing it via Playwright."
+            & $script.FullName install $channel
+          }
           exit 0
-        }
-        $allure = (Get-Command allure -ErrorAction SilentlyContinue)
-        try {
-          if ($allure) {
-            & allure generate $results --clean -o $report
-          } else {
-            Write-Host "Allure CLI not found on PATH; trying 'npx allure-commandline'..."
-            & npx --yes allure-commandline generate $results --clean -o $report
-          }
-          if (Test-Path (Join-Path $report 'index.html')) {
-            Write-Host "Allure HTML report generated at $report"
-            Write-Host "##vso[task.setvariable variable=AllureReportGenerated]true"
-          } else {
-            Write-Host "##[warning]Allure generate ran but no index.html was produced."
-          }
-        } catch {
-          Write-Host "##[warning]Could not generate Allure HTML (CLI/Java missing). Raw results are still published. $_"
-        }
-        # Reporting is best-effort: never let a non-zero CLI exit fail the step.
-        $global:LASTEXITCODE = 0
-        exit 0
-      displayName: 'Generate Allure report'
-      condition: succeededOrFailed()
-      continueOnError: true
+        displayName: 'Ensure Playwright browser + ffmpeg (${{ parameters.browserChannel }})'
 
-    - task: PublishPipelineArtifact@1
-      displayName: 'Publish Allure results'
-      condition: succeededOrFailed()
-      inputs:
-        targetPath: '$(Build.ArtifactStagingDirectory)/allure-results'
-        artifact: 'allure-results-${{ parameters.testEnv }}'
-        publishLocation: 'pipeline'
+      # Runs the automated tests for the test points in Plan/Suite/Config and
+      # writes their outcomes back to Azure Test Plans (testSelector: testPlan).
+      # With strategy.parallel > 1, VSTest distributes the points across agents.
+      - task: VSTest@2
+        displayName: 'Run WW Smoke test plan (${{ parameters.testEnv }})'
+        inputs:
+          testSelector: 'testPlan'
+          testPlan: '79388'
+          testSuite: '79389'
+          testConfiguration: '45'
+          searchFolder: '$(System.DefaultWorkingDirectory)'
+          testAssemblyVer2: |
+            **\bin\**\PlaywrightAutomation.dll
+            !**\*TestAdapter.dll
+            !**\ref\**
+            !**\obj\**
+          # Use the modern platform from VisualStudioTestPlatformInstaller@1.
+          # Without this, VSTest falls back to the agent's legacy 14.0 platform,
+          # which cannot load .NET 8 / NUnit3 assemblies (discovers 0 tests).
+          vsTestVersion: 'toolsInstaller'
+          uiTests: true
+          runInParallel: false
+          codeCoverageEnabled: false
+          testRunTitle: 'WW Smoke - ${{ parameters.testEnv }}'
+        env:
+          TEST_ENV: ${{ parameters.testEnv }}
+          PLAYWRIGHT_BROWSER_CHANNEL: ${{ parameters.browserChannel }}
+          # Enable video (ffmpeg installed above). Set to '' in the run to disable.
+          PLAYWRIGHT_RECORD_VIDEO: 'true'
+          PLAYWRIGHT_USERNAME: $(PLAYWRIGHT_USERNAME)
+          DbSettings__DbUserId: $(DbSettings__DbUserId)
+          DbSettings__DbPassword: $(DbSettings__DbPassword)
 
-    - task: PublishPipelineArtifact@1
-      displayName: 'Publish Allure HTML report'
-      condition: and(succeededOrFailed(), eq(variables['AllureReportGenerated'], 'true'))
-      inputs:
-        targetPath: '$(Build.ArtifactStagingDirectory)/allure-report'
-        artifact: 'allure-report-${{ parameters.testEnv }}'
-        publishLocation: 'pipeline'
+      # ---- Reporting --------------------------------------------------------
+      # Playwright trace + video + failure screenshots are ALWAYS attached to each
+      # test result by the fixture (visible in the run's "Tests" tab -> Attachments)
+      # - the ADO-native path. The Allure HTML report below is opt-in via the
+      # 'enableAllure' parameter so the default run stays lean.
+      - ${{ if eq(parameters.enableAllure, true) }}:
+        # Collect allure-results (written next to the test assembly) into a stable
+        # staging folder, regardless of where on the agent the test host ran.
+        - powershell: |
+            $staging = "$(Build.ArtifactStagingDirectory)\allure-results"
+            New-Item -ItemType Directory -Force -Path $staging | Out-Null
+            $found = Get-ChildItem -Path "$(System.DefaultWorkingDirectory)" -Recurse -Directory -Filter "allure-results" -ErrorAction SilentlyContinue
+            $count = 0
+            foreach ($d in $found) {
+              Copy-Item -Path (Join-Path $d.FullName '*') -Destination $staging -Recurse -Force -ErrorAction SilentlyContinue
+              $count++
+            }
+            Write-Host "Collected allure-results from $count folder(s) into $staging"
+          displayName: 'Collect Allure results'
+          condition: succeededOrFailed()
+
+        # Generate the HTML report. Non-blocking: if the Allure CLI / Java is not on
+        # the agent, the raw results are still published (render later or via the
+        # Allure Azure DevOps extension). Install once on the agent for live reports:
+        #   npm i -g allure-commandline   (requires Java 8+ on PATH)
+        - powershell: |
+            $results = "$(Build.ArtifactStagingDirectory)\allure-results"
+            $report  = "$(Build.ArtifactStagingDirectory)\allure-report"
+            if (-not (Test-Path $results) -or -not (Get-ChildItem $results -ErrorAction SilentlyContinue)) {
+              Write-Host "No allure-results found; skipping report generation."
+              exit 0
+            }
+            $allure = (Get-Command allure -ErrorAction SilentlyContinue)
+            try {
+              if ($allure) {
+                & allure generate $results --clean -o $report
+              } else {
+                Write-Host "Allure CLI not found on PATH; trying 'npx allure-commandline'..."
+                & npx --yes allure-commandline generate $results --clean -o $report
+              }
+              if (Test-Path (Join-Path $report 'index.html')) {
+                Write-Host "Allure HTML report generated at $report"
+                Write-Host "##vso[task.setvariable variable=AllureReportGenerated]true"
+              } else {
+                Write-Host "##[warning]Allure generate ran but no index.html was produced."
+              }
+            } catch {
+              Write-Host "##[warning]Could not generate Allure HTML (CLI/Java missing). Raw results are still published. $_"
+            }
+            # Reporting is best-effort: never let a non-zero CLI exit fail the step.
+            $global:LASTEXITCODE = 0
+            exit 0
+          displayName: 'Generate Allure report'
+          condition: succeededOrFailed()
+          continueOnError: true
+
+        - task: PublishPipelineArtifact@1
+          displayName: 'Publish Allure results'
+          condition: succeededOrFailed()
+          inputs:
+            targetPath: '$(Build.ArtifactStagingDirectory)/allure-results'
+            artifact: 'allure-results-${{ parameters.testEnv }}-$(System.JobPositionInPhase)'
+            publishLocation: 'pipeline'
+
+        - task: PublishPipelineArtifact@1
+          displayName: 'Publish Allure HTML report'
+          condition: and(succeededOrFailed(), eq(variables['AllureReportGenerated'], 'true'))
+          inputs:
+            targetPath: '$(Build.ArtifactStagingDirectory)/allure-report'
+            artifact: 'allure-report-${{ parameters.testEnv }}-$(System.JobPositionInPhase)'
+            publishLocation: 'pipeline'
