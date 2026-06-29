@@ -50,6 +50,10 @@ parameters:
     displayName: 'Email the run summary when finished'
     type: boolean
     default: true
+  - name: minPassPercent
+    displayName: 'Fail the build only if pass %% is below this'
+    type: number
+    default: 80
 
 schedules:
   - cron: '0 6 * * *'
@@ -214,6 +218,10 @@ jobs:
       # With strategy.parallel > 1, VSTest distributes the points across agents.
       - task: VSTest@2
         displayName: 'Run WW Smoke test plan (${{ parameters.testSuite }})'
+        # Don't fail the job on individual test failures - the pass-rate gate job
+        # decides build success (fails only if pass% < minPassPercent). Results
+        # still publish to Test Plans regardless.
+        continueOnError: true
         inputs:
           testSelector: 'testPlan'
           testPlan: '79388'
@@ -383,16 +391,16 @@ jobs:
             </div>
             "@
 
-            $smtp = "${{ parameters.smtpServer }}"
+            $smtp = "$(smtpServer)"
             if ([string]::IsNullOrWhiteSpace($smtp)) {
               Write-Host "##[warning]smtpServer is not set - skipping email. Summary: $subject"
               exit 0
             }
-            $to = "${{ parameters.emailTo }}".Split(',') | ForEach-Object { $_.Trim() } | Where-Object { $_ }
+            $to = "$(emailTo)".Split(',') | ForEach-Object { $_.Trim() } | Where-Object { $_ }
             $toList = $to -join ', '
             try {
-              Send-MailMessage -SmtpServer $smtp -Port ${{ parameters.smtpPort }} `
-                -From "${{ parameters.emailFrom }}" -To $to -Subject $subject -Body $body -BodyAsHtml
+              Send-MailMessage -SmtpServer $smtp -Port $(smtpPort) `
+                -From "$(emailFrom)" -To $to -Subject $subject -Body $body -BodyAsHtml
               Write-Host "Sent run summary to $toList via $smtp"
             } catch {
               Write-Host "##[warning]Failed to send summary email via $smtp : $_"
@@ -401,3 +409,49 @@ jobs:
           condition: succeededOrFailed()
           env:
             SYSTEM_ACCESSTOKEN: $(System.AccessToken)
+
+  # ==========================================================================
+  # Pass-rate gate. Runs after all test slices, reads the build's aggregated
+  # pass/fail, and fails the build ONLY if pass% < minPassPercent (default 80).
+  # This is the reason VSTest uses continueOnError: individual test failures do
+  # not fail the build - this gate is the single source of build success.
+  # Requires pipeline "Allow scripts to access the OAuth token".
+  # ==========================================================================
+  - job: PassRateGate
+    displayName: 'Pass-rate gate (min ${{ parameters.minPassPercent }}%)'
+    dependsOn: RunWWSmoke
+    condition: succeededOrFailed()
+    pool:
+      name: AppSvcs-OnPrem-SQA
+    steps:
+      - checkout: none
+      - powershell: |
+          $ErrorActionPreference = 'Continue'
+          $hdr     = @{ Authorization = "Bearer $env:SYSTEM_ACCESSTOKEN" }
+          $base    = "$(System.CollectionUri)".TrimEnd('/') + "/" + [uri]::EscapeDataString("$(System.TeamProject)")
+          $buildId = "$(Build.BuildId)"
+          $passed=0; $total=0
+          try {
+            $runs = Invoke-RestMethod -Headers $hdr -Uri "$base/_apis/test/runs?buildIds=$buildId&api-version=7.1"
+            foreach ($r in $runs.value) {
+              $d = Invoke-RestMethod -Headers $hdr -Uri "$base/_apis/test/runs/$($r.id)?api-version=7.1"
+              foreach ($s in $d.runStatistics) { if ($s.outcome -eq 'Passed') { $passed += [int]$s.count } }
+              $total += [int]$d.totalTests
+            }
+          } catch { Write-Host "##[warning]Could not read test results: $_" }
+          $min = [double]"${{ parameters.minPassPercent }}"
+          $pct = if ($total -gt 0) { [math]::Round(100.0 * $passed / $total, 1) } else { 0 }
+          Write-Host "Pass rate: $pct% ($passed / $total passed). Threshold: $min%."
+          if ($total -eq 0) {
+            Write-Host "##vso[task.logissue type=error]No test results were published for this build."
+            exit 1
+          }
+          if ($pct -lt $min) {
+            Write-Host "##vso[task.logissue type=error]Pass rate $pct% is below the $min% threshold - failing the build."
+            exit 1
+          }
+          Write-Host "Pass rate $pct% meets the $min% threshold - build passes."
+          exit 0
+        displayName: 'Evaluate pass rate'
+        env:
+          SYSTEM_ACCESSTOKEN: $(System.AccessToken)
