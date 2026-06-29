@@ -1,0 +1,249 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>WW Smoke Tests — Launcher</title>
+<style>
+  :root{
+    --bg:#0f1420; --card:#171f2e; --card2:#1d2738; --ink:#e8edf5; --muted:#9aa7bd;
+    --line:#2a3650; --accent:#3b82f6; --accent2:#2563eb; --ok:#22c55e; --warn:#f59e0b;
+  }
+  *{box-sizing:border-box}
+  body{margin:0;font:15px/1.5 -apple-system,Segoe UI,Roboto,Helvetica,Arial,sans-serif;
+       background:linear-gradient(160deg,#0b1018,#0f1420 40%);color:var(--ink);min-height:100vh}
+  header{padding:28px 24px 8px;max-width:980px;margin:0 auto}
+  header h1{margin:0;font-size:24px;letter-spacing:.2px}
+  header p{margin:6px 0 0;color:var(--muted)}
+  main{max-width:980px;margin:0 auto;padding:16px 24px 64px}
+  .grid{display:grid;grid-template-columns:1.4fr 1fr;gap:20px}
+  @media(max-width:820px){.grid{grid-template-columns:1fr}}
+  .card{background:var(--card);border:1px solid var(--line);border-radius:14px;padding:20px}
+  .card h2{margin:0 0 14px;font-size:14px;text-transform:uppercase;letter-spacing:.8px;color:var(--muted)}
+  label{display:block;margin:0 0 6px;font-size:13px;color:var(--muted)}
+  .field{margin-bottom:16px}
+  select,input[type=number]{width:100%;padding:11px 12px;border-radius:10px;border:1px solid var(--line);
+       background:var(--card2);color:var(--ink);font-size:15px;appearance:none}
+  .bu-grid{display:grid;grid-template-columns:repeat(2,1fr);gap:10px}
+  @media(max-width:480px){.bu-grid{grid-template-columns:1fr}}
+  .bu{cursor:pointer;border:1px solid var(--line);background:var(--card2);border-radius:11px;
+      padding:12px 14px;display:flex;justify-content:space-between;align-items:center;transition:.12s}
+  .bu:hover{border-color:var(--accent)}
+  .bu.sel{border-color:var(--accent);background:#16233d;box-shadow:0 0 0 1px var(--accent) inset}
+  .bu .nm{font-weight:600}
+  .bu .ct{font-size:12px;color:var(--muted)}
+  .toggle{display:flex;align-items:center;gap:10px;cursor:pointer;user-select:none}
+  .toggle input{width:18px;height:18px;accent-color:var(--accent)}
+  .summary{background:var(--card2);border:1px dashed var(--line);border-radius:11px;padding:14px;margin-top:4px}
+  .kv{display:flex;justify-content:space-between;gap:12px;padding:7px 0;border-bottom:1px solid #222c40}
+  .kv:last-child{border-bottom:0}
+  .kv .k{color:var(--muted)}
+  .kv .v{font-weight:600;text-align:right}
+  .pill{display:inline-block;background:#16233d;border:1px solid var(--line);border-radius:999px;
+        padding:2px 9px;font-size:12px;color:var(--ink)}
+  .run{display:block;width:100%;margin-top:16px;padding:14px;border:0;border-radius:11px;cursor:pointer;
+       background:linear-gradient(180deg,var(--accent),var(--accent2));color:#fff;font-size:16px;font-weight:700;text-align:center;text-decoration:none}
+  .run:hover{filter:brightness(1.06)}
+  .note{font-size:12px;color:var(--muted);margin-top:10px}
+  .steps{counter-reset:s;margin:10px 0 0;padding:0;list-style:none}
+  .steps li{counter-increment:s;position:relative;padding:6px 0 6px 30px;color:var(--muted);font-size:13px}
+  .steps li::before{content:counter(s);position:absolute;left:0;top:5px;width:20px;height:20px;border-radius:50%;
+        background:#16233d;border:1px solid var(--line);color:var(--ink);font-size:12px;text-align:center;line-height:20px}
+  .steps b{color:var(--ink)}
+  .links{display:flex;flex-wrap:wrap;gap:10px;margin-top:6px}
+  .links a{color:#bcd2ff;text-decoration:none;font-size:13px;border:1px solid var(--line);padding:7px 11px;border-radius:9px}
+  .links a:hover{border-color:var(--accent)}
+  .warnbar{display:none;margin:0 0 16px;padding:10px 14px;border-radius:10px;background:#3a2a12;border:1px solid #6b4e16;color:#ffd591;font-size:13px}
+  code{background:#0c1119;border:1px solid var(--line);border-radius:6px;padding:1px 6px;color:#cfe0ff}
+  .footer{max-width:980px;margin:0 auto;padding:0 24px 40px;color:var(--muted);font-size:12px}
+</style>
+</head>
+<body>
+<header>
+  <h1>🧪 WW Smoke Tests — Launcher</h1>
+  <p>Pick a business unit and environment, then launch the run in Azure DevOps. You sign in with your normal ADO account — no tokens needed.</p>
+</header>
+
+<main>
+  <div id="cfgWarn" class="warnbar"></div>
+  <div class="grid">
+    <!-- LEFT: choices -->
+    <section class="card">
+      <h2>1 · Business unit</h2>
+      <div id="buGrid" class="bu-grid"></div>
+
+      <h2 style="margin-top:22px">2 · Options</h2>
+      <div class="field">
+        <label for="env">Environment <span class="pill">appsettings.&lt;ENV&gt;.json</span></label>
+        <select id="env"></select>
+      </div>
+      <div class="field">
+        <label for="browser">Browser</label>
+        <select id="browser">
+          <option value="msedge">Microsoft Edge (msedge)</option>
+          <option value="chrome">Google Chrome (chrome)</option>
+        </select>
+      </div>
+      <div class="field">
+        <label for="agents">Agents (parallel)</label>
+        <input id="agents" type="number" min="1" max="8" value="1" />
+      </div>
+      <div class="field">
+        <label class="toggle"><input id="allure" type="checkbox" /> Generate Allure HTML report</label>
+      </div>
+    </section>
+
+    <!-- RIGHT: summary + launch -->
+    <section class="card">
+      <h2>3 · Review &amp; launch</h2>
+      <div class="summary" id="summary"></div>
+
+      <a id="runBtn" class="run" target="_blank" rel="noopener">▶ Open Run dialog in Azure DevOps</a>
+
+      <p class="note">Azure DevOps doesn't pre-fill the form from a link, so in the dialog that opens, set these values:</p>
+      <ol class="steps">
+        <li>Click <b>Run pipeline</b> (top-right).</li>
+        <li>Set <b>Business unit / suite to run</b> = <span id="s-bu">—</span></li>
+        <li>Set <b>Target environment</b> = <span id="s-env">—</span></li>
+        <li>Set <b>Browser</b> = <span id="s-browser">—</span>, <b>Agents</b> = <span id="s-agents">—</span><span id="s-allure"></span></li>
+        <li>Click <b>Run</b>. Results appear in the run's <b>Tests</b> tab and in Test Plans.</li>
+      </ol>
+
+      <h2 style="margin-top:22px">Results &amp; reports</h2>
+      <div class="links" id="links"></div>
+    </section>
+  </div>
+</main>
+
+<footer class="footer">
+  WW Smoke — Test Plan 79388 / Suite 79389. Runs on the self-hosted <code>AppSvcs-OnPrem-SQA</code> pool against internal <code>*.dqtest.ad</code> hosts.
+</footer>
+
+<script>
+/* ──────────────────────────────────────────────────────────────────────────
+   CONFIG — set PIPELINE_DEFINITION_ID once, after you create the pipeline in
+   Azure DevOps (Pipelines → your "WW Smoke Tests" pipeline → the number in the
+   URL ?definitionId=NN). Everything else is already wired up.
+   ────────────────────────────────────────────────────────────────────────── */
+const CONFIG = {
+  org:     "EnterpriseRepo",
+  project: "Application Services",
+  PIPELINE_DEFINITION_ID: "REPLACE_ME",     // e.g. "312"
+  testPlanId: "79388",
+  parentSuiteId: "79389"
+};
+
+/* Business units → Test Plan suite ids (keep in sync with azure-pipelines.yml). */
+const BUS = [
+  { key:"All (TestEnv)",               label:"All (TestEnv)",      suite:"79389", count:173, env:null   },
+  { key:"GOV",                         label:"GOV — Government",   suite:"79803", count:71,  env:null   },
+  { key:"COM",                         label:"COM — Commercial",   suite:"79802", count:38,  env:null   },
+  { key:"BCBSM",                       label:"BCBSM",              suite:"79801", count:32,  env:null   },
+  { key:"WW2 Payment",                 label:"WW2 Payment",        suite:"79805", count:14,  env:null   },
+  { key:"MH",                          label:"MH — MassHealth",    suite:"79806", count:10,  env:null   },
+  { key:"WW2 Config",                  label:"WW2 Config",         suite:"79804", count:8,   env:null   },
+  { key:"WebServer Validation (Prod)", label:"WebServer (Prod)",   suite:"79800", count:116, env:"PROD" },
+];
+
+const ENVS = ["QAR","TS06","DS01","DS10","TSHF","TSNB5","TSNB6","TSNB7","TSSLADJ","PROD"];
+
+const enc = encodeURIComponent;
+const orgUrl = `https://dev.azure.com/${enc(CONFIG.org)}/${enc(CONFIG.project)}`;
+
+let selectedBU = BUS[0];
+
+/* Build BU cards */
+const buGrid = document.getElementById("buGrid");
+BUS.forEach(bu => {
+  const el = document.createElement("div");
+  el.className = "bu" + (bu === selectedBU ? " sel" : "");
+  el.innerHTML = `<span class="nm">${bu.label}</span><span class="ct">${bu.count}</span>`;
+  el.onclick = () => {
+    selectedBU = bu;
+    document.querySelectorAll(".bu").forEach(n => n.classList.remove("sel"));
+    el.classList.add("sel");
+    if (bu.env) document.getElementById("env").value = bu.env;   // prod suite → PROD
+    render();
+  };
+  buGrid.appendChild(el);
+});
+
+/* Env dropdown */
+const envSel = document.getElementById("env");
+ENVS.forEach(e => {
+  const o = document.createElement("option"); o.value = e; o.textContent = e;
+  if (e === "QAR") o.selected = true;
+  envSel.appendChild(o);
+});
+
+/* Result links */
+const links = document.getElementById("links");
+[
+  ["📋 Test Plan (suites & cases)", `${orgUrl}/_testPlans/execute?planId=${CONFIG.testPlanId}&suiteId=${CONFIG.parentSuiteId}`],
+  ["▶ Pipeline runs", () => pipelineUrl()],
+  ["📈 Analytics – test results", `${orgUrl}/_analytics/view`],
+].forEach(([txt, href]) => {
+  const a = document.createElement("a");
+  a.textContent = txt; a.target = "_blank"; a.rel = "noopener";
+  a.href = typeof href === "function" ? href() : href;
+  links.appendChild(a);
+});
+
+function pipelineUrl(){
+  const id = CONFIG.PIPELINE_DEFINITION_ID;
+  return id && id !== "REPLACE_ME"
+    ? `${orgUrl}/_build?definitionId=${enc(id)}`
+    : `${orgUrl}/_build`;
+}
+
+function render(){
+  const env     = envSel.value;
+  const browser = document.getElementById("browser").value;
+  const agents  = Math.max(1, parseInt(document.getElementById("agents").value || "1", 10));
+  const allure  = document.getElementById("allure").checked;
+
+  const sum = document.getElementById("summary");
+  sum.innerHTML = `
+    <div class="kv"><span class="k">Business unit</span><span class="v">${selectedBU.label} <span class="pill">${selectedBU.count} cases</span></span></div>
+    <div class="kv"><span class="k">Suite param</span><span class="v">${selectedBU.key}</span></div>
+    <div class="kv"><span class="k">Environment</span><span class="v">${env}</span></div>
+    <div class="kv"><span class="k">Browser</span><span class="v">${browser}</span></div>
+    <div class="kv"><span class="k">Agents</span><span class="v">${agents}</span></div>
+    <div class="kv"><span class="k">Allure report</span><span class="v">${allure ? "Yes" : "No"}</span></div>`;
+
+  document.getElementById("s-bu").textContent      = selectedBU.key;
+  document.getElementById("s-env").textContent     = env;
+  document.getElementById("s-browser").textContent = browser;
+  document.getElementById("s-agents").textContent  = agents;
+  document.getElementById("s-allure").textContent  = allure ? ", Allure report = on" : "";
+
+  // Warn if the prod-only suite is paired with a non-PROD env.
+  if (selectedBU.env === "PROD" && env !== "PROD"){
+    showWarn(`The <b>${selectedBU.label}</b> suite is prod-only — set Environment to <code>PROD</code>.`);
+  } else if (selectedBU.env !== "PROD" && env === "PROD"){
+    showWarn(`You picked <b>PROD</b> for a test-environment suite. Double-check that's intended.`);
+  } else {
+    hideWarn();
+  }
+
+  document.getElementById("runBtn").href = pipelineUrl();
+}
+
+function showWarn(html){ const w=document.getElementById("cfgWarn"); w.innerHTML="⚠️ "+html; w.style.display="block"; }
+function hideWarn(){ const w=document.getElementById("cfgWarn"); if(!w.dataset.cfg) w.style.display="none"; }
+
+["change","input"].forEach(ev=>{
+  ["env","browser","agents","allure"].forEach(id=>document.getElementById(id).addEventListener(ev,render));
+});
+
+/* Config sanity check */
+if (CONFIG.PIPELINE_DEFINITION_ID === "REPLACE_ME"){
+  const w=document.getElementById("cfgWarn");
+  w.innerHTML = "⚙️ One-time setup: edit <code>index.html</code> and set <code>CONFIG.PIPELINE_DEFINITION_ID</code> to your pipeline's id (Pipelines → WW Smoke Tests → number after <code>?definitionId=</code> in the URL). Until then, the button opens the Pipelines list.";
+  w.style.display="block"; w.dataset.cfg="1";
+}
+
+render();
+</script>
+</body>
+</html>

@@ -40,12 +40,21 @@ parameters:
     type: number
     default: 1
   - name: testSuite
-    displayName: 'Test suite to run'
+    displayName: 'Business unit / suite to run'
     type: string
-    default: '79389'
+    default: 'All (TestEnv)'
+    # Friendly names; mapped to the numeric Test Plan suite id by the
+    # 'Resolve suite selection' step below so the Run dialog shows BU names
+    # instead of raw ids. Keep this list in sync with that step's map.
     values:
-      - '79389'   # WW Smoke - TestEnv (default; excludes prod WebServer tests)
-      - '79800'   # WW Smoke - WebServer Validation (Prod)
+      - 'All (TestEnv)'                 # 79389 - all 173 test-env cases (excludes prod WebServer)
+      - 'GOV'                           # 79803 - Government
+      - 'COM'                           # 79802 - Commercial
+      - 'BCBSM'                         # 79801 - BCBSM
+      - 'MH'                            # 79806 - MassHealth
+      - 'WW2 Payment'                   # 79805 - WW2 Payment
+      - 'WW2 Config'                    # 79804 - WW2 Config
+      - 'WebServer Validation (Prod)'   # 79800 - run with testEnv=PROD
 
 schedules:
   - cron: '0 6 * * *'
@@ -163,6 +172,29 @@ jobs:
           exit 0
         displayName: 'Ensure Playwright browser + ffmpeg (${{ parameters.browserChannel }})'
 
+      # Map the friendly business-unit selection to its numeric Test Plan suite id.
+      # Keep this map in sync with the 'testSuite' parameter values above.
+      - powershell: |
+          $map = @{
+            'All (TestEnv)'               = '79389'
+            'GOV'                         = '79803'
+            'COM'                         = '79802'
+            'BCBSM'                       = '79801'
+            'MH'                          = '79806'
+            'WW2 Payment'                 = '79805'
+            'WW2 Config'                  = '79804'
+            'WebServer Validation (Prod)' = '79800'
+          }
+          $sel = "${{ parameters.testSuite }}"
+          $id  = $map[$sel]
+          if ([string]::IsNullOrWhiteSpace($id)) {
+            Write-Host "##vso[task.logissue type=error]Unknown suite selection '$sel'."
+            exit 1
+          }
+          Write-Host "Suite selection '$sel' -> suite id $id"
+          Write-Host "##vso[task.setvariable variable=resolvedSuiteId]$id"
+        displayName: 'Resolve suite selection (${{ parameters.testSuite }})'
+
       # Runs the automated tests for the test points in Plan/Suite/Config and
       # writes their outcomes back to Azure Test Plans (testSelector: testPlan).
       # With strategy.parallel > 1, VSTest distributes the points across agents.
@@ -171,7 +203,7 @@ jobs:
         inputs:
           testSelector: 'testPlan'
           testPlan: '79388'
-          testSuite: '${{ parameters.testSuite }}'
+          testSuite: '$(resolvedSuiteId)'
           testConfiguration: '45'
           searchFolder: '$(System.DefaultWorkingDirectory)'
           testAssemblyVer2: |
