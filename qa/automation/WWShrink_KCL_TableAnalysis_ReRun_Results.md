@@ -24,20 +24,23 @@ The defect (Member_Coverage / Subscriber_Coverage / Contact retained in full) is
 | dbo.Contact_Broker_Member_Coverage | 566 | 0 | — | now EMPTIED |
 | dbo.member_holds | 5,977 | 0 | — | now EMPTIED |
 
-These three tables alone removed an **additional ~17.7M rows / ~9.0 GB** beyond the first run.
+These three tables + their now-emptied dependents removed an **additional ~19.3M rows / ~9.6 GB** beyond the first run (855.4M → 836.1M rows; 183,473 → 173,664.93 MB).
 → The Jira bug (assigned to Nabeel) can be **closed as Fixed/Verified**. Scoping is now consistent across all member entities; `Member_Coverage` count (116,810) tracks `Member_ID` (65,168) + dependents as expected.
 
 ---
 
-## 2. Overall result (post-fix)
+## 2. Overall result (post-fix) — EXACT roll-up (Section 5)
 
 | Metric | Source (commercial) | Target (KCL) | Reduction |
 |--------|--------------------:|-------------:|----------:|
-| Reserved size | ~644 GB | **~170 GB** | **~474 GB (~73.5%)** |
-| Total rows | ~2.34 B | **~838 M** | ~1.50 B (~64%) |
-| Tables dropped | — | 0 | — |
+| Reserved size | 644,146.20 MB (~629 GB) | **173,664.93 MB (~170 GB)** | **470,481.27 MB (~459 GB, −73.04%)** |
+| Total rows | 2,342,457,554 | **836,117,922** | −1,506,339,632 (−64.31%) |
+| Overall rows retained | — | **35.69%** | — |
+| Tables (user) | 1,665 | 1,671 | +6 created |
+| **Tables touched** | — | **220 of 1,665 (13.2%)** | — |
+| Tables dropped | — | **0** | — |
 
-> Size/row totals are derived from the first-run roll-up (644,146 MB / 183,473 MB) minus the additional post-fix trims. **Run Section 5 of the script for the exact roll-up** and paste it back to lock these numbers in.
+> These are the **exact** Section 5 figures from the post-fix WW1.0 run (no longer derived). The first run reclaimed to 183,473 MB / 855,420,080 rows; the fix trims an **additional 9,808 MB (~9.6 GB) and ~19.3M rows** (Member_Coverage/Subscriber_Coverage/Contact + their now-emptied dependents), bringing the shrunk DB to **173,664.93 MB / 836,117,922 rows**.
 
 ---
 
@@ -86,7 +89,7 @@ The shrink is working as designed, but **~85–90% of the shrunk KCL DB is NOT K
 | Test case | Result |
 |-----------|--------|
 | TC-P4-04 (data integrity) | **PASS** — member-table scoping defect fixed & verified; 0 tables dropped; single-client scoping consistent |
-| TC-P4-05 (size reduction) | **PASS** — ~644 GB → ~170 GB (~73.5%); exact roll-up pending Section 5 |
+| TC-P4-05 (size reduction) | **PASS** — 644,146.20 MB → 173,664.93 MB (−73.04%); 2.34B → 836.1M rows (−64.31%); exact Section 5 roll-up captured |
 | Jira bug (Nabeel) | **Close as Fixed/Verified** |
 
-**Follow-ups:** (1) paste Section 5 for the exact post-fix roll-up; (2) architect review of centralizing/scoping fee-schedule + provider reference data (~125 GB potential).
+**Follow-ups:** architect review of centralizing/scoping fee-schedule + provider reference data (~125 GB potential per client DB).
