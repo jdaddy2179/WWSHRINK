@@ -95,6 +95,10 @@ jobs:
     timeoutInMinutes: 120
     pool:
       name: AppSvcs-OnPrem-SQA
+    # Wipe the agent's _work for this pipeline at the start of every run so old
+    # checkouts / bin / obj don't accumulate and fill the disk.
+    workspace:
+      clean: all
     # Distribute the filtered tests across N agents. VSTest slices the matched
     # tests automatically - each agent runs its slice and publishes to the same
     # run. Needs N agents free in the pool.
@@ -103,6 +107,22 @@ jobs:
     steps:
       - checkout: self
         clean: true
+
+      # Reclaim disk before the heavy restore/build. Best-effort: never fails the
+      # run. Safe to prune the GLOBAL Playwright cache because the run installs
+      # browsers/ffmpeg locally (PLAYWRIGHT_BROWSERS_PATH=0, next to the build).
+      - powershell: |
+          $ErrorActionPreference = 'SilentlyContinue'
+          function Free { (Get-PSDrive -Name ($env:SystemDrive.TrimEnd(':'))).Free/1GB }
+          Write-Host ("Free before: {0:N1} GB" -f (Free))
+          Remove-Item "$env:TEMP\*"                         -Recurse -Force
+          Remove-Item "$env:LOCALAPPDATA\ms-playwright\*"   -Recurse -Force
+          Remove-Item "$env:LOCALAPPDATA\Temp\*"            -Recurse -Force
+          # NuGet http cache (not the global-packages restore needs); safe to drop.
+          & dotnet nuget locals http-cache --clear 2>$null
+          Write-Host ("Free after:  {0:N1} GB" -f (Free))
+          exit 0
+        displayName: 'Reclaim disk space'
 
       # Fail fast with a clear message if required secrets are missing, instead of
       # hanging at the app Sign In page (PLAYWRIGHT_USERNAME) or erroring deep in a
