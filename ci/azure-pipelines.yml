@@ -105,8 +105,11 @@ jobs:
     strategy:
       parallel: ${{ parameters.agentCount }}
     steps:
+      # Shallow clone (fetchDepth: 1) - only the latest commit, no history, to
+      # keep the per-agent checkout small.
       - checkout: self
         clean: true
+        fetchDepth: 1
 
       # Reclaim disk before the heavy restore/build. Best-effort: never fails the
       # run. NOTE: do NOT delete %LOCALAPPDATA%\ms-playwright - the runtime
