@@ -7,7 +7,7 @@
 <style>
   :root{
     --bg:#0f1420; --card:#171f2e; --card2:#1d2738; --ink:#e8edf5; --muted:#9aa7bd;
-    --line:#2a3650; --accent:#3b82f6; --accent2:#2563eb; --ok:#22c55e; --warn:#f59e0b;
+    --line:#2a3650; --accent:#3b82f6; --accent2:#2563eb;
   }
   *{box-sizing:border-box}
   body{margin:0;font:15px/1.5 -apple-system,Segoe UI,Roboto,Helvetica,Arial,sans-serif;
@@ -24,8 +24,7 @@
   .field{margin-bottom:16px}
   select,input[type=number]{width:100%;padding:11px 12px;border-radius:10px;border:1px solid var(--line);
        background:var(--card2);color:var(--ink);font-size:15px;appearance:none}
-  .bu-grid{display:grid;grid-template-columns:repeat(2,1fr);gap:10px}
-  @media(max-width:480px){.bu-grid{grid-template-columns:1fr}}
+  .bu-grid{display:grid;grid-template-columns:1fr;gap:10px}
   .bu{cursor:pointer;border:1px solid var(--line);background:var(--card2);border-radius:11px;
       padding:12px 14px;display:flex;justify-content:space-between;align-items:center;transition:.12s}
   .bu:hover{border-color:var(--accent)}
@@ -61,7 +60,7 @@
 <body>
 <header>
   <h1>🧪 WW Smoke Tests — Launcher</h1>
-  <p>Pick an environment, then launch the run in Azure DevOps. You sign in with your normal ADO account — no tokens needed.</p>
+  <p>Pick what to run and an environment, then launch in Azure DevOps. You sign in with your normal ADO account — no tokens needed. Results land in the run's <b>Tests</b> tab with failure details and screenshots.</p>
 </header>
 
 <main>
@@ -69,10 +68,14 @@
   <div class="grid">
     <!-- LEFT: choices -->
     <section class="card">
-      <h2>1 · Environment</h2>
+      <h2>1 · What to run</h2>
       <div id="buGrid" class="bu-grid"></div>
 
       <h2 style="margin-top:22px">2 · Options</h2>
+      <div class="field">
+        <label for="env">Environment <span class="pill">appsettings.&lt;ENV&gt;.json</span></label>
+        <select id="env"></select>
+      </div>
       <div class="field">
         <label for="browser">Browser</label>
         <select id="browser">
@@ -85,7 +88,7 @@
         <input id="agents" type="number" min="1" max="8" value="1" />
       </div>
       <div class="field">
-        <label class="toggle"><input id="allure" type="checkbox" /> Generate Allure HTML report</label>
+        <label class="toggle"><input id="allure" type="checkbox" /> Also generate Allure HTML report</label>
       </div>
     </section>
 
@@ -99,9 +102,10 @@
       <p class="note">Azure DevOps doesn't pre-fill the form from a link, so in the dialog that opens, set these values:</p>
       <ol class="steps">
         <li>Click <b>Run pipeline</b> (top-right).</li>
-        <li>Set <b>Environment suite to run</b> = <span id="s-bu">—</span></li>
+        <li>Set <b>Which tests to run</b> = <span id="s-scope">—</span></li>
+        <li>Set <b>Target environment</b> = <span id="s-env">—</span></li>
         <li>Set <b>Browser</b> = <span id="s-browser">—</span>, <b>Agents</b> = <span id="s-agents">—</span><span id="s-allure"></span></li>
-        <li>Click <b>Run</b>. Results appear in the run's <b>Tests</b> tab and in Test Plans.</li>
+        <li>Click <b>Run</b>. Open the <b>Tests</b> tab for per-test failures + screenshots.</li>
       </ol>
 
       <h2 style="margin-top:22px">Results &amp; reports</h2>
@@ -111,56 +115,65 @@
 </main>
 
 <footer class="footer">
-  WW Smoke — Test Plan 79388 / Suite 79389. Runs on the self-hosted <code>AppSvcs-OnPrem-SQA</code> pool against internal <code>*.dqtest.ad</code> hosts.
+  WW Smoke — Playwright/NUnit, run by category filter (no Test Plan needed). Runs on the self-hosted <code>AppSvcs-OnPrem-SQA</code> pool against internal <code>*.dqtest.ad</code> hosts.
 </footer>
 
 <script>
 /* ──────────────────────────────────────────────────────────────────────────
-   CONFIG — set PIPELINE_DEFINITION_ID once, after you create the pipeline in
-   Azure DevOps (Pipelines → your "WW Smoke Tests" pipeline → the number in the
-   URL ?definitionId=NN). Everything else is already wired up.
+   CONFIG — set PIPELINE_DEFINITION_ID once (Pipelines → WW Smoke Tests → the
+   number after ?definitionId= in the URL). Everything else is wired up.
    ────────────────────────────────────────────────────────────────────────── */
 const CONFIG = {
   org:     "EnterpriseRepo",
   project: "Application Services",
-  PIPELINE_DEFINITION_ID: "697",     // e.g. "312"
-  testPlanId: "79388",
-  parentSuiteId: "79389"
+  PIPELINE_DEFINITION_ID: "697",
 };
 
-/* Environment suites → Test Plan suite ids (keep in sync with azure-pipelines.yml).
-   Each Env suite is a 173-case leaf that forces its own environment + config. */
-const SUITES = [
-  { key:"Env - TS06", label:"TS06", suite:"79808", count:173, env:"TS06" },
-  { key:"Env - DS10", label:"DS10", suite:"79807", count:173, env:"DS10" },
-  { key:"Env - PROD", label:"PROD", suite:"79809", count:173, env:"PROD" },
+/* testScope options (keep in sync with azure-pipelines.yml). prodOnly suites
+   prompt a reminder to use the PROD environment. */
+const SCOPES = [
+  { key:"Smoke (TestEnv)",  label:"Smoke (TestEnv)",  hint:"main smoke set",     prodOnly:false },
+  { key:"WebServer (Prod)", label:"WebServer (Prod)", hint:"prod web servers",   prodOnly:true  },
+  { key:"Regression",       label:"Regression",       hint:"regression suite",   prodOnly:false },
+  { key:"All (no Delta)",   label:"All (no Delta)",    hint:"everything but Delta",prodOnly:false },
 ];
+
+const ENVS = ["TS06","DS01","DS10","QAR","TSHF","TSNB5","TSNB6","TSNB7","TSSLADJ","PROD"];
 
 const enc = encodeURIComponent;
 const orgUrl = `https://dev.azure.com/${enc(CONFIG.org)}/${enc(CONFIG.project)}`;
 
-let selected = SUITES[0];
+let selected = SCOPES[0];
 
-/* Build environment cards */
+/* Build scope cards */
 const buGrid = document.getElementById("buGrid");
-SUITES.forEach(s => {
+SCOPES.forEach(s => {
   const el = document.createElement("div");
   el.className = "bu" + (s === selected ? " sel" : "");
-  el.innerHTML = `<span class="nm">${s.label}</span><span class="ct">${s.count} tests</span>`;
+  el.innerHTML = `<span class="nm">${s.label}</span><span class="ct">${s.hint}</span>`;
   el.onclick = () => {
     selected = s;
     document.querySelectorAll(".bu").forEach(n => n.classList.remove("sel"));
     el.classList.add("sel");
+    if (s.prodOnly) document.getElementById("env").value = "PROD";
     render();
   };
   buGrid.appendChild(el);
 });
 
+/* Env dropdown */
+const envSel = document.getElementById("env");
+ENVS.forEach(e => {
+  const o = document.createElement("option"); o.value = e; o.textContent = e;
+  if (e === "TS06") o.selected = true;
+  envSel.appendChild(o);
+});
+
 /* Result links */
 const links = document.getElementById("links");
 [
-  ["📋 Test Plan (suites & cases)", `${orgUrl}/_testPlans/execute?planId=${CONFIG.testPlanId}&suiteId=${CONFIG.parentSuiteId}`],
   ["▶ Pipeline runs", () => pipelineUrl()],
+  ["🧪 Latest Tests tab", () => pipelineUrl()],
   ["📈 Analytics – test results", `${orgUrl}/_analytics/view`],
 ].forEach(([txt, href]) => {
   const a = document.createElement("a");
@@ -177,34 +190,41 @@ function pipelineUrl(){
 }
 
 function render(){
+  const env     = envSel.value;
   const browser = document.getElementById("browser").value;
   const agents  = Math.max(1, parseInt(document.getElementById("agents").value || "1", 10));
   const allure  = document.getElementById("allure").checked;
 
-  const sum = document.getElementById("summary");
-  sum.innerHTML = `
-    <div class="kv"><span class="k">Environment</span><span class="v">${selected.env} <span class="pill">${selected.count} tests</span></span></div>
-    <div class="kv"><span class="k">Suite param</span><span class="v">${selected.key}</span></div>
+  document.getElementById("summary").innerHTML = `
+    <div class="kv"><span class="k">Scope</span><span class="v">${selected.key}</span></div>
+    <div class="kv"><span class="k">Environment</span><span class="v">${env}</span></div>
     <div class="kv"><span class="k">Browser</span><span class="v">${browser}</span></div>
     <div class="kv"><span class="k">Agents</span><span class="v">${agents}</span></div>
     <div class="kv"><span class="k">Allure report</span><span class="v">${allure ? "Yes" : "No"}</span></div>`;
 
-  document.getElementById("s-bu").textContent      = selected.key;
+  document.getElementById("s-scope").textContent   = selected.key;
+  document.getElementById("s-env").textContent     = env;
   document.getElementById("s-browser").textContent = browser;
   document.getElementById("s-agents").textContent  = agents;
   document.getElementById("s-allure").textContent  = allure ? ", Allure report = on" : "";
 
+  if (selected.prodOnly && env !== "PROD"){
+    showWarn(`<b>${selected.label}</b> is prod-only — set Environment to <code>PROD</code>.`);
+  } else { hideWarn(); }
+
   document.getElementById("runBtn").href = pipelineUrl();
 }
 
+function showWarn(html){ const w=document.getElementById("cfgWarn"); if(w.dataset.cfg) return; w.innerHTML="⚠️ "+html; w.style.display="block"; }
+function hideWarn(){ const w=document.getElementById("cfgWarn"); if(!w.dataset.cfg) w.style.display="none"; }
+
 ["change","input"].forEach(ev=>{
-  ["browser","agents","allure"].forEach(id=>document.getElementById(id).addEventListener(ev,render));
+  ["env","browser","agents","allure"].forEach(id=>document.getElementById(id).addEventListener(ev,render));
 });
 
-/* Config sanity check */
 if (CONFIG.PIPELINE_DEFINITION_ID === "REPLACE_ME"){
   const w=document.getElementById("cfgWarn");
-  w.innerHTML = "⚙️ One-time setup: edit <code>index.html</code> and set <code>CONFIG.PIPELINE_DEFINITION_ID</code> to your pipeline's id (Pipelines → WW Smoke Tests → number after <code>?definitionId=</code> in the URL). Until then, the button opens the Pipelines list.";
+  w.innerHTML = "⚙️ One-time setup: set <code>CONFIG.PIPELINE_DEFINITION_ID</code> in index.html.";
   w.style.display="block"; w.dataset.cfg="1";
 }
 

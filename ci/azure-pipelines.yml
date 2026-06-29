@@ -1,16 +1,19 @@
 # ============================================================================
-# WW Smoke — run automated tests from Azure Test Plans (YAML-native)
+# WW Smoke — run Playwright tests directly + rich HTML reporting (YAML-native)
 # ----------------------------------------------------------------------------
-# Replaces the on-prem classic release "PlaywrightAutoRelease". Instead of a
-# 9-stage release, this single YAML pipeline runs the automated tests that are
-# associated with the test cases in:
-#       Test Plan 79388  /  Suite 79389  /  Configuration 45  ("WW Smoke")
-# and publishes pass/fail back onto the test points, so results show up in
-# Azure Test Plans.
+# Replaces the on-prem classic release "PlaywrightAutoRelease" AND the earlier
+# Azure Test Plan approach. Tests are selected by NUnit Category (no test plan,
+# no suites, no configurations, no point mapping), run with VSTest, and the
+# results land in:
+#   * the native Azure DevOps "Tests" tab - clickable per-test failure message +
+#     stack trace + the Playwright screenshot/trace/video the fixture attaches
+#     on failure (the easy-to-read HTML view, no extra tooling), and
+#   * an optional standalone Allure HTML report published as an artifact.
 #
-# Pick the target environment at run time (Run pipeline -> set 'testEnv').
-# The app reads TEST_ENV and loads appsettings.<ENV>.json itself, so no
-# File Transform step is needed (legacy used File Transform; not required here).
+# Pick the environment at run time ('testEnv' -> appsettings.<ENV>.json) and the
+# scope ('testScope' -> a category filter). The build passes unless the pass
+# rate falls below 'minPassPercent' (default 80), so a few known-failing tests
+# don't turn the pipeline red.
 #
 # Runs on a SELF-HOSTED pool (AppSvcs-OnPrem-SQA): the suite targets internal
 # *.dqtest.ad hosts, on-prem SQL, and an on-prem NuGet feed that Microsoft-
@@ -21,10 +24,20 @@ trigger: none
 pr: none
 
 parameters:
-  - name: enableAllure
-    displayName: 'Generate & publish Allure HTML report'
-    type: boolean
-    default: false
+  - name: testScope
+    displayName: 'Which tests to run'
+    type: string
+    default: 'Smoke (TestEnv)'
+    values:
+      - 'Smoke (TestEnv)'      # Category TestEnv, excluding Delta classes
+      - 'WebServer (Prod)'     # Category WebServer (run with testEnv=PROD)
+      - 'Regression'           # Category Regression
+      - 'All (no Delta)'       # everything except Delta classes
+  - name: testEnv
+    displayName: 'Target environment (appsettings.<ENV>.json)'
+    type: string
+    default: TS06
+    values: [DS01, DS10, QAR, PROD, TS06, TSHF, TSNB5, TSNB6, TSNB7, TSSLADJ]
   - name: browserChannel
     displayName: 'Browser to run on'
     type: string
@@ -34,30 +47,22 @@ parameters:
     displayName: 'Agents to distribute tests across (parallel)'
     type: number
     default: 1
-  - name: testSuite
-    displayName: 'Environment suite to run'
-    type: string
-    default: 'Env - TS06'
-    # Each Env suite is a 173-case leaf bound to that environment's
-    # configuration. Selecting it forces the matching environment + config
-    # (see the resolve step), so the run is self-consistent. Mapped to the
-    # numeric Test Plan suite id below - keep in sync with that step's map.
-    values:
-      - 'Env - DS10'                    # 79807 - forces env/config DS10
-      - 'Env - TS06'                    # 79808 - forces env/config TS06
-      - 'Env - PROD'                    # 79809 - forces env/config PROD
-  - name: notifyEmail
-    displayName: 'Email the run summary when finished'
+  - name: enableAllure
+    displayName: 'Also generate & publish the Allure HTML report'
     type: boolean
-    default: true
+    default: false
   - name: minPassPercent
     displayName: 'Fail the build only if pass %% is below this'
     type: number
     default: 80
+  - name: notifyEmail
+    displayName: 'Email the run summary when finished'
+    type: boolean
+    default: true
 
 schedules:
   - cron: '0 6 * * *'
-    displayName: 'Nightly QAR run'
+    displayName: 'Nightly TS06 smoke run'
     branches:
       include:
         - main
@@ -73,10 +78,8 @@ variables:
     value: 'PlaywrightAutomation.sln'
   # ---- Email (Option B) -------------------------------------------------
   # Set smtpServer to your internal SMTP relay to turn on emailed summaries.
-  # While it is blank the email job runs but skips sending (logs a warning),
-  # so the pipeline never fails just because email isn't wired up yet.
-  # Tip: keep smtpServer/emailFrom in the variable group instead if you'd
-  # rather not have them in the YAML.
+  # While it is blank the email step logs the summary and skips sending, so the
+  # pipeline never fails just because email isn't wired up yet.
   - name: smtpServer
     value: ''                                   # e.g. 'smtp.dq.ad'
   - name: smtpPort
@@ -88,13 +91,13 @@ variables:
 
 jobs:
   - job: RunWWSmoke
-    displayName: 'WW Smoke (${{ parameters.testSuite }})'
+    displayName: 'WW Smoke (${{ parameters.testScope }})'
     timeoutInMinutes: 120
     pool:
       name: AppSvcs-OnPrem-SQA
-    # Distribute the test plan's test points across N agents. VSTest distributed
-    # testing slices the cases automatically - each agent builds and runs its
-    # slice, publishing to the same test run. Needs N agents free in the pool.
+    # Distribute the filtered tests across N agents. VSTest slices the matched
+    # tests automatically - each agent runs its slice and publishes to the same
+    # run. Needs N agents free in the pool.
     strategy:
       parallel: ${{ parameters.agentCount }}
     steps:
@@ -185,54 +188,41 @@ jobs:
           exit 0
         displayName: 'Ensure Playwright browser + ffmpeg (${{ parameters.browserChannel }})'
 
-      # Map the friendly business-unit selection to its numeric Test Plan suite id.
-      # Keep this map in sync with the 'testSuite' parameter values above.
+      # Translate the friendly scope into a VSTest test-case filter (NUnit
+      # categories map to TestCategory; Delta is excluded by class/namespace).
       - powershell: |
           $map = @{
-            'Env - DS10' = '79807'
-            'Env - TS06' = '79808'
-            'Env - PROD' = '79809'
+            'Smoke (TestEnv)'  = 'TestCategory=TestEnv&FullyQualifiedName!~Delta'
+            'WebServer (Prod)' = 'TestCategory=WebServer'
+            'Regression'       = 'TestCategory=Regression'
+            'All (no Delta)'   = 'FullyQualifiedName!~Delta'
           }
-          $sel = "${{ parameters.testSuite }}"
-          $id  = $map[$sel]
-          if ([string]::IsNullOrWhiteSpace($id)) {
-            Write-Host "##vso[task.logissue type=error]Unknown suite selection '$sel'."
+          $sel = "${{ parameters.testScope }}"
+          $filter = $map[$sel]
+          if ([string]::IsNullOrWhiteSpace($filter)) {
+            Write-Host "##vso[task.logissue type=error]Unknown test scope '$sel'."
             exit 1
           }
-          Write-Host "Suite selection '$sel' -> suite id $id"
-          Write-Host "##vso[task.setvariable variable=resolvedSuiteId]$id"
+          Write-Host "Scope '$sel' -> filter: $filter"
+          Write-Host "##vso[task.setvariable variable=resolvedFilter]$filter"
+        displayName: 'Resolve test filter (${{ parameters.testScope }})'
 
-          # The chosen 'Env - <ENV>' suite determines the environment, so the run
-          # loads appsettings.<ENV>.json and records on that environment's Test
-          # Configuration. Keep this map in sync with the Test Plan configurations.
-          $cfgMap = @{ 'DS10' = '46'; 'TS06' = '47'; 'PROD' = '48' }
-          $env = $sel -replace '^Env - ', ''
-          $cfg = $cfgMap[$env]; if ([string]::IsNullOrWhiteSpace($cfg)) { $cfg = '45' }
-          Write-Host "Environment '$env' -> configuration id $cfg"
-          Write-Host "##vso[task.setvariable variable=resolvedTestEnv]$env"
-          Write-Host "##vso[task.setvariable variable=resolvedConfigId]$cfg"
-        displayName: 'Resolve suite + env + config (${{ parameters.testSuite }})'
-
-      # Runs the automated tests for the test points in Plan/Suite/Config and
-      # writes their outcomes back to Azure Test Plans (testSelector: testPlan).
-      # With strategy.parallel > 1, VSTest distributes the points across agents.
+      # Run the matched tests. Results auto-publish to the build's "Tests" tab
+      # (per-test outcome, failure message + stack, and the Playwright
+      # screenshot/trace/video attached on failure). continueOnError: the
+      # pass-rate gate below decides build success, not individual failures.
       - task: VSTest@2
-        displayName: 'Run WW Smoke test plan (${{ parameters.testSuite }})'
-        # Don't fail the job on individual test failures - the pass-rate gate job
-        # decides build success (fails only if pass% < minPassPercent). Results
-        # still publish to Test Plans regardless.
+        displayName: 'Run WW Smoke (${{ parameters.testScope }} / ${{ parameters.testEnv }})'
         continueOnError: true
         inputs:
-          testSelector: 'testPlan'
-          testPlan: '79388'
-          testSuite: '$(resolvedSuiteId)'
-          testConfiguration: '$(resolvedConfigId)'
-          searchFolder: '$(System.DefaultWorkingDirectory)'
+          testSelector: 'testAssemblies'
           testAssemblyVer2: |
             **\bin\**\PlaywrightAutomation.dll
             !**\*TestAdapter.dll
             !**\ref\**
             !**\obj\**
+          searchFolder: '$(System.DefaultWorkingDirectory)'
+          testFilterCriteria: '$(resolvedFilter)'
           # Use the modern platform from VisualStudioTestPlatformInstaller@1.
           # Without this, VSTest falls back to the agent's legacy 14.0 platform,
           # which cannot load .NET 8 / NUnit3 assemblies (discovers 0 tests).
@@ -240,11 +230,9 @@ jobs:
           uiTests: true
           runInParallel: false
           codeCoverageEnabled: false
-          testRunTitle: 'WW Smoke - $(resolvedTestEnv)'
+          testRunTitle: 'WW Smoke - ${{ parameters.testScope }} - ${{ parameters.testEnv }}'
         env:
-          # resolvedTestEnv = the testEnv parameter, except an 'Env - <ENV>'
-          # suite forces its own environment so the run is self-consistent.
-          TEST_ENV: $(resolvedTestEnv)
+          TEST_ENV: ${{ parameters.testEnv }}
           PLAYWRIGHT_BROWSER_CHANNEL: ${{ parameters.browserChannel }}
           # Enable video (ffmpeg installed above). Set to '' in the run to disable.
           PLAYWRIGHT_RECORD_VIDEO: 'true'
@@ -252,58 +240,36 @@ jobs:
           DbSettings__DbUserId: $(DbSettings__DbUserId)
           DbSettings__DbPassword: $(DbSettings__DbPassword)
 
-      # ---- Reporting --------------------------------------------------------
-      # Playwright trace + video + failure screenshots are ALWAYS attached to each
-      # test result by the fixture (visible in the run's "Tests" tab -> Attachments)
-      # - the ADO-native path. The Allure HTML report below is opt-in via the
-      # 'enableAllure' parameter so the default run stays lean.
+      # ---- Optional Allure HTML report -------------------------------------
+      # The native Tests tab already gives detailed, clickable failure reporting.
+      # Allure adds a richer standalone HTML report (steps, history) - opt-in via
+      # 'enableAllure'. Best-effort: never fails the build.
       - ${{ if eq(parameters.enableAllure, true) }}:
-        # Collect allure-results (written next to the test assembly) into a stable
-        # staging folder, regardless of where on the agent the test host ran.
         - powershell: |
             $staging = "$(Build.ArtifactStagingDirectory)\allure-results"
             New-Item -ItemType Directory -Force -Path $staging | Out-Null
             $found = Get-ChildItem -Path "$(System.DefaultWorkingDirectory)" -Recurse -Directory -Filter "allure-results" -ErrorAction SilentlyContinue
-            $count = 0
             foreach ($d in $found) {
               Copy-Item -Path (Join-Path $d.FullName '*') -Destination $staging -Recurse -Force -ErrorAction SilentlyContinue
-              $count++
             }
-            Write-Host "Collected allure-results from $count folder(s) into $staging"
+            Write-Host "Collected allure-results into $staging"
           displayName: 'Collect Allure results'
           condition: succeededOrFailed()
 
-        # Generate the HTML report. Non-blocking: if the Allure CLI / Java is not on
-        # the agent, the raw results are still published (render later or via the
-        # Allure Azure DevOps extension). Install once on the agent for live reports:
-        #   npm i -g allure-commandline   (requires Java 8+ on PATH)
         - powershell: |
             $results = "$(Build.ArtifactStagingDirectory)\allure-results"
             $report  = "$(Build.ArtifactStagingDirectory)\allure-report"
             if (-not (Test-Path $results) -or -not (Get-ChildItem $results -ErrorAction SilentlyContinue)) {
-              Write-Host "No allure-results found; skipping report generation."
-              exit 0
+              Write-Host "No allure-results found; skipping report generation."; exit 0
             }
-            $allure = (Get-Command allure -ErrorAction SilentlyContinue)
             try {
-              if ($allure) {
-                & allure generate $results --clean -o $report
-              } else {
-                Write-Host "Allure CLI not found on PATH; trying 'npx allure-commandline'..."
-                & npx --yes allure-commandline generate $results --clean -o $report
-              }
+              if (Get-Command allure -ErrorAction SilentlyContinue) { & allure generate $results --clean -o $report }
+              else { & npx --yes allure-commandline generate $results --clean -o $report }
               if (Test-Path (Join-Path $report 'index.html')) {
-                Write-Host "Allure HTML report generated at $report"
                 Write-Host "##vso[task.setvariable variable=AllureReportGenerated]true"
-              } else {
-                Write-Host "##[warning]Allure generate ran but no index.html was produced."
-              }
-            } catch {
-              Write-Host "##[warning]Could not generate Allure HTML (CLI/Java missing). Raw results are still published. $_"
-            }
-            # Reporting is best-effort: never let a non-zero CLI exit fail the step.
-            $global:LASTEXITCODE = 0
-            exit 0
+              } else { Write-Host "##[warning]Allure generate produced no index.html." }
+            } catch { Write-Host "##[warning]Could not generate Allure HTML (CLI/Java missing). Raw results still published. $_" }
+            $global:LASTEXITCODE = 0; exit 0
           displayName: 'Generate Allure report'
           condition: succeededOrFailed()
           continueOnError: true
@@ -313,7 +279,7 @@ jobs:
           condition: succeededOrFailed()
           inputs:
             targetPath: '$(Build.ArtifactStagingDirectory)/allure-results'
-            artifact: 'allure-results-$(resolvedTestEnv)-$(System.JobPositionInPhase)'
+            artifact: 'allure-results-${{ parameters.testEnv }}-$(System.JobPositionInPhase)'
             publishLocation: 'pipeline'
 
         - task: PublishPipelineArtifact@1
@@ -321,16 +287,15 @@ jobs:
           condition: and(succeededOrFailed(), eq(variables['AllureReportGenerated'], 'true'))
           inputs:
             targetPath: '$(Build.ArtifactStagingDirectory)/allure-report'
-            artifact: 'allure-report-$(resolvedTestEnv)-$(System.JobPositionInPhase)'
+            artifact: 'allure-report-${{ parameters.testEnv }}-$(System.JobPositionInPhase)'
             publishLocation: 'pipeline'
 
   # ==========================================================================
-  # Email the run summary (Option B). Runs once after ALL test slices finish
-  # (dependsOn), reads the aggregated pass/fail for this build from the Test
-  # REST API, and emails "X/Y passed" + a link via the internal SMTP relay.
-  # Included only when notifyEmail=true; if smtpServer is blank it logs the
-  # summary and skips sending so the pipeline still succeeds.
-  # Requires: pipeline "Allow scripts to access the OAuth token" (System.AccessToken).
+  # Email the run summary (Option B). Runs once after ALL test slices finish,
+  # reads the build's aggregated pass/fail from the Test REST API, and emails
+  # "X/Y passed" + a link via the internal SMTP relay. Included only when
+  # notifyEmail=true; if smtpServer is blank it logs the summary and skips
+  # sending. Requires pipeline "Allow scripts to access the OAuth token".
   # ==========================================================================
   - ${{ if eq(parameters.notifyEmail, true) }}:
     - job: EmailResults
@@ -367,24 +332,26 @@ jobs:
             } catch { Write-Host "##[warning]Could not read test results from REST API: $_" }
             if ($total -eq 0) { $total = $passed + $failed + $other }
 
-            $bu      = "${{ parameters.testSuite }}"
-            $envName = $bu -replace '^Env - ', ''
+            $scope   = "${{ parameters.testScope }}"
+            $envName = "${{ parameters.testEnv }}"
+            $pct     = if ($total -gt 0) { [math]::Round(100.0 * $passed / $total, 1) } else { 0 }
             $status  = if ($failed -gt 0) { 'FAILED' } elseif ($total -gt 0) { 'PASSED' } else { 'NO RESULTS' }
             $color   = if ($failed -gt 0) { '#c0392b' } elseif ($total -gt 0) { '#1e8e3e' } else { '#8a6d00' }
             $link    = "$base/_build/results?buildId=$buildId&view=ms.vss-test-web.build-test-results-tab"
 
-            $subject = "WW Smoke [$envName / $bu]: $passed/$total passed"
+            $subject = "WW Smoke [$envName / $scope]: $passed/$total passed ($pct%)"
             if ($failed -gt 0) { $subject += " - $failed FAILED" }
 
             $body = @"
             <div style="font-family:Segoe UI,Arial,sans-serif;font-size:14px;color:#222">
               <h2 style="margin:0 0 4px">WW Smoke Tests - <span style="color:$color">$status</span></h2>
-              <p style="margin:0 0 12px;color:#666">Suite <b>$bu</b> &middot; Environment <b>$envName</b> &middot; Browser <b>${{ parameters.browserChannel }}</b></p>
+              <p style="margin:0 0 12px;color:#666">Scope <b>$scope</b> &middot; Environment <b>$envName</b> &middot; Browser <b>${{ parameters.browserChannel }}</b></p>
               <table cellpadding="6" style="border-collapse:collapse">
                 <tr><td style="border:1px solid #ddd">Passed</td><td style="border:1px solid #ddd"><b>$passed</b></td></tr>
                 <tr><td style="border:1px solid #ddd">Failed</td><td style="border:1px solid #ddd;color:#c0392b"><b>$failed</b></td></tr>
                 <tr><td style="border:1px solid #ddd">Other</td><td style="border:1px solid #ddd">$other</td></tr>
                 <tr><td style="border:1px solid #ddd">Total</td><td style="border:1px solid #ddd"><b>$total</b></td></tr>
+                <tr><td style="border:1px solid #ddd">Pass rate</td><td style="border:1px solid #ddd"><b>$pct%</b></td></tr>
               </table>
               <p style="margin:14px 0"><a href="$link" style="background:#2563eb;color:#fff;padding:9px 16px;border-radius:6px;text-decoration:none">View results in Azure DevOps</a></p>
               <p style="color:#888;font-size:12px">Build $buildId &middot; pipeline result: $(testOutcome)</p>
