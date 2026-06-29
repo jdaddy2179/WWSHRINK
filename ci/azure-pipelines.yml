@@ -55,6 +55,9 @@ parameters:
       - 'WW2 Payment'                   # 79805 - WW2 Payment
       - 'WW2 Config'                    # 79804 - WW2 Config
       - 'WebServer Validation (Prod)'   # 79800 - run with testEnv=PROD
+      - 'Env - DS10'                    # 79807 - all cases, forces env/config DS10
+      - 'Env - TS06'                    # 79808 - all cases, forces env/config TS06
+      - 'Env - PROD'                    # 79809 - all cases, forces env/config PROD
   - name: notifyEmail
     displayName: 'Email the run summary when finished'
     type: boolean
@@ -202,6 +205,9 @@ jobs:
             'WW2 Payment'                 = '79805'
             'WW2 Config'                  = '79804'
             'WebServer Validation (Prod)' = '79800'
+            'Env - DS10'                  = '79807'
+            'Env - TS06'                  = '79808'
+            'Env - PROD'                  = '79809'
           }
           $sel = "${{ parameters.testSuite }}"
           $id  = $map[$sel]
@@ -212,15 +218,23 @@ jobs:
           Write-Host "Suite selection '$sel' -> suite id $id"
           Write-Host "##vso[task.setvariable variable=resolvedSuiteId]$id"
 
-          # Map the environment to its Test Configuration so results are tracked
-          # per environment. Environments without a dedicated config fall back to
-          # 45 (the plan default). Keep in sync with the Test Plan configurations.
+          # Resolve environment + Test Configuration so results are tracked per
+          # environment. The 'Env - <ENV>' suites force their own environment so
+          # the chosen suite is self-consistent; every other suite uses the
+          # testEnv parameter. Environments without a dedicated config fall back
+          # to 45 (plan default). Keep in sync with the Test Plan configurations.
           $cfgMap = @{ 'DS10' = '46'; 'TS06' = '47'; 'PROD' = '48' }
-          $env = "${{ parameters.testEnv }}"
+          if ($sel -like 'Env - *') {
+            $env = $sel -replace '^Env - ', ''
+            Write-Host "Env suite selected - forcing environment '$env'."
+          } else {
+            $env = "${{ parameters.testEnv }}"
+          }
           $cfg = $cfgMap[$env]; if ([string]::IsNullOrWhiteSpace($cfg)) { $cfg = '45' }
           Write-Host "Environment '$env' -> configuration id $cfg"
+          Write-Host "##vso[task.setvariable variable=resolvedTestEnv]$env"
           Write-Host "##vso[task.setvariable variable=resolvedConfigId]$cfg"
-        displayName: 'Resolve suite + config (${{ parameters.testSuite }} / ${{ parameters.testEnv }})'
+        displayName: 'Resolve suite + env + config (${{ parameters.testSuite }})'
 
       # Runs the automated tests for the test points in Plan/Suite/Config and
       # writes their outcomes back to Azure Test Plans (testSelector: testPlan).
@@ -245,9 +259,11 @@ jobs:
           uiTests: true
           runInParallel: false
           codeCoverageEnabled: false
-          testRunTitle: 'WW Smoke - ${{ parameters.testEnv }}'
+          testRunTitle: 'WW Smoke - $(resolvedTestEnv)'
         env:
-          TEST_ENV: ${{ parameters.testEnv }}
+          # resolvedTestEnv = the testEnv parameter, except an 'Env - <ENV>'
+          # suite forces its own environment so the run is self-consistent.
+          TEST_ENV: $(resolvedTestEnv)
           PLAYWRIGHT_BROWSER_CHANNEL: ${{ parameters.browserChannel }}
           # Enable video (ffmpeg installed above). Set to '' in the run to disable.
           PLAYWRIGHT_RECORD_VIDEO: 'true'
