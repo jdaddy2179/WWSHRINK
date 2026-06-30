@@ -185,15 +185,17 @@ jobs:
           PLAYWRIGHT_BROWSER_CHANNEL: ${{ parameters.browserChannel }}
           PLAYWRIGHT_RECORD_VIDEO: ''
           BrowserSettings__Headless: 'true'
-          # PROD uses a dedicated service account for BOTH the app login and the
-          # database. The username/password live as SECRETS in the variable group
-          # (PLAYWRIGHT_USERNAME_PROD / PLAYWRIGHT_PASSWORD_PROD) - never in this
-          # file. Supplying a password makes the fixture authenticate via
-          # HttpCredentials with that account; other environments keep the default
-          # (integrated) auth and the default DB credentials.
+          # PROD authenticates to the app via INTEGRATED Windows auth (the prod
+          # app uses IIS Windows auth, not the test-env forms login). The browser
+          # silently sends the AGENT's current Windows identity - so the agent
+          # must run as an account with PROD access, and the agent box must have
+          # "Automatic logon with current user name and password" enabled for the
+          # zone (Internet Options -> Security). We therefore do NOT pass
+          # PLAYWRIGHT_PASSWORD here: an HttpCredentials password would override
+          # integrated auth and gets rejected (the 401 we saw). The fixture
+          # already allowlists *.dq.ad for integrated auth.
+          # DB still uses SQL auth with the prod service account.
           ${{ if eq(parameters.testEnv, 'PROD') }}:
-            PLAYWRIGHT_USERNAME: $(PLAYWRIGHT_USERNAME_PROD)
-            PLAYWRIGHT_PASSWORD: $(PLAYWRIGHT_PASSWORD_PROD)
             DbSettings__DbUserId: $(PLAYWRIGHT_USERNAME_PROD)
             DbSettings__DbPassword: $(PLAYWRIGHT_PASSWORD_PROD)
           ${{ else }}:
