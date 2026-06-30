@@ -52,13 +52,17 @@ parameters:
     type: boolean
     default: false
 
-schedules:
-  - cron: '0 6 * * *'
-    displayName: 'Nightly TS06 smoke run'
-    branches:
-      include:
-        - main
-    always: false
+# Nightly schedule is DISABLED for now: a scheduled run uses parameter defaults
+# (agentCount=1), which can't finish 173 UI tests inside the 10-minute timeout
+# and would just cancel. Re-enable once the default agent count fits the timeout
+# (e.g. default agentCount higher, or a longer timeout):
+# schedules:
+#   - cron: '0 6 * * *'
+#     displayName: 'Nightly TS06 smoke run'
+#     branches:
+#       include:
+#         - main
+#     always: false
 
 variables:
   # Library variable group with the secrets the suite reads from the env:
