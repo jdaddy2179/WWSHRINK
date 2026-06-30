@@ -87,6 +87,12 @@ jobs:
         MassHealth:
           BU: 'MassHealth'
           BUFilter: 'FullyQualifiedName~Tests.MassHealth'
+        # WebServer validation tests run ONLY on PROD (they target the prod
+        # WebServer01-13 hosts). Conditionally add the leg for testEnv=PROD.
+        ${{ if eq(parameters.testEnv, 'PROD') }}:
+          WebServer:
+            BU: 'WebServer'
+            BUFilter: 'TestCategory=WebServer'
       maxParallel: ${{ parameters.maxParallel }}
     steps:
       - checkout: self
@@ -170,7 +176,9 @@ jobs:
       - powershell: |
           $results = "$(Build.ArtifactStagingDirectory)\TestResults"
           New-Item -ItemType Directory -Force -Path $results | Out-Null
-          $filter = "$(BUFilter)$(smokeFilter)"
+          # WebServer leg runs its category as-is; BU legs append the smoke filter
+          # (TestEnv minus Delta/quarantined/etc.).
+          if ("$(BU)" -eq "WebServer") { $filter = "$(BUFilter)" } else { $filter = "$(BUFilter)$(smokeFilter)" }
           Write-Host "Business unit : $(BU)"
           Write-Host "Filter        : $filter"
           dotnet test "$(solution)" --no-build --configuration $(buildConfiguration) `
