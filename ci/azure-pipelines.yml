@@ -179,18 +179,21 @@ jobs:
           PLAYWRIGHT_BROWSER_CHANNEL: ${{ parameters.browserChannel }}
           PLAYWRIGHT_RECORD_VIDEO: ''
           BrowserSettings__Headless: 'true'
-          # PROD uses a dedicated service account. The username/password live as
-          # SECRETS in the variable group (PLAYWRIGHT_USERNAME_PROD /
-          # PLAYWRIGHT_PASSWORD_PROD) - never in this file. Supplying a password
-          # makes the fixture authenticate via HttpCredentials with that account;
-          # other environments keep the default (integrated) auth.
+          # PROD uses a dedicated service account for BOTH the app login and the
+          # database. The username/password live as SECRETS in the variable group
+          # (PLAYWRIGHT_USERNAME_PROD / PLAYWRIGHT_PASSWORD_PROD) - never in this
+          # file. Supplying a password makes the fixture authenticate via
+          # HttpCredentials with that account; other environments keep the default
+          # (integrated) auth and the default DB credentials.
           ${{ if eq(parameters.testEnv, 'PROD') }}:
             PLAYWRIGHT_USERNAME: $(PLAYWRIGHT_USERNAME_PROD)
             PLAYWRIGHT_PASSWORD: $(PLAYWRIGHT_PASSWORD_PROD)
+            DbSettings__DbUserId: $(PLAYWRIGHT_USERNAME_PROD)
+            DbSettings__DbPassword: $(PLAYWRIGHT_PASSWORD_PROD)
           ${{ else }}:
             PLAYWRIGHT_USERNAME: $(PLAYWRIGHT_USERNAME)
-          DbSettings__DbUserId: $(DbSettings__DbUserId)
-          DbSettings__DbPassword: $(DbSettings__DbPassword)
+            DbSettings__DbUserId: $(DbSettings__DbUserId)
+            DbSettings__DbPassword: $(DbSettings__DbPassword)
 
       - task: PublishTestResults@2
         displayName: 'Publish $(BU) results to Tests tab'
