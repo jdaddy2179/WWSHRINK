@@ -11,9 +11,9 @@
 #   * an optional standalone Allure HTML report published as an artifact.
 #
 # Pick the environment at run time ('testEnv' -> appsettings.<ENV>.json) and the
-# scope ('testScope' -> a category filter). The build passes unless the pass
-# rate falls below 'minPassPercent' (default 80), so a few known-failing tests
-# don't turn the pipeline red.
+# scope ('testScope' -> a category filter). The build is RED if any test fails;
+# alerts are handled by Azure DevOps notifications (no email step in the YAML).
+# A 10-minute per-slice timeout cancels a run that overruns.
 #
 # Runs on a SELF-HOSTED pool (AppSvcs-OnPrem-SQA): the suite targets internal
 # *.dqtest.ad hosts, on-prem SQL, and an on-prem NuGet feed that Microsoft-
@@ -51,14 +51,6 @@ parameters:
     displayName: 'Also generate & publish the Allure HTML report'
     type: boolean
     default: false
-  - name: minPassPercent
-    displayName: 'Fail the build only if pass %% is below this'
-    type: number
-    default: 80
-  - name: notifyEmail
-    displayName: 'Email the run summary when finished'
-    type: boolean
-    default: true
 
 schedules:
   - cron: '0 6 * * *'
@@ -76,23 +68,12 @@ variables:
     value: 'Release'
   - name: solution
     value: 'PlaywrightAutomation.sln'
-  # ---- Email (Option B) -------------------------------------------------
-  # Set smtpServer to your internal SMTP relay to turn on emailed summaries.
-  # While it is blank the email step logs the summary and skips sending, so the
-  # pipeline never fails just because email isn't wired up yet.
-  - name: smtpServer
-    value: ''                                   # e.g. 'smtp.dq.ad'
-  - name: smtpPort
-    value: '25'
-  - name: emailFrom
-    value: 'WW-Smoke-NoReply@greatdentalplans.com'
-  - name: emailTo
-    value: 'eh07@greatdentalplans.com'          # comma-separate for multiple
 
 jobs:
   - job: RunWWSmoke
     displayName: 'WW Smoke (${{ parameters.testScope }})'
-    timeoutInMinutes: 120
+    # Cancel a slice if it runs longer than 10 minutes.
+    timeoutInMinutes: 10
     pool:
       name: AppSvcs-OnPrem-SQA
     # Wipe the agent's _work for this pipeline at the start of every run so old
@@ -244,12 +225,11 @@ jobs:
         displayName: 'Resolve test filter (${{ parameters.testScope }})'
 
       # Run the matched tests. Results auto-publish to the build's "Tests" tab
-      # (per-test outcome, failure message + stack, and the Playwright
-      # screenshot/trace/video attached on failure). continueOnError: the
-      # pass-rate gate below decides build success, not individual failures.
+      # (per-test outcome, failure message + stack, and the Playwright trace +
+      # failure screenshot attached). Any test failure fails this task -> the
+      # build is RED.
       - task: VSTest@2
         displayName: 'Run WW Smoke (${{ parameters.testScope }} / ${{ parameters.testEnv }})'
-        continueOnError: true
         inputs:
           testSelector: 'testAssemblies'
           testAssemblyVer2: |
@@ -278,6 +258,53 @@ jobs:
           PLAYWRIGHT_USERNAME: $(PLAYWRIGHT_USERNAME)
           DbSettings__DbUserId: $(DbSettings__DbUserId)
           DbSettings__DbPassword: $(DbSettings__DbPassword)
+
+      # ---- Standalone HTML report (downloadable artifact) ------------------
+      # The native Tests tab is the consolidated report (all slices, clickable,
+      # with failure messages + screenshots). This ALSO emits a simple, self-
+      # contained HTML from this slice's .trx and publishes it as a build
+      # artifact - no Java, no extra job. With parallel agents each slice
+      # publishes its own portion (html-report-<env>-<slice>).
+      - powershell: |
+          $ErrorActionPreference = 'SilentlyContinue'
+          $trx = Get-ChildItem -Path "$(Agent.TempDirectory)","$(System.DefaultWorkingDirectory)" -Recurse -Filter *.trx |
+                 Sort-Object LastWriteTime -Descending | Select-Object -First 1
+          if (-not $trx) { Write-Host "##[warning]No .trx found; skipping HTML report."; exit 0 }
+          [xml]$x = Get-Content -LiteralPath $trx.FullName
+          function Enc($s){ if($null -eq $s){return ''}; $s -replace '&','&amp;' -replace '<','&lt;' -replace '>','&gt;' }
+          $pass=0; $fail=0; $rows=""
+          foreach ($r in $x.TestRun.Results.UnitTestResult) {
+            $out=$r.outcome
+            if ($out -eq 'Passed'){$pass++} else {$fail++}
+            $msg=""
+            if ($r.Output -and $r.Output.ErrorInfo) { $msg = ($r.Output.ErrorInfo.Message + "`n" + $r.Output.ErrorInfo.StackTrace) }
+            $color = if($out -eq 'Passed'){'#1e8e3e'}elseif($out -eq 'Failed'){'#c0392b'}else{'#8a6d00'}
+            $rows += "<tr><td>$(Enc $r.testName)</td><td style='color:$color;font-weight:600'>$out</td><td><pre style='white-space:pre-wrap;margin:0'>$(Enc $msg)</pre></td></tr>"
+          }
+          $total=$pass+$fail
+          $when = Get-Date -Format 'yyyy-MM-dd HH:mm'
+          $html = "<!doctype html><html><head><meta charset='utf-8'><title>WW Smoke report</title>" +
+            "<style>body{font:14px Segoe UI,Arial;margin:24px;color:#222}h1{font-size:20px}" +
+            "table{border-collapse:collapse;width:100%}td,th{border:1px solid #ddd;padding:6px;text-align:left;vertical-align:top}" +
+            "th{background:#f3f4f6}.s{color:#666}</style></head><body><h1>WW Smoke Tests</h1>" +
+            "<p class='s'>Scope <b>${{ parameters.testScope }}</b> &middot; Env <b>${{ parameters.testEnv }}</b> &middot; Browser <b>${{ parameters.browserChannel }}</b> &middot; $when<br>" +
+            "Slice $(System.JobPositionInPhase): <b>$pass</b> passed / <b>$fail</b> failed / $total total</p>" +
+            "<table><tr><th>Test</th><th>Outcome</th><th>Details</th></tr>$rows</table></body></html>"
+          $dir = "$(Build.ArtifactStagingDirectory)\html-report"
+          New-Item -ItemType Directory -Force -Path $dir | Out-Null
+          Set-Content -LiteralPath "$dir\report.html" -Value $html -Encoding UTF8
+          Write-Host "HTML report: $pass passed / $fail failed (from $($trx.Name))"
+          exit 0
+        displayName: 'Build HTML report from results'
+        condition: succeededOrFailed()
+
+      - task: PublishPipelineArtifact@1
+        displayName: 'Publish HTML report'
+        condition: succeededOrFailed()
+        inputs:
+          targetPath: '$(Build.ArtifactStagingDirectory)/html-report'
+          artifact: 'html-report-${{ parameters.testEnv }}-$(System.JobPositionInPhase)'
+          publishLocation: 'pipeline'
 
       # ---- Optional Allure HTML report -------------------------------------
       # The native Tests tab already gives detailed, clickable failure reporting.
@@ -328,136 +355,3 @@ jobs:
             targetPath: '$(Build.ArtifactStagingDirectory)/allure-report'
             artifact: 'allure-report-${{ parameters.testEnv }}-$(System.JobPositionInPhase)'
             publishLocation: 'pipeline'
-
-  # ==========================================================================
-  # Email the run summary (Option B). Runs once after ALL test slices finish,
-  # reads the build's aggregated pass/fail from the Test REST API, and emails
-  # "X/Y passed" + a link via the internal SMTP relay. Included only when
-  # notifyEmail=true; if smtpServer is blank it logs the summary and skips
-  # sending. Requires pipeline "Allow scripts to access the OAuth token".
-  # ==========================================================================
-  - ${{ if eq(parameters.notifyEmail, true) }}:
-    - job: EmailResults
-      displayName: 'Email run summary'
-      dependsOn: RunWWSmoke
-      condition: succeededOrFailed()
-      pool:
-        name: AppSvcs-OnPrem-SQA
-      variables:
-        - name: testOutcome
-          value: $[ dependencies.RunWWSmoke.result ]
-      steps:
-        - checkout: none
-        - powershell: |
-            $ErrorActionPreference = 'Continue'
-            $hdr     = @{ Authorization = "Bearer $env:SYSTEM_ACCESSTOKEN" }
-            $base    = "$(System.CollectionUri)".TrimEnd('/') + "/" + [uri]::EscapeDataString("$(System.TeamProject)")
-            $buildId = "$(Build.BuildId)"
-
-            $passed=0; $failed=0; $other=0; $total=0
-            try {
-              $runs = Invoke-RestMethod -Headers $hdr -Uri "$base/_apis/test/runs?buildIds=$buildId&api-version=7.1"
-              foreach ($r in $runs.value) {
-                $d = Invoke-RestMethod -Headers $hdr -Uri "$base/_apis/test/runs/$($r.id)?api-version=7.1"
-                foreach ($s in $d.runStatistics) {
-                  switch ($s.outcome) {
-                    'Passed' { $passed += [int]$s.count }
-                    'Failed' { $failed += [int]$s.count }
-                    default  { $other  += [int]$s.count }
-                  }
-                }
-                $total += [int]$d.totalTests
-              }
-            } catch { Write-Host "##[warning]Could not read test results from REST API: $_" }
-            if ($total -eq 0) { $total = $passed + $failed + $other }
-
-            $scope   = "${{ parameters.testScope }}"
-            $envName = "${{ parameters.testEnv }}"
-            $pct     = if ($total -gt 0) { [math]::Round(100.0 * $passed / $total, 1) } else { 0 }
-            $status  = if ($failed -gt 0) { 'FAILED' } elseif ($total -gt 0) { 'PASSED' } else { 'NO RESULTS' }
-            $color   = if ($failed -gt 0) { '#c0392b' } elseif ($total -gt 0) { '#1e8e3e' } else { '#8a6d00' }
-            $link    = "$base/_build/results?buildId=$buildId&view=ms.vss-test-web.build-test-results-tab"
-
-            $subject = "WW Smoke [$envName / $scope]: $passed/$total passed ($pct%)"
-            if ($failed -gt 0) { $subject += " - $failed FAILED" }
-
-            $body = @"
-            <div style="font-family:Segoe UI,Arial,sans-serif;font-size:14px;color:#222">
-              <h2 style="margin:0 0 4px">WW Smoke Tests - <span style="color:$color">$status</span></h2>
-              <p style="margin:0 0 12px;color:#666">Scope <b>$scope</b> &middot; Environment <b>$envName</b> &middot; Browser <b>${{ parameters.browserChannel }}</b></p>
-              <table cellpadding="6" style="border-collapse:collapse">
-                <tr><td style="border:1px solid #ddd">Passed</td><td style="border:1px solid #ddd"><b>$passed</b></td></tr>
-                <tr><td style="border:1px solid #ddd">Failed</td><td style="border:1px solid #ddd;color:#c0392b"><b>$failed</b></td></tr>
-                <tr><td style="border:1px solid #ddd">Other</td><td style="border:1px solid #ddd">$other</td></tr>
-                <tr><td style="border:1px solid #ddd">Total</td><td style="border:1px solid #ddd"><b>$total</b></td></tr>
-                <tr><td style="border:1px solid #ddd">Pass rate</td><td style="border:1px solid #ddd"><b>$pct%</b></td></tr>
-              </table>
-              <p style="margin:14px 0"><a href="$link" style="background:#2563eb;color:#fff;padding:9px 16px;border-radius:6px;text-decoration:none">View results in Azure DevOps</a></p>
-              <p style="color:#888;font-size:12px">Build $buildId &middot; pipeline result: $(testOutcome)</p>
-            </div>
-            "@
-
-            $smtp = "$(smtpServer)"
-            if ([string]::IsNullOrWhiteSpace($smtp)) {
-              Write-Host "##[warning]smtpServer is not set - skipping email. Summary: $subject"
-              exit 0
-            }
-            $to = "$(emailTo)".Split(',') | ForEach-Object { $_.Trim() } | Where-Object { $_ }
-            $toList = $to -join ', '
-            try {
-              Send-MailMessage -SmtpServer $smtp -Port $(smtpPort) `
-                -From "$(emailFrom)" -To $to -Subject $subject -Body $body -BodyAsHtml
-              Write-Host "Sent run summary to $toList via $smtp"
-            } catch {
-              Write-Host "##[warning]Failed to send summary email via $smtp : $_"
-            }
-          displayName: 'Send result summary email'
-          condition: succeededOrFailed()
-          env:
-            SYSTEM_ACCESSTOKEN: $(System.AccessToken)
-
-  # ==========================================================================
-  # Pass-rate gate. Runs after all test slices, reads the build's aggregated
-  # pass/fail, and fails the build ONLY if pass% < minPassPercent (default 80).
-  # This is the reason VSTest uses continueOnError: individual test failures do
-  # not fail the build - this gate is the single source of build success.
-  # Requires pipeline "Allow scripts to access the OAuth token".
-  # ==========================================================================
-  - job: PassRateGate
-    displayName: 'Pass-rate gate (min ${{ parameters.minPassPercent }}%)'
-    dependsOn: RunWWSmoke
-    condition: succeededOrFailed()
-    pool:
-      name: AppSvcs-OnPrem-SQA
-    steps:
-      - checkout: none
-      - powershell: |
-          $ErrorActionPreference = 'Continue'
-          $hdr     = @{ Authorization = "Bearer $env:SYSTEM_ACCESSTOKEN" }
-          $base    = "$(System.CollectionUri)".TrimEnd('/') + "/" + [uri]::EscapeDataString("$(System.TeamProject)")
-          $buildId = "$(Build.BuildId)"
-          $passed=0; $total=0
-          try {
-            $runs = Invoke-RestMethod -Headers $hdr -Uri "$base/_apis/test/runs?buildIds=$buildId&api-version=7.1"
-            foreach ($r in $runs.value) {
-              $d = Invoke-RestMethod -Headers $hdr -Uri "$base/_apis/test/runs/$($r.id)?api-version=7.1"
-              foreach ($s in $d.runStatistics) { if ($s.outcome -eq 'Passed') { $passed += [int]$s.count } }
-              $total += [int]$d.totalTests
-            }
-          } catch { Write-Host "##[warning]Could not read test results: $_" }
-          $min = [double]"${{ parameters.minPassPercent }}"
-          $pct = if ($total -gt 0) { [math]::Round(100.0 * $passed / $total, 1) } else { 0 }
-          Write-Host "Pass rate: $pct% ($passed / $total passed). Threshold: $min%."
-          if ($total -eq 0) {
-            Write-Host "##vso[task.logissue type=error]No test results were published for this build."
-            exit 1
-          }
-          if ($pct -lt $min) {
-            Write-Host "##vso[task.logissue type=error]Pass rate $pct% is below the $min% threshold - failing the build."
-            exit 1
-          }
-          Write-Host "Pass rate $pct% meets the $min% threshold - build passes."
-          exit 0
-        displayName: 'Evaluate pass rate'
-        env:
-          SYSTEM_ACCESSTOKEN: $(System.AccessToken)
