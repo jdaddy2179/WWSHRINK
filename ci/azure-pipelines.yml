@@ -34,13 +34,6 @@ parameters:
     displayName: 'Business-unit legs to run at once (limits load on the app)'
     type: number
     default: 3
-  - name: agentPool
-    displayName: 'Self-hosted agent pool to run on'
-    type: string
-    default: 'AppSvcs-OnPrem-SQA'
-    values:
-      - 'AppSvcs-OnPrem-SQA'
-      - 'AppSvcs-MC'
   - name: minPassPercent
     displayName: 'Fail the build only if pass %% is below this'
     type: number
@@ -71,8 +64,20 @@ jobs:
     displayName: 'WW Smoke'
     # Cancel a leg if it overruns (fresh build + that BU's tests).
     timeoutInMinutes: 20
+    # PROD runs on AppSvcs-MC (whose agents run as / have prod app access for
+    # integrated Windows auth). All non-prod environments run on the on-prem SQA
+    # pool, which can reach the internal *.dqtest.ad hosts, on-prem SQL, and the
+    # on-prem NuGet feed.
     pool:
-      name: ${{ parameters.agentPool }}
+      ${{ if eq(parameters.testEnv, 'PROD') }}:
+        name: 'AppSvcs-MC'
+        # Pin PROD to the specific agent machine configured for prod app access
+        # (runs as a prod-capable account with automatic logon enabled for
+        # integrated Windows auth).
+        demands:
+          - Agent.Name -equals LT-MK-44J19Y2
+      ${{ else }}:
+        name: 'AppSvcs-OnPrem-SQA'
     workspace:
       clean: all
     strategy:
@@ -246,8 +251,15 @@ jobs:
     dependsOn: PlaywrightTests
     condition: succeededOrFailed()
     timeoutInMinutes: 10
+    # Report job only downloads trx + builds HTML (no app/prod auth needed), but
+    # stays on the same pool as the run so artifacts are local.
     pool:
-      name: ${{ parameters.agentPool }}
+      ${{ if eq(parameters.testEnv, 'PROD') }}:
+        name: 'AppSvcs-MC'
+        demands:
+          - Agent.Name -equals LT-MK-44J19Y2
+      ${{ else }}:
+        name: 'AppSvcs-OnPrem-SQA'
     steps:
       - checkout: none
 
