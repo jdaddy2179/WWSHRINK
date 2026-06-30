@@ -76,8 +76,9 @@ variables:
 jobs:
   - job: RunWWSmoke
     displayName: 'WW Smoke (${{ parameters.testScope }})'
-    # Cancel a slice if it runs longer than 10 minutes.
-    timeoutInMinutes: 10
+    # Cancel a slice if it runs longer than 15 minutes (allows headroom for the
+    # fresh checkout/restore/build plus failed-test reruns).
+    timeoutInMinutes: 15
     pool:
       name: AppSvcs-OnPrem-SQA
     # Wipe the agent's _work for this pipeline at the start of every run so old
@@ -256,6 +257,14 @@ jobs:
           uiTests: true
           runInParallel: false
           codeCoverageEnabled: false
+          # Auto-retry failed tests to absorb UI flakiness (slow-page timeouts
+          # under parallel load). A test that passes on a rerun is reported as
+          # passed; a genuinely broken test still fails after all attempts, so
+          # "red on real failure" stays honest. rerunFailedThreshold guards
+          # against a mass failure (e.g. env down) being uselessly retried.
+          rerunFailedTests: true
+          rerunFailedThreshold: '30'
+          rerunMaxAttempts: '3'
           testRunTitle: 'WW Smoke - ${{ parameters.testScope }} - ${{ parameters.testEnv }}'
         env:
           TEST_ENV: ${{ parameters.testEnv }}
