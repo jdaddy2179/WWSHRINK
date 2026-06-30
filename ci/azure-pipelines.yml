@@ -290,9 +290,21 @@ jobs:
       # publishes its own portion (html-report-<env>-<slice>).
       - powershell: |
           $ErrorActionPreference = 'SilentlyContinue'
-          $trx = Get-ChildItem -Path "$(Agent.TempDirectory)","$(System.DefaultWorkingDirectory)" -Recurse -Filter *.trx |
+          # Always create the output dir first so the publish step never fails on
+          # a missing path - reporting must never fail the build.
+          $dir = "$(Build.ArtifactStagingDirectory)\html-report"
+          New-Item -ItemType Directory -Force -Path $dir | Out-Null
+          # VSTest@2 writes the .trx under the agent temp / test-results dir; search
+          # broadly and take the newest.
+          $roots = @("$(Common.TestResultsDirectory)","$(Agent.TempDirectory)","$(Agent.HomeDirectory)\_work\_temp","$(System.DefaultWorkingDirectory)") |
+                   Where-Object { $_ -and (Test-Path $_) } | Select-Object -Unique
+          $trx = Get-ChildItem -Path $roots -Recurse -Filter *.trx -ErrorAction SilentlyContinue |
                  Sort-Object LastWriteTime -Descending | Select-Object -First 1
-          if (-not $trx) { Write-Host "##[warning]No .trx found; skipping HTML report."; exit 0 }
+          if (-not $trx) {
+            Write-Host "##[warning]No .trx found under: $($roots -join '; '). Writing placeholder; see the Tests tab for results."
+            Set-Content -LiteralPath "$dir\report.html" -Encoding UTF8 -Value "<html><body style='font:14px Segoe UI'><h1>WW Smoke Tests</h1><p>No .trx located on this slice. See the run's <b>Tests</b> tab for full results.</p></body></html>"
+            exit 0
+          }
           [xml]$x = Get-Content -LiteralPath $trx.FullName
           function Enc($s){ if($null -eq $s){return ''}; $s -replace '&','&amp;' -replace '<','&lt;' -replace '>','&gt;' }
           $pass=0; $fail=0; $rows=""
@@ -313,17 +325,17 @@ jobs:
             "<p class='s'>Scope <b>${{ parameters.testScope }}</b> &middot; Env <b>${{ parameters.testEnv }}</b> &middot; Browser <b>${{ parameters.browserChannel }}</b> &middot; $when<br>" +
             "Slice $(System.JobPositionInPhase): <b>$pass</b> passed / <b>$fail</b> failed / $total total</p>" +
             "<table><tr><th>Test</th><th>Outcome</th><th>Details</th></tr>$rows</table></body></html>"
-          $dir = "$(Build.ArtifactStagingDirectory)\html-report"
-          New-Item -ItemType Directory -Force -Path $dir | Out-Null
           Set-Content -LiteralPath "$dir\report.html" -Value $html -Encoding UTF8
           Write-Host "HTML report: $pass passed / $fail failed (from $($trx.Name))"
           exit 0
         displayName: 'Build HTML report from results'
         condition: succeededOrFailed()
+        continueOnError: true
 
       - task: PublishPipelineArtifact@1
         displayName: 'Publish HTML report'
         condition: succeededOrFailed()
+        continueOnError: true
         inputs:
           targetPath: '$(Build.ArtifactStagingDirectory)/html-report'
           artifact: 'html-report-${{ parameters.testEnv }}-$(System.JobPositionInPhase)'
