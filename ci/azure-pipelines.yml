@@ -200,9 +200,13 @@ jobs:
       # Translate the friendly scope into a VSTest test-case filter (NUnit
       # categories map to TestCategory; Delta is excluded by class/namespace).
       - powershell: |
-          # 'Smoke (TestEnv)' = all TestEnv tests, minus Delta, minus the 10
-          # TestEnv tests that were NOT in the legacy curated smoke set (4 claim-
-          # image validations + 6 nav tests) so the count matches exactly 173.
+          # 'Smoke (TestEnv)' = all TestEnv tests, minus:
+          #  - Delta classes,
+          #  - the 10 TestEnv tests not in the legacy curated set (4 claim-image
+          #    validations + 6 nav tests), so the base set matches the old 173,
+          #  - 2 QUARANTINED provider searches that fail on missing TS06 data
+          #    (Com + MassHealth) - re-add once their member/location data yields
+          #    nearby providers. Net: 171 tests.
           $smoke = 'TestCategory=TestEnv' +
                    '&FullyQualifiedName!~Delta' +
                    '&FullyQualifiedName!~ClaimImage' +
@@ -211,7 +215,9 @@ jobs:
                    '&FullyQualifiedName!~NavigateToBillingConfigPreview' +
                    '&FullyQualifiedName!~NavigateToClientUpdateTools' +
                    '&FullyQualifiedName!~NavigateToReferenceValues' +
-                   '&FullyQualifiedName!~NavigateToWw2PaymentandBack'
+                   '&FullyQualifiedName!~NavigateToWw2PaymentandBack' +
+                   '&FullyQualifiedName!~ComNavigation.PeformFindAProviderSearch' +
+                   '&FullyQualifiedName!~MassHealthSearches.PeformFindAProviderSearch'
           $map = @{
             'Smoke (TestEnv)'  = $smoke
             'WebServer (Prod)' = 'TestCategory=WebServer'
