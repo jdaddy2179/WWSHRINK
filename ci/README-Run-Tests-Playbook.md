@@ -112,6 +112,40 @@ Pipeline → **Analytics** tab → test pass-rate trend, flaky tests, etc.
 
 ---
 
+## 7a. Running against PROD (one-time agent setup)
+
+PROD (`windward.dq.ad`) uses **IIS Integrated Windows Auth** — there is no
+username/password form. The browser authenticates with the **agent's Windows
+identity**, which must be a **provisioned Windward PROD app user** (the way a
+normal person's login is). The default pool agents run as `svc-tfsbuild`, which
+is *not* a prod app user, so PROD fails with `ERR_INVALID_AUTH_CREDENTIALS`
+unless it lands on a prod-capable agent.
+
+The pipeline handles this with a **demand**: a PROD run only schedules onto an
+agent tagged `prodAuth=true`. Set that up once:
+
+1. **Pick (or add) an agent** in `AppSvcs-OnPrem-SQA` whose **agent service runs
+   as a prod-provisioned domain account** (Services → *Azure Pipelines Agent…* →
+   Log On tab → set the prod account → restart the service). That account must
+   be able to log into `windward.dq.ad` interactively.
+2. On that same box, ensure the zone allows silent integrated auth: **Internet
+   Options → Security → Local intranet → Custom level → User Authentication →
+   Logon → “Automatic logon with current user name and password.”**
+3. **Tag the agent** so PROD can find it: Org/Project Settings → **Agent pools →
+   AppSvcs-OnPrem-SQA → <agent> → Capabilities → Add user capability**:
+   `prodAuth = true`. (Non-prod runs ignore this tag and use any agent.)
+4. Run the pipeline with **Target environment = PROD**. It will queue onto the
+   tagged agent and authenticate as that account. No passwords go in the
+   pipeline — DB access still uses the prod SQL service account from the
+   variable group.
+
+> If a PROD run sits **queued forever**, no agent carries the `prodAuth=true`
+> capability — finish step 3. If PROD authenticates but the app denies access,
+> the agent's account isn't a provisioned Windward PROD user (an *authorization*
+> problem, not the pipeline).
+
+---
+
 ## 8. Reference
 
 - **Pipeline definition:** `ci/azure-pipelines.yml`

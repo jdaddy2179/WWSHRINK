@@ -64,11 +64,22 @@ jobs:
     displayName: 'WW Smoke'
     # Cancel a leg if it overruns (fresh build + that BU's tests).
     timeoutInMinutes: 20
-    # All environments (including PROD) run on the on-prem SQA pool, which can
-    # reach the internal *.dqtest.ad / *.dq.ad hosts, on-prem SQL, and the
-    # on-prem NuGet feed.
+    # All environments run on the on-prem SQA pool (reaches internal
+    # *.dqtest.ad / *.dq.ad hosts, on-prem SQL, on-prem NuGet feed).
+    #
+    # PROD uses IIS Integrated Windows Auth, so the browser sends the AGENT's
+    # Windows identity. PROD therefore DEMANDS an agent tagged `prodAuth=true` -
+    # i.e. one whose agent service runs as a prod-provisioned Windows account
+    # (a real Windward PROD app user). Add that user capability to the agent:
+    #   Org/Project Settings -> Agent pools -> AppSvcs-OnPrem-SQA -> <agent>
+    #   -> Capabilities -> add user capability  prodAuth = true
+    # (or set a PROD_AUTH=true env var for the agent's service and restart it).
+    # Non-prod runs have no such demand and use any agent in the pool.
     pool:
       name: 'AppSvcs-OnPrem-SQA'
+      ${{ if eq(parameters.testEnv, 'PROD') }}:
+        demands:
+          - prodAuth -equals true
     workspace:
       clean: all
     strategy:
