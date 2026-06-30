@@ -34,6 +34,13 @@ parameters:
     displayName: 'Business-unit legs to run at once (limits load on the app)'
     type: number
     default: 3
+  - name: agentPool
+    displayName: 'Self-hosted agent pool to run on'
+    type: string
+    default: 'AppSvcs-OnPrem-SQA'
+    values:
+      - 'AppSvcs-OnPrem-SQA'
+      - 'AppSvcs-MC'
   - name: minPassPercent
     displayName: 'Fail the build only if pass %% is below this'
     type: number
@@ -65,7 +72,7 @@ jobs:
     # Cancel a leg if it overruns (fresh build + that BU's tests).
     timeoutInMinutes: 20
     pool:
-      name: AppSvcs-OnPrem-SQA
+      name: ${{ parameters.agentPool }}
     workspace:
       clean: all
     strategy:
@@ -240,7 +247,7 @@ jobs:
     condition: succeededOrFailed()
     timeoutInMinutes: 10
     pool:
-      name: AppSvcs-OnPrem-SQA
+      name: ${{ parameters.agentPool }}
     steps:
       - checkout: none
 
