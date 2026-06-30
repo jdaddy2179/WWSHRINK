@@ -282,65 +282,6 @@ jobs:
           DbSettings__DbUserId: $(DbSettings__DbUserId)
           DbSettings__DbPassword: $(DbSettings__DbPassword)
 
-      # ---- Standalone HTML report (downloadable artifact) ------------------
-      # The native Tests tab is the consolidated report (all slices, clickable,
-      # with failure messages + screenshots). This ALSO emits a simple, self-
-      # contained HTML from this slice's .trx and publishes it as a build
-      # artifact - no Java, no extra job. With parallel agents each slice
-      # publishes its own portion (html-report-<env>-<slice>).
-      - powershell: |
-          $ErrorActionPreference = 'SilentlyContinue'
-          # Always create the output dir first so the publish step never fails on
-          # a missing path - reporting must never fail the build.
-          $dir = "$(Build.ArtifactStagingDirectory)\html-report"
-          New-Item -ItemType Directory -Force -Path $dir | Out-Null
-          # VSTest@2 writes the .trx under the agent temp / test-results dir; search
-          # broadly and take the newest.
-          $roots = @("$(Common.TestResultsDirectory)","$(Agent.TempDirectory)","$(Agent.HomeDirectory)\_work\_temp","$(System.DefaultWorkingDirectory)") |
-                   Where-Object { $_ -and (Test-Path $_) } | Select-Object -Unique
-          $trx = Get-ChildItem -Path $roots -Recurse -Filter *.trx -ErrorAction SilentlyContinue |
-                 Sort-Object LastWriteTime -Descending | Select-Object -First 1
-          if (-not $trx) {
-            Write-Host "##[warning]No .trx found under: $($roots -join '; '). Writing placeholder; see the Tests tab for results."
-            Set-Content -LiteralPath "$dir\report.html" -Encoding UTF8 -Value "<html><body style='font:14px Segoe UI'><h1>WW Smoke Tests</h1><p>No .trx located on this slice. See the run's <b>Tests</b> tab for full results.</p></body></html>"
-            exit 0
-          }
-          [xml]$x = Get-Content -LiteralPath $trx.FullName
-          function Enc($s){ if($null -eq $s){return ''}; $s -replace '&','&amp;' -replace '<','&lt;' -replace '>','&gt;' }
-          $pass=0; $fail=0; $rows=""
-          foreach ($r in $x.TestRun.Results.UnitTestResult) {
-            $out=$r.outcome
-            if ($out -eq 'Passed'){$pass++} else {$fail++}
-            $msg=""
-            if ($r.Output -and $r.Output.ErrorInfo) { $msg = ($r.Output.ErrorInfo.Message + "`n" + $r.Output.ErrorInfo.StackTrace) }
-            $color = if($out -eq 'Passed'){'#1e8e3e'}elseif($out -eq 'Failed'){'#c0392b'}else{'#8a6d00'}
-            $rows += "<tr><td>$(Enc $r.testName)</td><td style='color:$color;font-weight:600'>$out</td><td><pre style='white-space:pre-wrap;margin:0'>$(Enc $msg)</pre></td></tr>"
-          }
-          $total=$pass+$fail
-          $when = Get-Date -Format 'yyyy-MM-dd HH:mm'
-          $html = "<!doctype html><html><head><meta charset='utf-8'><title>WW Smoke report</title>" +
-            "<style>body{font:14px Segoe UI,Arial;margin:24px;color:#222}h1{font-size:20px}" +
-            "table{border-collapse:collapse;width:100%}td,th{border:1px solid #ddd;padding:6px;text-align:left;vertical-align:top}" +
-            "th{background:#f3f4f6}.s{color:#666}</style></head><body><h1>WW Smoke Tests</h1>" +
-            "<p class='s'>Scope <b>${{ parameters.testScope }}</b> &middot; Env <b>${{ parameters.testEnv }}</b> &middot; Browser <b>${{ parameters.browserChannel }}</b> &middot; $when<br>" +
-            "Slice $(System.JobPositionInPhase): <b>$pass</b> passed / <b>$fail</b> failed / $total total</p>" +
-            "<table><tr><th>Test</th><th>Outcome</th><th>Details</th></tr>$rows</table></body></html>"
-          Set-Content -LiteralPath "$dir\report.html" -Value $html -Encoding UTF8
-          Write-Host "HTML report: $pass passed / $fail failed (from $($trx.Name))"
-          exit 0
-        displayName: 'Build HTML report from results'
-        condition: succeededOrFailed()
-        continueOnError: true
-
-      - task: PublishPipelineArtifact@1
-        displayName: 'Publish HTML report'
-        condition: succeededOrFailed()
-        continueOnError: true
-        inputs:
-          targetPath: '$(Build.ArtifactStagingDirectory)/html-report'
-          artifact: 'html-report-${{ parameters.testEnv }}-$(System.JobPositionInPhase)'
-          publishLocation: 'pipeline'
-
       # ---- Optional Allure HTML report -------------------------------------
       # The native Tests tab already gives detailed, clickable failure reporting.
       # Allure adds a richer standalone HTML report (steps, history) - opt-in via
@@ -390,3 +331,120 @@ jobs:
             targetPath: '$(Build.ArtifactStagingDirectory)/allure-report'
             artifact: 'allure-report-${{ parameters.testEnv }}-$(System.JobPositionInPhase)'
             publishLocation: 'pipeline'
+
+  # ==========================================================================
+  # Consolidated report (one file, for management / release management). Runs
+  # once after all slices, pulls the build's AGGREGATED results from the Test
+  # REST API (so no per-slice .trx hunting), and publishes a single polished
+  # HTML report: verdict, pass rate, per-business-unit breakdown, and every
+  # failed test with its reason. Best-effort: never fails the build (build
+  # status comes from the test job). Requires pipeline "Allow scripts to access
+  # the OAuth token".
+  # ==========================================================================
+  - job: ConsolidatedReport
+    displayName: 'Consolidated test report'
+    dependsOn: RunWWSmoke
+    condition: succeededOrFailed()
+    pool:
+      name: AppSvcs-OnPrem-SQA
+    steps:
+      - checkout: none
+      - powershell: |
+          $ErrorActionPreference = 'Continue'
+          $hdr  = @{ Authorization = "Bearer $env:SYSTEM_ACCESSTOKEN" }
+          $base = "$(System.CollectionUri)".TrimEnd('/') + "/" + [uri]::EscapeDataString("$(System.TeamProject)")
+          $bid  = "$(Build.BuildId)"
+          $dir  = "$(Build.ArtifactStagingDirectory)\report"
+          New-Item -ItemType Directory -Force -Path $dir | Out-Null
+          function Enc($s){ if($null -eq $s){return ''}; ($s -replace '&','&amp;' -replace '<','&lt;' -replace '>','&gt;') }
+
+          $results = @()
+          try {
+            $runs = Invoke-RestMethod -Headers $hdr -Uri "$base/_apis/test/runs?buildIds=$bid&api-version=7.1"
+            foreach ($r in $runs.value) {
+              $page = Invoke-RestMethod -Headers $hdr -Uri "$base/_apis/test/runs/$($r.id)/results?api-version=7.1&`$top=2000"
+              $results += $page.value
+            }
+          } catch { Write-Host "##[warning]Could not read results from the Test API (is 'Allow scripts to access OAuth token' on?): $_" }
+
+          function BU($n){
+            if($n -match 'Bcbsm'){'BCBSM'}
+            elseif($n -match 'MassHealth'){'MassHealth'}
+            elseif($n -match 'Ww2Config|WW2Config'){'WW2 Config'}
+            elseif($n -match 'Ww2Payment'){'WW2 Payment'}
+            elseif($n -match '\.Gov'){'Government'}
+            elseif($n -match '\.Com'){'Commercial'}
+            else{'Other'}
+          }
+          $tot   = $results.Count
+          $pass  = ($results | Where-Object { $_.outcome -eq 'Passed' }).Count
+          $fail  = ($results | Where-Object { $_.outcome -eq 'Failed' }).Count
+          $other = $tot - $pass - $fail
+          $pct   = if($tot){ [math]::Round(100.0*$pass/$tot,1) } else { 0 }
+          $durMs = ($results | Measure-Object -Property durationInMs -Sum).Sum
+          $dur   = [TimeSpan]::FromMilliseconds([double]$durMs).ToString('hh\:mm\:ss')
+
+          $buRows = ""
+          foreach($g in ($results | Group-Object { BU $_.automatedTestName } | Sort-Object Name)){
+            $bp = ($g.Group | Where-Object { $_.outcome -eq 'Passed' }).Count
+            $bf = ($g.Group | Where-Object { $_.outcome -eq 'Failed' }).Count
+            $bpct = if($g.Count){ [math]::Round(100.0*$bp/$g.Count,1) } else { 0 }
+            $bcol = if($bf -gt 0){'#c0392b'}else{'#1e8e3e'}
+            $buRows += "<tr><td>$($g.Name)</td><td style='text-align:right'>$($g.Count)</td><td style='text-align:right;color:#1e8e3e'>$bp</td><td style='text-align:right;color:#c0392b'>$bf</td><td style='text-align:right;color:$bcol'><b>$bpct%</b></td></tr>"
+          }
+          $failRows = ""
+          foreach($r in ($results | Where-Object { $_.outcome -eq 'Failed' } | Sort-Object automatedTestName)){
+            $nm = ($r.automatedTestName -split '\.')[-1]
+            $failRows += "<tr><td>$(BU $r.automatedTestName)</td><td>$(Enc $nm)</td><td><pre style='white-space:pre-wrap;margin:0;font:12px Consolas'>$(Enc $r.errorMessage)</pre></td></tr>"
+          }
+          if(-not $failRows){ $failRows = "<tr><td colspan='3' style='color:#1e8e3e'>None - all executed tests passed.</td></tr>" }
+
+          $verdict = if($fail -gt 0){'FAIL'} elseif($tot -gt 0){'PASS'} else {'NO RESULTS'}
+          $vcol    = if($fail -gt 0){'#c0392b'} elseif($tot -gt 0){'#1e8e3e'} else {'#8a6d00'}
+          $when    = Get-Date -Format 'yyyy-MM-dd HH:mm'
+          $link    = "$base/_build/results?buildId=$bid&view=ms.vss-test-web.build-test-results-tab"
+
+          $css = "body{font:14px Segoe UI,Arial;margin:0;color:#1f2937;background:#f8fafc}.wrap{max-width:1000px;margin:0 auto;padding:24px}" +
+            "h1{font-size:22px;margin:0}h2{font-size:15px;text-transform:uppercase;letter-spacing:.5px;color:#6b7280;margin:28px 0 10px}" +
+            ".meta{color:#6b7280;margin:4px 0 0}.banner{display:flex;align-items:center;gap:16px;background:#fff;border:1px solid #e5e7eb;border-radius:12px;padding:18px 22px;margin-top:16px}" +
+            ".verdict{font-size:30px;font-weight:800;color:$vcol}.cards{display:flex;gap:12px;flex-wrap:wrap;margin-top:8px}" +
+            ".card{flex:1;min-width:120px;background:#fff;border:1px solid #e5e7eb;border-radius:10px;padding:14px}.card .n{font-size:24px;font-weight:700}.card .l{color:#6b7280;font-size:12px}" +
+            "table{border-collapse:collapse;width:100%;background:#fff;border:1px solid #e5e7eb;border-radius:10px;overflow:hidden}" +
+            "td,th{border-bottom:1px solid #eef2f7;padding:9px 12px;text-align:left;vertical-align:top}th{background:#f3f4f6;font-size:12px;text-transform:uppercase;letter-spacing:.4px;color:#6b7280}" +
+            "a.btn{display:inline-block;margin-top:14px;background:#2563eb;color:#fff;padding:9px 16px;border-radius:8px;text-decoration:none}.foot{color:#9ca3af;font-size:12px;margin-top:24px}"
+
+          $html = "<!doctype html><html><head><meta charset='utf-8'><title>WW Smoke - Release Readiness</title><style>$css</style></head><body><div class='wrap'>" +
+            "<h1>WW Smoke Tests - Release Readiness</h1>" +
+            "<p class='meta'>Environment <b>${{ parameters.testEnv }}</b> &middot; Scope <b>${{ parameters.testScope }}</b> &middot; Browser <b>${{ parameters.browserChannel }}</b> &middot; Build $bid &middot; $when</p>" +
+            "<div class='banner'><div class='verdict'>$verdict</div><div><div style='font-size:22px;font-weight:700'>$pct% passed</div><div class='meta'>$pass of $tot tests &middot; total test time $dur</div></div></div>" +
+            "<div class='cards'>" +
+            "<div class='card'><div class='n'>$tot</div><div class='l'>Total</div></div>" +
+            "<div class='card'><div class='n' style='color:#1e8e3e'>$pass</div><div class='l'>Passed</div></div>" +
+            "<div class='card'><div class='n' style='color:#c0392b'>$fail</div><div class='l'>Failed</div></div>" +
+            "<div class='card'><div class='n'>$other</div><div class='l'>Other</div></div>" +
+            "<div class='card'><div class='n' style='color:$vcol'>$pct%</div><div class='l'>Pass rate</div></div></div>" +
+            "<h2>Results by business unit</h2>" +
+            "<table><tr><th>Business unit</th><th style='text-align:right'>Tests</th><th style='text-align:right'>Passed</th><th style='text-align:right'>Failed</th><th style='text-align:right'>Pass rate</th></tr>$buRows</table>" +
+            "<h2>Failed tests</h2>" +
+            "<table><tr><th>Business unit</th><th>Test</th><th>Reason</th></tr>$failRows</table>" +
+            "<a class='btn' href='$link'>Open full results in Azure DevOps</a>" +
+            "<p class='foot'>Generated automatically by the WW Smoke pipeline. Note: 2 provider-search tests (Commercial, MassHealth) are quarantined pending valid TS06 data. Per-test screenshots/traces are on the run's Tests tab.</p>" +
+            "</div></body></html>"
+
+          Set-Content -LiteralPath "$dir\WW-Smoke-Report.html" -Value $html -Encoding UTF8
+          Write-Host "Report: $verdict - $pass/$tot passed ($pct%), $fail failed."
+          exit 0
+        displayName: 'Build consolidated HTML report'
+        condition: succeededOrFailed()
+        continueOnError: true
+        env:
+          SYSTEM_ACCESSTOKEN: $(System.AccessToken)
+
+      - task: PublishPipelineArtifact@1
+        displayName: 'Publish consolidated report'
+        condition: succeededOrFailed()
+        continueOnError: true
+        inputs:
+          targetPath: '$(Build.ArtifactStagingDirectory)/report'
+          artifact: 'WW-Smoke-Report-${{ parameters.testEnv }}'
+          publishLocation: 'pipeline'
