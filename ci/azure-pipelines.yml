@@ -46,7 +46,10 @@ parameters:
   - name: agentCount
     displayName: 'Agents to distribute tests across (parallel)'
     type: number
-    default: 1
+    # 3 keeps the run reasonably fast while limiting concurrent load on the TS06
+    # app (6 parallel browsers caused contention failures that moved test-to-
+    # test). Raise only if TS06 can take the load.
+    default: 3
   - name: enableAllure
     displayName: 'Also generate & publish the Allure HTML report'
     type: boolean
@@ -76,9 +79,10 @@ variables:
 jobs:
   - job: RunWWSmoke
     displayName: 'WW Smoke (${{ parameters.testScope }})'
-    # Cancel a slice if it runs longer than 15 minutes (allows headroom for the
-    # fresh checkout/restore/build plus failed-test reruns).
-    timeoutInMinutes: 15
+    # Cancel a slice if it runs longer than 20 minutes. With 3 agents each slice
+    # runs ~57 tests plus a fresh checkout/restore/build and any reruns, so this
+    # gives headroom without letting a run drag on indefinitely.
+    timeoutInMinutes: 20
     pool:
       name: AppSvcs-OnPrem-SQA
     # Wipe the agent's _work for this pipeline at the start of every run so old
