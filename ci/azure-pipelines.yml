@@ -8,7 +8,9 @@
 #   * the native Azure DevOps "Tests" tab - clickable per-test failure message +
 #     stack trace + the Playwright screenshot/trace/video the fixture attaches
 #     on failure (the easy-to-read HTML view, no extra tooling), and
-#   * an optional standalone Allure HTML report published as an artifact.
+#   * a single consolidated HTML report (verdict, pass rate, per-business-unit
+#     breakdown, failed tests + reasons) published as a build artifact by a
+#     fast Microsoft-hosted job that reads results from the Test REST API.
 #
 # Pick the environment at run time ('testEnv' -> appsettings.<ENV>.json) and the
 # scope ('testScope' -> a category filter). The build is RED if any test fails;
@@ -50,10 +52,6 @@ parameters:
     # app (6 parallel browsers caused contention failures that moved test-to-
     # test). Raise only if TS06 can take the load.
     default: 3
-  - name: enableAllure
-    displayName: 'Also generate & publish the Allure HTML report'
-    type: boolean
-    default: false
 
 # Nightly schedule is DISABLED for now: a scheduled run uses parameter defaults
 # (agentCount=1), which can't finish 173 UI tests inside the 10-minute timeout
@@ -162,10 +160,11 @@ jobs:
         inputs:
           command: 'build'
           projects: '$(solution)'
-          # EnableAllure=true defines the ALLURE symbol so the [AllureNUnit] hook
+          # Allure is not used; keep the symbol off so the default build is lean.
+          # (legacy note) EnableAllure=true would define the ALLURE symbol so the [AllureNUnit] hook
           # compiles in; false (default) leaves the normal run unaffected.
           # MSBuild '==' is case-insensitive, so the True/False value works directly.
-          arguments: '--configuration $(buildConfiguration) --no-restore /p:EnableAllure=${{ parameters.enableAllure }}'
+          arguments: '--configuration $(buildConfiguration) --no-restore'
 
       - powershell: |
           $ErrorActionPreference = 'Continue'
@@ -282,55 +281,6 @@ jobs:
           DbSettings__DbUserId: $(DbSettings__DbUserId)
           DbSettings__DbPassword: $(DbSettings__DbPassword)
 
-      # ---- Optional Allure HTML report -------------------------------------
-      # The native Tests tab already gives detailed, clickable failure reporting.
-      # Allure adds a richer standalone HTML report (steps, history) - opt-in via
-      # 'enableAllure'. Best-effort: never fails the build.
-      - ${{ if eq(parameters.enableAllure, true) }}:
-        - powershell: |
-            $staging = "$(Build.ArtifactStagingDirectory)\allure-results"
-            New-Item -ItemType Directory -Force -Path $staging | Out-Null
-            $found = Get-ChildItem -Path "$(System.DefaultWorkingDirectory)" -Recurse -Directory -Filter "allure-results" -ErrorAction SilentlyContinue
-            foreach ($d in $found) {
-              Copy-Item -Path (Join-Path $d.FullName '*') -Destination $staging -Recurse -Force -ErrorAction SilentlyContinue
-            }
-            Write-Host "Collected allure-results into $staging"
-          displayName: 'Collect Allure results'
-          condition: succeededOrFailed()
-
-        - powershell: |
-            $results = "$(Build.ArtifactStagingDirectory)\allure-results"
-            $report  = "$(Build.ArtifactStagingDirectory)\allure-report"
-            if (-not (Test-Path $results) -or -not (Get-ChildItem $results -ErrorAction SilentlyContinue)) {
-              Write-Host "No allure-results found; skipping report generation."; exit 0
-            }
-            try {
-              if (Get-Command allure -ErrorAction SilentlyContinue) { & allure generate $results --clean -o $report }
-              else { & npx --yes allure-commandline generate $results --clean -o $report }
-              if (Test-Path (Join-Path $report 'index.html')) {
-                Write-Host "##vso[task.setvariable variable=AllureReportGenerated]true"
-              } else { Write-Host "##[warning]Allure generate produced no index.html." }
-            } catch { Write-Host "##[warning]Could not generate Allure HTML (CLI/Java missing). Raw results still published. $_" }
-            $global:LASTEXITCODE = 0; exit 0
-          displayName: 'Generate Allure report'
-          condition: succeededOrFailed()
-          continueOnError: true
-
-        - task: PublishPipelineArtifact@1
-          displayName: 'Publish Allure results'
-          condition: succeededOrFailed()
-          inputs:
-            targetPath: '$(Build.ArtifactStagingDirectory)/allure-results'
-            artifact: 'allure-results-${{ parameters.testEnv }}-$(System.JobPositionInPhase)'
-            publishLocation: 'pipeline'
-
-        - task: PublishPipelineArtifact@1
-          displayName: 'Publish Allure HTML report'
-          condition: and(succeededOrFailed(), eq(variables['AllureReportGenerated'], 'true'))
-          inputs:
-            targetPath: '$(Build.ArtifactStagingDirectory)/allure-report'
-            artifact: 'allure-report-${{ parameters.testEnv }}-$(System.JobPositionInPhase)'
-            publishLocation: 'pipeline'
 
   # ==========================================================================
   # Consolidated report (one file, for management / release management). Runs
@@ -345,24 +295,28 @@ jobs:
     displayName: 'Consolidated test report'
     dependsOn: RunWWSmoke
     condition: succeededOrFailed()
+    # Runs on a Microsoft-HOSTED agent: it only calls the Azure DevOps REST API
+    # (no internal network needed), so it's fast and reliable and never waits for
+    # the contended on-prem pool. Hard 5-minute cap so it can never drag.
+    timeoutInMinutes: 5
     pool:
-      name: AppSvcs-OnPrem-SQA
+      vmImage: 'ubuntu-latest'
     steps:
       - checkout: none
-      - powershell: |
+      - pwsh: |
           $ErrorActionPreference = 'Continue'
           $hdr  = @{ Authorization = "Bearer $env:SYSTEM_ACCESSTOKEN" }
           $base = "$(System.CollectionUri)".TrimEnd('/') + "/" + [uri]::EscapeDataString("$(System.TeamProject)")
           $bid  = "$(Build.BuildId)"
-          $dir  = "$(Build.ArtifactStagingDirectory)\report"
+          $dir  = Join-Path "$(Build.ArtifactStagingDirectory)" "report"
           New-Item -ItemType Directory -Force -Path $dir | Out-Null
           function Enc($s){ if($null -eq $s){return ''}; ($s -replace '&','&amp;' -replace '<','&lt;' -replace '>','&gt;') }
 
           $results = @()
           try {
-            $runs = Invoke-RestMethod -Headers $hdr -Uri "$base/_apis/test/runs?buildIds=$bid&api-version=7.1"
+            $runs = Invoke-RestMethod -Headers $hdr -TimeoutSec 30 -Uri "$base/_apis/test/runs?buildIds=$bid&api-version=7.1"
             foreach ($r in $runs.value) {
-              $page = Invoke-RestMethod -Headers $hdr -Uri "$base/_apis/test/runs/$($r.id)/results?api-version=7.1&`$top=2000"
+              $page = Invoke-RestMethod -Headers $hdr -TimeoutSec 30 -Uri "$base/_apis/test/runs/$($r.id)/results?api-version=7.1&`$top=2000"
               $results += $page.value
             }
           } catch { Write-Host "##[warning]Could not read results from the Test API (is 'Allow scripts to access OAuth token' on?): $_" }
@@ -431,7 +385,7 @@ jobs:
             "<p class='foot'>Generated automatically by the WW Smoke pipeline. Note: 2 provider-search tests (Commercial, MassHealth) are quarantined pending valid TS06 data. Per-test screenshots/traces are on the run's Tests tab.</p>" +
             "</div></body></html>"
 
-          Set-Content -LiteralPath "$dir\WW-Smoke-Report.html" -Value $html -Encoding UTF8
+          Set-Content -LiteralPath (Join-Path $dir "WW-Smoke-Report.html") -Value $html -Encoding UTF8
           Write-Host "Report: $verdict - $pass/$tot passed ($pct%), $fail failed."
           exit 0
         displayName: 'Build consolidated HTML report'
