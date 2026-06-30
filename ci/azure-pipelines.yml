@@ -47,6 +47,11 @@ variables:
     value: 'Release'
   - name: solution
     value: 'PlaywrightAutomation.sln'
+  # Give each agent its OWN NuGet HTTP cache (under the agent's isolated temp).
+  # Without this, two matrix legs on the same box share one cache and corrupt it
+  # during concurrent restores ("Could not find file ...v3-cache...dat").
+  - name: NUGET_HTTP_CACHE_PATH
+    value: '$(Agent.TempDirectory)\nuget-httpcache'
   # Smoke filter suffix appended to each business-unit filter. Keeps the run to
   # the curated TestEnv smoke set: excludes Delta, the 10 tests that were never
   # in the legacy 173 (4 claim-image + 6 nav), and the 2 provider searches that
@@ -89,12 +94,13 @@ jobs:
         fetchDepth: 1
 
       # Reclaim disk before the heavy restore/build. Best-effort. NOTE: do NOT
-      # delete %LOCALAPPDATA%\ms-playwright (holds ffmpeg).
+      # delete %LOCALAPPDATA%\ms-playwright (holds ffmpeg), and do NOT clear the
+      # NuGet http-cache here - clearing the shared cache mid-restore corrupts a
+      # concurrent leg on the same box. Each leg now uses its own isolated cache
+      # (NUGET_HTTP_CACHE_PATH) so there's nothing to clear.
       - powershell: |
           $ErrorActionPreference = 'SilentlyContinue'
-          Remove-Item "$env:TEMP\*"               -Recurse -Force
-          Remove-Item "$env:LOCALAPPDATA\Temp\*"  -Recurse -Force
-          & dotnet nuget locals http-cache --clear 2>$null
+          Remove-Item "$env:TEMP\*"               -Recurse -Force -Exclude 'nuget-httpcache'
           exit 0
         displayName: 'Reclaim disk space'
 
