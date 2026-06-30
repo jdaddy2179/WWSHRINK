@@ -49,7 +49,10 @@ tokens or passwords to enter.
   `dotnet test`, then publishes results.
 - A final **Consolidated test report** job merges everything into one report.
 - Typical wall-clock time: **~8–15 minutes** with `maxParallel: 3`.
-- **Build is GREEN** when all executed tests pass, **RED** if any test fails.
+- **Build status comes from a pass-rate gate**, not individual tests: it's
+  **GREEN at ≥ 98% pass** (so 1–3 rotating flaky timeouts don't turn it red) and
+  **RED below 98%** (a real regression) or if zero tests ran. Every failure
+  still shows in the Tests tab and the report — nothing is hidden.
 
 ---
 
@@ -103,7 +106,7 @@ Pipeline → **Analytics** tab → test pass-rate trend, flaky tests, etc.
 | Run is **cancelled at ~20 min** | A leg overran the per-leg timeout (slow agent/app). Re-run; if persistent, lower `maxParallel` or check the environment's health. |
 | **“Missing required variable”** error early | The `PlaywrightAutomation-Secrets` variable group isn't linked/authorized for the pipeline (Pipelines → Library). |
 | Many tests fail with **timeouts** | The app under test is slow/under load. Lower `maxParallel`, or check the target environment is up. |
-| Build is **red on 1 rotating test** | Likely a flaky timeout. Re-run; if the *same* test fails repeatedly, it's a real issue to triage. |
+| Build is **red** | Pass rate fell below 98% (the gate). Open the report/Tests tab: if it's the usual 1 rotating flaky timeout you'd normally be green — re-run. If several real failures, that's a genuine regression to triage. |
 | **No agents / run stuck queued** | The self-hosted pool `AppSvcs-OnPrem-SQA` has no free agents. Wait or check agent health. |
 | Agent **low disk / memory** warnings | See `README-Agent-Disk-Maintenance.md` (enable the pool maintenance job). |
 

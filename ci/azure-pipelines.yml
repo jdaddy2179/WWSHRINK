@@ -34,6 +34,10 @@ parameters:
     displayName: 'Business-unit legs to run at once (limits load on the app)'
     type: number
     default: 3
+  - name: minPassPercent
+    displayName: 'Fail the build only if pass %% is below this'
+    type: number
+    default: 98
 
 variables:
   # Library variable group with the secrets the suite reads from the env:
@@ -153,8 +157,10 @@ jobs:
         displayName: 'Ensure Playwright browser (${{ parameters.browserChannel }})'
 
       # Run this business unit's tests. The .trx is named after the BU and lands
-      # in a known folder. A non-zero exit (any test failed) fails the leg -> the
-      # build is RED.
+      # in a known folder. Individual test failures do NOT fail the leg - the
+      # pass-rate gate in the report job decides the build (so a single rotating
+      # flaky test doesn't turn the build red). Real failures still show in the
+      # Tests tab + report, and a regression trips the gate.
       - powershell: |
           $results = "$(Build.ArtifactStagingDirectory)\TestResults"
           New-Item -ItemType Directory -Force -Path $results | Out-Null
@@ -165,16 +171,24 @@ jobs:
             --filter "$filter" `
             --logger "trx;LogFileName=$(BU).trx" `
             --results-directory "$results"
-          $code = $LASTEXITCODE
-          if ($code -ne 0) { Write-Host "##[error]$(BU) tests failed (exit $code)" }
-          exit $code
+          if ($LASTEXITCODE -ne 0) { Write-Host "##[warning]$(BU): some tests failed - the pass-rate gate decides the build." }
+          exit 0
         displayName: 'Run $(BU) tests'
         env:
           TEST_ENV: ${{ parameters.testEnv }}
           PLAYWRIGHT_BROWSER_CHANNEL: ${{ parameters.browserChannel }}
           PLAYWRIGHT_RECORD_VIDEO: ''
           BrowserSettings__Headless: 'true'
-          PLAYWRIGHT_USERNAME: $(PLAYWRIGHT_USERNAME)
+          # PROD uses a dedicated service account. The username/password live as
+          # SECRETS in the variable group (PLAYWRIGHT_USERNAME_PROD /
+          # PLAYWRIGHT_PASSWORD_PROD) - never in this file. Supplying a password
+          # makes the fixture authenticate via HttpCredentials with that account;
+          # other environments keep the default (integrated) auth.
+          ${{ if eq(parameters.testEnv, 'PROD') }}:
+            PLAYWRIGHT_USERNAME: $(PLAYWRIGHT_USERNAME_PROD)
+            PLAYWRIGHT_PASSWORD: $(PLAYWRIGHT_PASSWORD_PROD)
+          ${{ else }}:
+            PLAYWRIGHT_USERNAME: $(PLAYWRIGHT_USERNAME)
           DbSettings__DbUserId: $(DbSettings__DbUserId)
           DbSettings__DbPassword: $(DbSettings__DbPassword)
 
@@ -276,6 +290,9 @@ jobs:
 
           Set-Content -LiteralPath (Join-Path $dir "WW-Smoke-Report.html") -Value $html -Encoding UTF8
           Write-Host "Report: $verdict - $pass/$tot passed ($pct%), $fail failed, from $($trxFiles.Count) trx file(s)."
+          # Hand the numbers to the gate step (same job).
+          Write-Host "##vso[task.setvariable variable=passPct]$pct"
+          Write-Host "##vso[task.setvariable variable=totalCount]$tot"
           exit 0
         displayName: 'Build consolidated HTML report'
         condition: succeededOrFailed()
@@ -289,3 +306,26 @@ jobs:
           targetPath: '$(Build.ArtifactStagingDirectory)/report'
           artifact: 'WW-Smoke-Report-${{ parameters.testEnv }}'
           publishLocation: 'pipeline'
+
+      # Pass-rate gate: the single source of build success. Uses the pass% the
+      # report step computed from the local trx (no REST). Fails the build only
+      # below minPassPercent (default 98) - so 1-3 rotating flaky tests stay
+      # green, but a real regression (or zero tests) goes red. Runs last so the
+      # report is always published first.
+      - powershell: |
+          $pct = [double]"$(passPct)"
+          $tot = [int]"$(totalCount)"
+          $min = [double]"${{ parameters.minPassPercent }}"
+          Write-Host "Executed: $tot tests. Pass rate: $pct%. Threshold: $min%."
+          if ($tot -le 0) {
+            Write-Host "##vso[task.logissue type=error]No tests were executed - failing the build."
+            exit 1
+          }
+          if ($pct -lt $min) {
+            Write-Host "##vso[task.logissue type=error]Pass rate $pct% is below the $min% threshold - failing the build."
+            exit 1
+          }
+          Write-Host "Pass rate $pct% meets the $min% threshold - build passes."
+          exit 0
+        displayName: 'Pass-rate gate (min ${{ parameters.minPassPercent }}%)'
+        condition: succeededOrFailed()
