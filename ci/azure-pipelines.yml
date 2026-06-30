@@ -1,21 +1,15 @@
 # ============================================================================
-# WW Smoke — run Playwright tests directly + rich HTML reporting (YAML-native)
+# WW Smoke — Playwright tests via `dotnet test` (business-unit matrix)
 # ----------------------------------------------------------------------------
-# Replaces the on-prem classic release "PlaywrightAutoRelease" AND the earlier
-# Azure Test Plan approach. Tests are selected by NUnit Category (no test plan,
-# no suites, no configurations, no point mapping), run with VSTest, and the
-# results land in:
-#   * the native Azure DevOps "Tests" tab - clickable per-test failure message +
-#     stack trace + the Playwright screenshot/trace/video the fixture attaches
-#     on failure (the easy-to-read HTML view, no extra tooling), and
-#   * a single consolidated HTML report (verdict, pass rate, per-business-unit
-#     breakdown, failed tests + reasons) published as a build artifact by a
-#     fast Microsoft-hosted job that reads results from the Test REST API.
+# Each business unit runs as its own matrix leg with `dotnet test`, writing a
+# .trx to a KNOWN folder (--results-directory). Results publish to the native
+# Azure DevOps "Tests" tab, the .trx files publish as artifacts, and a final
+# job downloads those trx files (local read - no REST API) and builds ONE
+# consolidated HTML report for management / release.
 #
-# Pick the environment at run time ('testEnv' -> appsettings.<ENV>.json) and the
-# scope ('testScope' -> a category filter). The build is RED if any test fails;
-# alerts are handled by Azure DevOps notifications (no email step in the YAML).
-# A 10-minute per-slice timeout cancels a run that overruns.
+# Why this shape: reading test results from the ADO REST API on an agent hangs
+# in this environment, and VSTest@2 hid the .trx. `dotnet test --results-
+# directory` gives a deterministic local file we can always read.
 #
 # Runs on a SELF-HOSTED pool (AppSvcs-OnPrem-SQA): the suite targets internal
 # *.dqtest.ad hosts, on-prem SQL, and an on-prem NuGet feed that Microsoft-
@@ -26,15 +20,6 @@ trigger: none
 pr: none
 
 parameters:
-  - name: testScope
-    displayName: 'Which tests to run'
-    type: string
-    default: 'Smoke (TestEnv)'
-    values:
-      - 'Smoke (TestEnv)'      # Category TestEnv, excluding Delta classes
-      - 'WebServer (Prod)'     # Category WebServer (run with testEnv=PROD)
-      - 'Regression'           # Category Regression
-      - 'All (no Delta)'       # everything except Delta classes
   - name: testEnv
     displayName: 'Target environment (appsettings.<ENV>.json)'
     type: string
@@ -45,25 +30,10 @@ parameters:
     type: string
     default: msedge
     values: [msedge, chrome]
-  - name: agentCount
-    displayName: 'Agents to distribute tests across (parallel)'
+  - name: maxParallel
+    displayName: 'Business-unit legs to run at once (limits load on the app)'
     type: number
-    # 3 keeps the run reasonably fast while limiting concurrent load on the TS06
-    # app (6 parallel browsers caused contention failures that moved test-to-
-    # test). Raise only if TS06 can take the load.
     default: 3
-
-# Nightly schedule is DISABLED for now: a scheduled run uses parameter defaults
-# (agentCount=1), which can't finish 173 UI tests inside the 10-minute timeout
-# and would just cancel. Re-enable once the default agent count fits the timeout
-# (e.g. default agentCount higher, or a longer timeout):
-# schedules:
-#   - cron: '0 6 * * *'
-#     displayName: 'Nightly TS06 smoke run'
-#     branches:
-#       include:
-#         - main
-#     always: false
 
 variables:
   # Library variable group with the secrets the suite reads from the env:
@@ -73,59 +43,64 @@ variables:
     value: 'Release'
   - name: solution
     value: 'PlaywrightAutomation.sln'
+  # Smoke filter suffix appended to each business-unit filter. Keeps the run to
+  # the curated TestEnv smoke set: excludes Delta, the 10 tests that were never
+  # in the legacy 173 (4 claim-image + 6 nav), and the 2 provider searches that
+  # are quarantined pending valid TS06 data (Commercial, MassHealth).
+  - name: smokeFilter
+    value: '&TestCategory=TestEnv&FullyQualifiedName!~Delta&FullyQualifiedName!~ClaimImage&FullyQualifiedName!~NavigateToIncrementalRateChangeLog&FullyQualifiedName!~NavigateToRetroactivitySubmitter&FullyQualifiedName!~NavigateToBillingConfigPreview&FullyQualifiedName!~NavigateToClientUpdateTools&FullyQualifiedName!~NavigateToReferenceValues&FullyQualifiedName!~NavigateToWw2PaymentandBack&FullyQualifiedName!~ComNavigation.PeformFindAProviderSearch&FullyQualifiedName!~MassHealthSearches.PeformFindAProviderSearch'
 
 jobs:
-  - job: RunWWSmoke
-    displayName: 'WW Smoke (${{ parameters.testScope }})'
-    # Cancel a slice if it runs longer than 20 minutes. With 3 agents each slice
-    # runs ~57 tests plus a fresh checkout/restore/build and any reruns, so this
-    # gives headroom without letting a run drag on indefinitely.
+  - job: PlaywrightTests
+    displayName: 'WW Smoke'
+    # Cancel a leg if it overruns (fresh build + that BU's tests).
     timeoutInMinutes: 20
     pool:
       name: AppSvcs-OnPrem-SQA
-    # Wipe the agent's _work for this pipeline at the start of every run so old
-    # checkouts / bin / obj don't accumulate and fill the disk.
     workspace:
       clean: all
-    # Distribute the filtered tests across N agents. VSTest slices the matched
-    # tests automatically - each agent runs its slice and publishes to the same
-    # run. Needs N agents free in the pool.
     strategy:
-      parallel: ${{ parameters.agentCount }}
+      # One leg per business unit. The BU's name doubles as its .trx file name
+      # so the report job can attribute results without parsing class metadata.
+      matrix:
+        Government:
+          BU: 'Government'
+          BUFilter: 'FullyQualifiedName~Tests.Gov'
+        Commercial:
+          BU: 'Commercial'
+          BUFilter: 'FullyQualifiedName~Tests.Com'
+        BCBSM:
+          BU: 'BCBSM'
+          BUFilter: 'FullyQualifiedName~Tests.Bcbsm'
+        WW2:
+          BU: 'WW2'
+          BUFilter: 'FullyQualifiedName~Tests.Ww2'
+        MassHealth:
+          BU: 'MassHealth'
+          BUFilter: 'FullyQualifiedName~Tests.MassHealth'
+      maxParallel: ${{ parameters.maxParallel }}
     steps:
-      # Shallow clone (fetchDepth: 1) - only the latest commit, no history, to
-      # keep the per-agent checkout small.
       - checkout: self
         clean: true
         fetchDepth: 1
 
-      # Reclaim disk before the heavy restore/build. Best-effort: never fails the
-      # run. NOTE: do NOT delete %LOCALAPPDATA%\ms-playwright - the runtime
-      # resolves ffmpeg (video) from there; wiping it makes every test throw
-      # "ffmpeg-win64.exe doesn't exist". The big repeated cost is _work, which
-      # 'workspace: clean: all' already handles.
+      # Reclaim disk before the heavy restore/build. Best-effort. NOTE: do NOT
+      # delete %LOCALAPPDATA%\ms-playwright (holds ffmpeg).
       - powershell: |
           $ErrorActionPreference = 'SilentlyContinue'
-          function Free { (Get-PSDrive -Name ($env:SystemDrive.TrimEnd(':'))).Free/1GB }
-          Write-Host ("Free before: {0:N1} GB" -f (Free))
           Remove-Item "$env:TEMP\*"               -Recurse -Force
           Remove-Item "$env:LOCALAPPDATA\Temp\*"  -Recurse -Force
-          # NuGet http cache (not the global-packages restore needs); safe to drop.
           & dotnet nuget locals http-cache --clear 2>$null
-          Write-Host ("Free after:  {0:N1} GB" -f (Free))
           exit 0
         displayName: 'Reclaim disk space'
 
-      # Fail fast with a clear message if required secrets are missing, instead of
-      # hanging at the app Sign In page (PLAYWRIGHT_USERNAME) or erroring deep in a
-      # DB call (DbSettings__*). Catches an unauthorized/missing variable group too.
       - powershell: |
           $missing = @()
           if ([string]::IsNullOrWhiteSpace($env:PLAYWRIGHT_USERNAME))   { $missing += 'PLAYWRIGHT_USERNAME' }
           if ([string]::IsNullOrWhiteSpace($env:DbSettings__DbUserId))   { $missing += 'DbSettings__DbUserId' }
           if ([string]::IsNullOrWhiteSpace($env:DbSettings__DbPassword)) { $missing += 'DbSettings__DbPassword' }
           if ($missing.Count -gt 0) {
-            Write-Host "##vso[task.logissue type=error]Missing required variable(s): $($missing -join ', '). Check that the 'PlaywrightAutomation-Secrets' variable group is linked AND authorized for this pipeline (Library -> group -> Pipeline permissions)."
+            Write-Host "##vso[task.logissue type=error]Missing required variable(s): $($missing -join ', '). Check the 'PlaywrightAutomation-Secrets' variable group is linked AND authorized for this pipeline."
             exit 1
           }
           Write-Host "All required variables are present."
@@ -141,12 +116,6 @@ jobs:
           packageType: 'sdk'
           version: '8.x'
 
-      - task: VisualStudioTestPlatformInstaller@1
-        displayName: 'Install VSTest platform'
-        inputs:
-          packageFeedSelector: 'nugetOrg'
-          versionSelector: 'latestStable'
-
       - task: DotNetCoreCLI@2
         displayName: 'Restore'
         inputs:
@@ -160,239 +129,157 @@ jobs:
         inputs:
           command: 'build'
           projects: '$(solution)'
-          # Allure is not used; keep the symbol off so the default build is lean.
-          # (legacy note) EnableAllure=true would define the ALLURE symbol so the [AllureNUnit] hook
-          # compiles in; false (default) leaves the normal run unaffected.
-          # MSBuild '==' is case-insensitive, so the True/False value works directly.
           arguments: '--configuration $(buildConfiguration) --no-restore'
 
       - powershell: |
           $ErrorActionPreference = 'Continue'
           $channel = "${{ parameters.browserChannel }}"
-          # Match the fixture: keep Playwright's browsers/ffmpeg next to the package so
-          # what we install here is found at runtime.
           $env:PLAYWRIGHT_BROWSERS_PATH = '0'
           $script = Get-ChildItem -Path "$(Build.SourcesDirectory)" -Recurse -Filter "playwright.ps1" |
                     Where-Object { $_.FullName -like "*\bin\$(buildConfiguration)\*" } |
                     Select-Object -First 1
           if (-not $script) { Write-Error "playwright.ps1 not found - build may have failed"; exit 1 }
-
-          # ffmpeg is required for video recording and is NOT bundled with the system
-          # browser. Install it (small) so PLAYWRIGHT_RECORD_VIDEO works.
-          & $script.FullName install ffmpeg
-
-          # Ensure the browser channel. If the system browser is already on the agent,
-          # Playwright refuses to install over it (exits 1, "already installed") - the
-          # desired state - so use the system install; otherwise download the channel.
           $systemPaths = @{
-            'msedge' = @(
-              "$Env:ProgramFiles\Microsoft\Edge\Application\msedge.exe",
-              "${Env:ProgramFiles(x86)}\Microsoft\Edge\Application\msedge.exe")
-            'chrome' = @(
-              "$Env:ProgramFiles\Google\Chrome\Application\chrome.exe",
-              "${Env:ProgramFiles(x86)}\Google\Chrome\Application\chrome.exe")
+            'msedge' = @("$Env:ProgramFiles\Microsoft\Edge\Application\msedge.exe","${Env:ProgramFiles(x86)}\Microsoft\Edge\Application\msedge.exe")
+            'chrome' = @("$Env:ProgramFiles\Google\Chrome\Application\chrome.exe","${Env:ProgramFiles(x86)}\Google\Chrome\Application\chrome.exe")
           }
           if ($systemPaths[$channel] | Where-Object { Test-Path $_ }) {
-            Write-Host "System '$channel' found; Channel=$channel will use it. Skipping browser download."
+            Write-Host "System '$channel' found; will use it."
           } else {
             Write-Host "System '$channel' not found; installing it via Playwright."
             & $script.FullName install $channel
           }
           exit 0
-        displayName: 'Ensure Playwright browser + ffmpeg (${{ parameters.browserChannel }})'
+        displayName: 'Ensure Playwright browser (${{ parameters.browserChannel }})'
 
-      # Translate the friendly scope into a VSTest test-case filter (NUnit
-      # categories map to TestCategory; Delta is excluded by class/namespace).
-      - powershell: |
-          # 'Smoke (TestEnv)' = all TestEnv tests, minus:
-          #  - Delta classes,
-          #  - the 10 TestEnv tests not in the legacy curated set (4 claim-image
-          #    validations + 6 nav tests), so the base set matches the old 173,
-          #  - 2 QUARANTINED provider searches that fail on missing TS06 data
-          #    (Com + MassHealth) - re-add once their member/location data yields
-          #    nearby providers. Net: 171 tests.
-          $smoke = 'TestCategory=TestEnv' +
-                   '&FullyQualifiedName!~Delta' +
-                   '&FullyQualifiedName!~ClaimImage' +
-                   '&FullyQualifiedName!~NavigateToIncrementalRateChangeLog' +
-                   '&FullyQualifiedName!~NavigateToRetroactivitySubmitter' +
-                   '&FullyQualifiedName!~NavigateToBillingConfigPreview' +
-                   '&FullyQualifiedName!~NavigateToClientUpdateTools' +
-                   '&FullyQualifiedName!~NavigateToReferenceValues' +
-                   '&FullyQualifiedName!~NavigateToWw2PaymentandBack' +
-                   '&FullyQualifiedName!~ComNavigation.PeformFindAProviderSearch' +
-                   '&FullyQualifiedName!~MassHealthSearches.PeformFindAProviderSearch'
-          $map = @{
-            'Smoke (TestEnv)'  = $smoke
-            'WebServer (Prod)' = 'TestCategory=WebServer'
-            'Regression'       = 'TestCategory=Regression'
-            'All (no Delta)'   = 'FullyQualifiedName!~Delta'
-          }
-          $sel = "${{ parameters.testScope }}"
-          $filter = $map[$sel]
-          if ([string]::IsNullOrWhiteSpace($filter)) {
-            Write-Host "##vso[task.logissue type=error]Unknown test scope '$sel'."
-            exit 1
-          }
-          Write-Host "Scope '$sel' -> filter: $filter"
-          Write-Host "##vso[task.setvariable variable=resolvedFilter]$filter"
-        displayName: 'Resolve test filter (${{ parameters.testScope }})'
-
-      # Run the matched tests. Results auto-publish to the build's "Tests" tab
-      # (per-test outcome, failure message + stack, and the Playwright trace +
-      # failure screenshot attached). Any test failure fails this task -> the
+      # Run this business unit's tests. The .trx is named after the BU and lands
+      # in a known folder. A non-zero exit (any test failed) fails the leg -> the
       # build is RED.
-      - task: VSTest@2
-        displayName: 'Run WW Smoke (${{ parameters.testScope }} / ${{ parameters.testEnv }})'
-        inputs:
-          testSelector: 'testAssemblies'
-          testAssemblyVer2: |
-            **\bin\**\PlaywrightAutomation.dll
-            !**\*TestAdapter.dll
-            !**\ref\**
-            !**\obj\**
-          searchFolder: '$(System.DefaultWorkingDirectory)'
-          testFilterCriteria: '$(resolvedFilter)'
-          # Use the modern platform from VisualStudioTestPlatformInstaller@1.
-          # Without this, VSTest falls back to the agent's legacy 14.0 platform,
-          # which cannot load .NET 8 / NUnit3 assemblies (discovers 0 tests).
-          vsTestVersion: 'toolsInstaller'
-          uiTests: true
-          runInParallel: false
-          codeCoverageEnabled: false
-          # Auto-retry failed tests to absorb UI flakiness (slow-page timeouts
-          # under parallel load). A test that passes on a rerun is reported as
-          # passed; a genuinely broken test still fails after all attempts, so
-          # "red on real failure" stays honest. rerunFailedThreshold guards
-          # against a mass failure (e.g. env down) being uselessly retried.
-          rerunFailedTests: true
-          rerunFailedThreshold: '30'
-          rerunMaxAttempts: '3'
-          testRunTitle: 'WW Smoke - ${{ parameters.testScope }} - ${{ parameters.testEnv }}'
+      - powershell: |
+          $results = "$(Build.ArtifactStagingDirectory)\TestResults"
+          New-Item -ItemType Directory -Force -Path $results | Out-Null
+          $filter = "$(BUFilter)$(smokeFilter)"
+          Write-Host "Business unit : $(BU)"
+          Write-Host "Filter        : $filter"
+          dotnet test "$(solution)" --no-build --configuration $(buildConfiguration) `
+            --filter "$filter" `
+            --logger "trx;LogFileName=$(BU).trx" `
+            --results-directory "$results"
+          $code = $LASTEXITCODE
+          if ($code -ne 0) { Write-Host "##[error]$(BU) tests failed (exit $code)" }
+          exit $code
+        displayName: 'Run $(BU) tests'
         env:
           TEST_ENV: ${{ parameters.testEnv }}
           PLAYWRIGHT_BROWSER_CHANNEL: ${{ parameters.browserChannel }}
-          # Video is OFF (empty). It is the only thing that needs ffmpeg and has
-          # been a recurring failure source; Playwright trace + failure
-          # screenshots (no ffmpeg) give richer debugging anyway. Set to 'true'
-          # to re-enable once ffmpeg is reliably present on every agent.
           PLAYWRIGHT_RECORD_VIDEO: ''
+          BrowserSettings__Headless: 'true'
           PLAYWRIGHT_USERNAME: $(PLAYWRIGHT_USERNAME)
           DbSettings__DbUserId: $(DbSettings__DbUserId)
           DbSettings__DbPassword: $(DbSettings__DbPassword)
 
+      - task: PublishTestResults@2
+        displayName: 'Publish $(BU) results to Tests tab'
+        condition: always()
+        inputs:
+          testResultsFormat: 'VSTest'
+          testResultsFiles: '$(Build.ArtifactStagingDirectory)/TestResults/$(BU).trx'
+          testRunTitle: 'WW Smoke - $(BU) - ${{ parameters.testEnv }}'
+          failTaskOnFailedTests: false
+
+      - task: PublishPipelineArtifact@1
+        displayName: 'Publish $(BU) trx'
+        condition: always()
+        inputs:
+          targetPath: '$(Build.ArtifactStagingDirectory)/TestResults'
+          artifact: 'trx-$(BU)'
+          publishLocation: 'pipeline'
 
   # ==========================================================================
-  # Consolidated report (one file, for management / release management). Runs
-  # once after all slices, pulls the build's AGGREGATED results from the Test
-  # REST API (so no per-slice .trx hunting), and publishes a single polished
-  # HTML report: verdict, pass rate, per-business-unit breakdown, and every
-  # failed test with its reason. Best-effort: never fails the build (build
-  # status comes from the test job). Requires pipeline "Allow scripts to access
-  # the OAuth token".
+  # Consolidated report. Downloads every BU's .trx (local artifact download - no
+  # REST API), merges them, and publishes ONE management HTML: verdict, pass
+  # rate, per-business-unit breakdown, and failed tests + reasons. Best-effort:
+  # never fails the build.
   # ==========================================================================
   - job: ConsolidatedReport
     displayName: 'Consolidated test report'
-    dependsOn: RunWWSmoke
+    dependsOn: PlaywrightTests
     condition: succeededOrFailed()
-    # Runs on a Microsoft-HOSTED agent: it only calls the Azure DevOps REST API
-    # (no internal network needed), so it's fast and reliable and never waits for
-    # the contended on-prem pool. Hard 5-minute cap so it can never drag.
-    timeoutInMinutes: 5
+    timeoutInMinutes: 10
     pool:
-      vmImage: 'ubuntu-latest'
+      name: AppSvcs-OnPrem-SQA
     steps:
       - checkout: none
-      - pwsh: |
+
+      - task: DownloadPipelineArtifact@2
+        displayName: 'Download all BU trx'
+        inputs:
+          patterns: 'trx-*/**/*.trx'
+          path: '$(Pipeline.Workspace)/trx'
+
+      - powershell: |
           $ErrorActionPreference = 'Continue'
-          $hdr  = @{ Authorization = "Bearer $env:SYSTEM_ACCESSTOKEN" }
-          $base = "$(System.CollectionUri)".TrimEnd('/') + "/" + [uri]::EscapeDataString("$(System.TeamProject)")
-          $bid  = "$(Build.BuildId)"
-          $dir  = Join-Path "$(Build.ArtifactStagingDirectory)" "report"
+          $dir = "$(Build.ArtifactStagingDirectory)\report"
           New-Item -ItemType Directory -Force -Path $dir | Out-Null
           function Enc($s){ if($null -eq $s){return ''}; ($s -replace '&','&amp;' -replace '<','&lt;' -replace '>','&gt;') }
 
-          $results = @()
-          try {
-            $runs = Invoke-RestMethod -Headers $hdr -TimeoutSec 30 -Uri "$base/_apis/test/runs?buildIds=$bid&api-version=7.1"
-            foreach ($r in $runs.value) {
-              $page = Invoke-RestMethod -Headers $hdr -TimeoutSec 30 -Uri "$base/_apis/test/runs/$($r.id)/results?api-version=7.1&`$top=2000"
-              $results += $page.value
+          $trxFiles = Get-ChildItem -Path "$(Pipeline.Workspace)\trx" -Recurse -Filter *.trx -ErrorAction SilentlyContinue
+          $tot=0; $pass=0; $fail=0; $durMs=0.0; $buRows=""; $failRows=""
+          foreach ($f in ($trxFiles | Sort-Object Name)) {
+            $bu = [IO.Path]::GetFileNameWithoutExtension($f.Name)
+            [xml]$x = Get-Content -LiteralPath $f.FullName
+            $bp=0; $bf=0
+            foreach ($r in $x.TestRun.Results.UnitTestResult) {
+              $out = $r.outcome
+              if ($out -eq 'Passed') { $bp++ } else { $bf++ }
+              if ($r.duration) { try { $durMs += [TimeSpan]::Parse($r.duration).TotalMilliseconds } catch {} }
+              if ($out -ne 'Passed') {
+                $msg = ""
+                if ($r.Output -and $r.Output.ErrorInfo) { $msg = ($r.Output.ErrorInfo.Message + "`n" + $r.Output.ErrorInfo.StackTrace) }
+                $failRows += "<tr><td>$bu</td><td>$(Enc $r.testName)</td><td><pre style='white-space:pre-wrap;margin:0;font:12px Consolas'>$(Enc $msg)</pre></td></tr>"
+              }
             }
-          } catch { Write-Host "##[warning]Could not read results from the Test API (is 'Allow scripts to access OAuth token' on?): $_" }
-
-          function BU($n){
-            if($n -match 'Bcbsm'){'BCBSM'}
-            elseif($n -match 'MassHealth'){'MassHealth'}
-            elseif($n -match 'Ww2Config|WW2Config'){'WW2 Config'}
-            elseif($n -match 'Ww2Payment'){'WW2 Payment'}
-            elseif($n -match '\.Gov'){'Government'}
-            elseif($n -match '\.Com'){'Commercial'}
-            else{'Other'}
-          }
-          $tot   = $results.Count
-          $pass  = ($results | Where-Object { $_.outcome -eq 'Passed' }).Count
-          $fail  = ($results | Where-Object { $_.outcome -eq 'Failed' }).Count
-          $other = $tot - $pass - $fail
-          $pct   = if($tot){ [math]::Round(100.0*$pass/$tot,1) } else { 0 }
-          $durMs = ($results | Measure-Object -Property durationInMs -Sum).Sum
-          $dur   = [TimeSpan]::FromMilliseconds([double]$durMs).ToString('hh\:mm\:ss')
-
-          $buRows = ""
-          foreach($g in ($results | Group-Object { BU $_.automatedTestName } | Sort-Object Name)){
-            $bp = ($g.Group | Where-Object { $_.outcome -eq 'Passed' }).Count
-            $bf = ($g.Group | Where-Object { $_.outcome -eq 'Failed' }).Count
-            $bpct = if($g.Count){ [math]::Round(100.0*$bp/$g.Count,1) } else { 0 }
-            $bcol = if($bf -gt 0){'#c0392b'}else{'#1e8e3e'}
-            $buRows += "<tr><td>$($g.Name)</td><td style='text-align:right'>$($g.Count)</td><td style='text-align:right;color:#1e8e3e'>$bp</td><td style='text-align:right;color:#c0392b'>$bf</td><td style='text-align:right;color:$bcol'><b>$bpct%</b></td></tr>"
-          }
-          $failRows = ""
-          foreach($r in ($results | Where-Object { $_.outcome -eq 'Failed' } | Sort-Object automatedTestName)){
-            $nm = ($r.automatedTestName -split '\.')[-1]
-            $failRows += "<tr><td>$(BU $r.automatedTestName)</td><td>$(Enc $nm)</td><td><pre style='white-space:pre-wrap;margin:0;font:12px Consolas'>$(Enc $r.errorMessage)</pre></td></tr>"
+            $bc = $bp + $bf
+            $bpct = if($bc){ [math]::Round(100.0*$bp/$bc,1) } else { 0 }
+            $col = if($bf -gt 0){'#c0392b'}else{'#1e8e3e'}
+            $buRows += "<tr><td>$bu</td><td style='text-align:right'>$bc</td><td style='text-align:right;color:#1e8e3e'>$bp</td><td style='text-align:right;color:#c0392b'>$bf</td><td style='text-align:right;color:$col'><b>$bpct%</b></td></tr>"
+            $tot += $bc; $pass += $bp; $fail += $bf
           }
           if(-not $failRows){ $failRows = "<tr><td colspan='3' style='color:#1e8e3e'>None - all executed tests passed.</td></tr>" }
-
+          $pct = if($tot){ [math]::Round(100.0*$pass/$tot,1) } else { 0 }
+          $dur = [TimeSpan]::FromMilliseconds($durMs).ToString('hh\:mm\:ss')
           $verdict = if($fail -gt 0){'FAIL'} elseif($tot -gt 0){'PASS'} else {'NO RESULTS'}
-          $vcol    = if($fail -gt 0){'#c0392b'} elseif($tot -gt 0){'#1e8e3e'} else {'#8a6d00'}
-          $when    = Get-Date -Format 'yyyy-MM-dd HH:mm'
-          $link    = "$base/_build/results?buildId=$bid&view=ms.vss-test-web.build-test-results-tab"
+          $vcol = if($fail -gt 0){'#c0392b'} elseif($tot -gt 0){'#1e8e3e'} else {'#8a6d00'}
+          $when = Get-Date -Format 'yyyy-MM-dd HH:mm'
+          $link = "$(System.CollectionUri)".TrimEnd('/') + "/" + [uri]::EscapeDataString("$(System.TeamProject)") + "/_build/results?buildId=$(Build.BuildId)&view=ms.vss-test-web.build-test-results-tab"
 
           $css = "body{font:14px Segoe UI,Arial;margin:0;color:#1f2937;background:#f8fafc}.wrap{max-width:1000px;margin:0 auto;padding:24px}" +
-            "h1{font-size:22px;margin:0}h2{font-size:15px;text-transform:uppercase;letter-spacing:.5px;color:#6b7280;margin:28px 0 10px}" +
-            ".meta{color:#6b7280;margin:4px 0 0}.banner{display:flex;align-items:center;gap:16px;background:#fff;border:1px solid #e5e7eb;border-radius:12px;padding:18px 22px;margin-top:16px}" +
-            ".verdict{font-size:30px;font-weight:800;color:$vcol}.cards{display:flex;gap:12px;flex-wrap:wrap;margin-top:8px}" +
-            ".card{flex:1;min-width:120px;background:#fff;border:1px solid #e5e7eb;border-radius:10px;padding:14px}.card .n{font-size:24px;font-weight:700}.card .l{color:#6b7280;font-size:12px}" +
-            "table{border-collapse:collapse;width:100%;background:#fff;border:1px solid #e5e7eb;border-radius:10px;overflow:hidden}" +
-            "td,th{border-bottom:1px solid #eef2f7;padding:9px 12px;text-align:left;vertical-align:top}th{background:#f3f4f6;font-size:12px;text-transform:uppercase;letter-spacing:.4px;color:#6b7280}" +
+            "h1{font-size:22px;margin:0}h2{font-size:15px;text-transform:uppercase;letter-spacing:.5px;color:#6b7280;margin:28px 0 10px}.meta{color:#6b7280;margin:4px 0 0}" +
+            ".banner{display:flex;align-items:center;gap:16px;background:#fff;border:1px solid #e5e7eb;border-radius:12px;padding:18px 22px;margin-top:16px}.verdict{font-size:30px;font-weight:800;color:$vcol}" +
+            ".cards{display:flex;gap:12px;flex-wrap:wrap;margin-top:8px}.card{flex:1;min-width:120px;background:#fff;border:1px solid #e5e7eb;border-radius:10px;padding:14px}.card .n{font-size:24px;font-weight:700}.card .l{color:#6b7280;font-size:12px}" +
+            "table{border-collapse:collapse;width:100%;background:#fff;border:1px solid #e5e7eb;border-radius:10px;overflow:hidden}td,th{border-bottom:1px solid #eef2f7;padding:9px 12px;text-align:left;vertical-align:top}th{background:#f3f4f6;font-size:12px;text-transform:uppercase;letter-spacing:.4px;color:#6b7280}" +
             "a.btn{display:inline-block;margin-top:14px;background:#2563eb;color:#fff;padding:9px 16px;border-radius:8px;text-decoration:none}.foot{color:#9ca3af;font-size:12px;margin-top:24px}"
 
           $html = "<!doctype html><html><head><meta charset='utf-8'><title>WW Smoke - Release Readiness</title><style>$css</style></head><body><div class='wrap'>" +
             "<h1>WW Smoke Tests - Release Readiness</h1>" +
-            "<p class='meta'>Environment <b>${{ parameters.testEnv }}</b> &middot; Scope <b>${{ parameters.testScope }}</b> &middot; Browser <b>${{ parameters.browserChannel }}</b> &middot; Build $bid &middot; $when</p>" +
+            "<p class='meta'>Environment <b>${{ parameters.testEnv }}</b> &middot; Browser <b>${{ parameters.browserChannel }}</b> &middot; Build $(Build.BuildId) &middot; $when</p>" +
             "<div class='banner'><div class='verdict'>$verdict</div><div><div style='font-size:22px;font-weight:700'>$pct% passed</div><div class='meta'>$pass of $tot tests &middot; total test time $dur</div></div></div>" +
-            "<div class='cards'>" +
-            "<div class='card'><div class='n'>$tot</div><div class='l'>Total</div></div>" +
+            "<div class='cards'><div class='card'><div class='n'>$tot</div><div class='l'>Total</div></div>" +
             "<div class='card'><div class='n' style='color:#1e8e3e'>$pass</div><div class='l'>Passed</div></div>" +
             "<div class='card'><div class='n' style='color:#c0392b'>$fail</div><div class='l'>Failed</div></div>" +
-            "<div class='card'><div class='n'>$other</div><div class='l'>Other</div></div>" +
             "<div class='card'><div class='n' style='color:$vcol'>$pct%</div><div class='l'>Pass rate</div></div></div>" +
-            "<h2>Results by business unit</h2>" +
-            "<table><tr><th>Business unit</th><th style='text-align:right'>Tests</th><th style='text-align:right'>Passed</th><th style='text-align:right'>Failed</th><th style='text-align:right'>Pass rate</th></tr>$buRows</table>" +
-            "<h2>Failed tests</h2>" +
-            "<table><tr><th>Business unit</th><th>Test</th><th>Reason</th></tr>$failRows</table>" +
+            "<h2>Results by business unit</h2><table><tr><th>Business unit</th><th style='text-align:right'>Tests</th><th style='text-align:right'>Passed</th><th style='text-align:right'>Failed</th><th style='text-align:right'>Pass rate</th></tr>$buRows</table>" +
+            "<h2>Failed tests</h2><table><tr><th>Business unit</th><th>Test</th><th>Reason</th></tr>$failRows</table>" +
             "<a class='btn' href='$link'>Open full results in Azure DevOps</a>" +
-            "<p class='foot'>Generated automatically by the WW Smoke pipeline. Note: 2 provider-search tests (Commercial, MassHealth) are quarantined pending valid TS06 data. Per-test screenshots/traces are on the run's Tests tab.</p>" +
+            "<p class='foot'>Generated by the WW Smoke pipeline. 2 provider-search tests (Commercial, MassHealth) are quarantined pending valid TS06 data. Per-test screenshots/traces are on the run's Tests tab.</p>" +
             "</div></body></html>"
 
           Set-Content -LiteralPath (Join-Path $dir "WW-Smoke-Report.html") -Value $html -Encoding UTF8
-          Write-Host "Report: $verdict - $pass/$tot passed ($pct%), $fail failed."
+          Write-Host "Report: $verdict - $pass/$tot passed ($pct%), $fail failed, from $($trxFiles.Count) trx file(s)."
           exit 0
         displayName: 'Build consolidated HTML report'
         condition: succeededOrFailed()
         continueOnError: true
-        env:
-          SYSTEM_ACCESSTOKEN: $(System.AccessToken)
 
       - task: PublishPipelineArtifact@1
         displayName: 'Publish consolidated report'
