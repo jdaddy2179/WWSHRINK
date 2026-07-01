@@ -143,6 +143,21 @@ prod-capable, so no per-agent capability/demand is needed).
 
 ---
 
+## 7b. Running against QAR (status: blocked on Okta MFA)
+
+QAR is behind **Okta with Okta Verify (MFA)** — unlike TS06/DS10, which use the
+internal forms login. Headless CI agents can't answer an MFA push, so QAR logins
+hang and tests fail on the first navigation with a `waiting until "load"`
+timeout. **This is an auth block, not a test bug**, and QAR is **not runnable**
+until it's resolved.
+
+The chosen fix is a **scoped Okta MFA bypass** for the CI agents (trusted-network
+zone + password/IWA for the QAR app), which needs the Okta/IAM admin team. The
+full ask is in `ci/QAR-Okta-MFA-Bypass-Ask.md`. Once in place, SQA adds a
+QAR-specific login path (the forms-login helper doesn't handle Okta).
+
+---
+
 ## 8. Reference
 
 - **Pipeline definition:** `ci/azure-pipelines.yml`
