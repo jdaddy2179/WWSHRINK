@@ -112,37 +112,34 @@ Pipeline → **Analytics** tab → test pass-rate trend, flaky tests, etc.
 
 ---
 
-## 7a. Running against PROD (one-time agent setup)
+## 7a. Running against PROD (status: pending prod agents)
 
 PROD (`windward.dq.ad`) uses **IIS Integrated Windows Auth** — there is no
 username/password form. The browser authenticates with the **agent's Windows
-identity**, which must be a **provisioned Windward PROD app user** (the way a
-normal person's login is). The default pool agents run as `svc-tfsbuild`, which
-is *not* a prod app user, so PROD fails with `ERR_INVALID_AUTH_CREDENTIALS`
-unless it lands on a prod-capable agent.
+identity**, which must be a **provisioned Windward PROD app user**. The
+`AppSvcs-OnPrem-SQA` agents run as `svc-tfsbuild`, which is *not* a prod app
+user, so PROD scheduled on this pool fails app auth
+(`ERR_INVALID_AUTH_CREDENTIALS`).
 
-The pipeline handles this with a **demand**: a PROD run only schedules onto an
-agent tagged `prodAuth=true`. Set that up once:
+**PROD is therefore not yet runnable from this cloud pipeline.** Non-prod
+environments (TS06, DS10, …) run normally today.
 
-1. **Pick (or add) an agent** in `AppSvcs-OnPrem-SQA` whose **agent service runs
-   as a prod-provisioned domain account** (Services → *Azure Pipelines Agent…* →
-   Log On tab → set the prod account → restart the service). That account must
-   be able to log into `windward.dq.ad` interactively.
-2. On that same box, ensure the zone allows silent integrated auth: **Internet
-   Options → Security → Local intranet → Custom level → User Authentication →
-   Logon → “Automatic logon with current user name and password.”**
-3. **Tag the agent** so PROD can find it: Org/Project Settings → **Agent pools →
-   AppSvcs-OnPrem-SQA → <agent> → Capabilities → Add user capability**:
-   `prodAuth = true`. (Non-prod runs ignore this tag and use any agent.)
-4. Run the pipeline with **Target environment = PROD**. It will queue onto the
-   tagged agent and authenticate as that account. No passwords go in the
-   pipeline — DB access still uses the prod SQL service account from the
-   variable group.
+**Plan to enable PROD (move off-prem):** the on-prem `SQA Production Agents`
+VMs (`Production01…15`) already run the prod smoke on-prem and each run as a
+prod-provisioned `DQ\Svc-sqa-p0xx` service account. Register a **second, cloud
+agent instance** on each of those VMs against this org, in a cloud pool
+`SQA Production Agents`, with the service logged on as the **same**
+`DQ\Svc-sqa-p0xx` account. Then PROD points at that pool. Requirements:
 
-> If a PROD run sits **queued forever**, no agent carries the `prodAuth=true`
-> capability — finish step 3. If PROD authenticates but the app denies access,
-> the agent's account isn't a provisioned Windward PROD user (an *authorization*
-> problem, not the pipeline).
+- Each VM needs **outbound HTTPS to `dev.azure.com`** (they currently only talk
+  to on-prem `tfs.dq.ad`).
+- Install a **current v3/v4 agent** (the on-prem ones are v2.x) in a *separate*
+  folder from the existing agent so both coexist.
+- Keep the VMs **domain-joined** (needed to reach `windward.dq.ad` and
+  authenticate).
+
+Once that pool exists, PROD's `pool:` is switched to it (all agents in it are
+prod-capable, so no per-agent capability/demand is needed).
 
 ---
 

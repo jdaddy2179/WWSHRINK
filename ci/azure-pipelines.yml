@@ -67,19 +67,13 @@ jobs:
     # All environments run on the on-prem SQA pool (reaches internal
     # *.dqtest.ad / *.dq.ad hosts, on-prem SQL, on-prem NuGet feed).
     #
-    # PROD uses IIS Integrated Windows Auth, so the browser sends the AGENT's
-    # Windows identity. PROD therefore DEMANDS an agent tagged `prodAuth=true` -
-    # i.e. one whose agent service runs as a prod-provisioned Windows account
-    # (a real Windward PROD app user). Add that user capability to the agent:
-    #   Org/Project Settings -> Agent pools -> AppSvcs-OnPrem-SQA -> <agent>
-    #   -> Capabilities -> add user capability  prodAuth = true
-    # (or set a PROD_AUTH=true env var for the agent's service and restart it).
-    # Non-prod runs have no such demand and use any agent in the pool.
+    # NOTE: PROD needs a prod-provisioned agent to authenticate to
+    # windward.dq.ad (IIS Integrated Windows Auth uses the AGENT's identity).
+    # Until the prod "SQA Production Agents" VMs are registered to this cloud
+    # org, PROD will schedule on this pool but fail app auth as the non-prod
+    # service account. Non-prod environments run fine here today.
     pool:
       name: 'AppSvcs-OnPrem-SQA'
-      ${{ if eq(parameters.testEnv, 'PROD') }}:
-        demands:
-          - prodAuth -equals true
     workspace:
       clean: all
     strategy:
