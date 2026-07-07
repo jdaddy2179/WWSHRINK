@@ -378,6 +378,10 @@ jobs:
                 $msg = ""
                 if ($r.Output -and $r.Output.ErrorInfo) { $msg = ($r.Output.ErrorInfo.Message + "`n" + $r.Output.ErrorInfo.StackTrace) }
                 $failRows += "<tr><td>$bu</td><td>$(Enc $r.testName)</td><td><pre style='white-space:pre-wrap;margin:0;font:12px Consolas'>$(Enc $msg)</pre></td></tr>"
+                # Also echo each failure to the build log so it's visible without
+                # downloading the report artifact (PROD has no Tests tab).
+                $firstLine = ($msg -split "`n" | Select-Object -First 1).Trim()
+                Write-Host "##[warning]FAIL [$bu] $($r.testName) - $firstLine"
               }
             }
             $bc = $bp + $bf
