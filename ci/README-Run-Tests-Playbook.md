@@ -112,7 +112,16 @@ Pipeline → **Analytics** tab → test pass-rate trend, flaky tests, etc.
 
 ---
 
-## 7a. Running against PROD (status: pending prod agents)
+## 7a. Running against PROD (wired to the prod pool)
+
+**Status:** PROD now targets the cloud pool **`Production SQA Agents`**, whose
+agents run as prod-provisioned `DQ\Svc-sqa-p0xx` accounts — so IIS Integrated
+Windows Auth to `windward.dq.ad` uses a valid prod identity (no password in the
+pipeline). Non-prod environments stay on `AppSvcs-OnPrem-SQA`. As more prod VMs
+are registered to that pool, PROD parallelism scales up; with a single agent,
+run PROD with `maxParallel: 1` (legs run sequentially).
+
+
 
 PROD (`windward.dq.ad`) uses **IIS Integrated Windows Auth** — there is no
 username/password form. The browser authenticates with the **agent's Windows

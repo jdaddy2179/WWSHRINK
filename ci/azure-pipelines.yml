@@ -64,16 +64,17 @@ jobs:
     displayName: 'WW Smoke'
     # Cancel a leg if it overruns (fresh build + that BU's tests).
     timeoutInMinutes: 20
-    # All environments run on the on-prem SQA pool (reaches internal
-    # *.dqtest.ad / *.dq.ad hosts, on-prem SQL, on-prem NuGet feed).
-    #
-    # NOTE: PROD needs a prod-provisioned agent to authenticate to
-    # windward.dq.ad (IIS Integrated Windows Auth uses the AGENT's identity).
-    # Until the prod "SQA Production Agents" VMs are registered to this cloud
-    # org, PROD will schedule on this pool but fail app auth as the non-prod
-    # service account. Non-prod environments run fine here today.
+    # Self-hosted pools registered to this cloud org. The machines stay on-prem
+    # and domain-joined because the apps under test are internal:
+    #   - PROD     -> 'Production SQA Agents' (agents run as a prod-provisioned
+    #                 DQ\Svc-sqa-p0xx identity, so IIS Integrated Windows Auth to
+    #                 windward.dq.ad succeeds - no password needed in the pipeline)
+    #   - non-prod -> 'AppSvcs-OnPrem-SQA'    (reaches *.dqtest.ad, on-prem SQL/NuGet)
     pool:
-      name: 'AppSvcs-OnPrem-SQA'
+      ${{ if eq(parameters.testEnv, 'PROD') }}:
+        name: 'Production SQA Agents'
+      ${{ else }}:
+        name: 'AppSvcs-OnPrem-SQA'
     workspace:
       clean: all
     strategy:
