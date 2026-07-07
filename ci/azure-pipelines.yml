@@ -242,8 +242,12 @@ jobs:
           else { $filter = "$(BUFilter)$(smokeFilter)" }
           Write-Host "Leg    : $(BU)"
           Write-Host "Filter : $filter"
+          # The console logger (verbosity=normal) streams each test's pass/fail to
+          # this step's live log so progress is visible in real time; the trx
+          # logger feeds the report.
           dotnet test "$(solution)" --no-build --configuration $(buildConfiguration) `
             --filter "$filter" `
+            --logger "console;verbosity=detailed" `
             --logger "trx;LogFileName=$(BU).trx" `
             --results-directory "$results"
           if ($LASTEXITCODE -ne 0) { Write-Host "##[warning]$(BU): some tests failed - the pass-rate gate decides the build." }
@@ -253,6 +257,7 @@ jobs:
             Write-Host "Running WebServer validation pass (PROD)"
             dotnet test "$(solution)" --no-build --configuration $(buildConfiguration) `
               --filter "TestCategory=WebServer" `
+              --logger "console;verbosity=detailed" `
               --logger "trx;LogFileName=WebServer.trx" `
               --results-directory "$results"
             if ($LASTEXITCODE -ne 0) { Write-Host "##[warning]WebServer: some tests failed - the pass-rate gate decides the build." }
