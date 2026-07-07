@@ -195,13 +195,16 @@ jobs:
           packageType: 'sdk'
           version: '8.x'
 
-      - task: DotNetCoreCLI@2
+      # Restore with --ignore-failed-sources so an unreachable source doesn't
+      # fail the build. NuGet.Config lists the on-prem DQ feed (HTTP, reachable)
+      # AND nuget.org (HTTPS, which the prod agents' TLS-inspecting proxy makes
+      # unreliable -> intermittent NU1301). The DQ feed carries the packages, so
+      # tolerating a failed nuget.org keeps restore green. (dotnet uses the
+      # Windows cert store, so NODE_TLS_REJECT_UNAUTHORIZED doesn't help it.)
+      - powershell: |
+          dotnet restore "$(solution)" --configfile "NuGet.Config" --ignore-failed-sources
+          exit $LASTEXITCODE
         displayName: 'Restore'
-        inputs:
-          command: 'restore'
-          projects: '$(solution)'
-          feedsToUse: 'config'
-          nugetConfigPath: 'NuGet.Config'
 
       - task: DotNetCoreCLI@2
         displayName: 'Build ($(buildConfiguration))'
