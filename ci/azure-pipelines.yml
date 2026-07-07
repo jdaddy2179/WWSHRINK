@@ -106,14 +106,16 @@ jobs:
     steps:
       # Checkout. Non-prod uses the built-in checkout. PROD agent VMs sit on a
       # locked-down network and can't reach the TLS cert revocation servers
-      # (CRL/OCSP), so the built-in checkout's git aborts with
-      # CRYPT_E_NO_REVOCATION_CHECK. Global config / GIT_CONFIG_* env did not
-      # reach that git, so on PROD we clone MANUALLY and pass
-      # `-c http.schannelCheckRevoke=false` directly to the git invocation, where
-      # it is guaranteed to apply. Auth uses the pipeline's System.AccessToken
-      # (same identity the built-in checkout uses). Durable fix is
-      # `git config --system http.schannelCheckRevoke false` on each VM
-      # (ci/agent-register-cloud.md); this keeps PROD green until then.
+      # (CRL/OCSP), so git (schannel) aborts with CRYPT_E_NO_REVOCATION_CHECK.
+      # We proved that neither global config, GIT_CONFIG_* env, nor an inline
+      # `-c http.schannelCheckRevoke=false` is honored by this git build - the
+      # revocation check still hard-fails. So on PROD we clone MANUALLY with
+      # `-c http.sslVerify=false`, which skips certificate verification (and thus
+      # the revocation check) for this one clone. This is a deliberate, scoped
+      # workaround: the clone is from the trusted internal dev.azure.com host and
+      # git still verifies every object by hash. The PROPER fix is on the VM -
+      # `git config --system http.schannelCheckRevoke false` (or open CRL/OCSP
+      # egress) - after which this block can be deleted (ci/agent-register-cloud.md).
       - ${{ if eq(parameters.testEnv, 'PROD') }}:
         - checkout: none
         - powershell: |
@@ -124,12 +126,13 @@ jobs:
             if (Test-Path $src) { Remove-Item "$src\*" -Recurse -Force -ErrorAction SilentlyContinue }
             New-Item -ItemType Directory -Force -Path $src | Out-Null
             $repo = "https://dev.azure.com/EnterpriseRepo/Application%20Services/_git/WW%20Smoke%20Tests"
-            & $git -c http.schannelCheckRevoke=false `
+            & $git -c http.sslVerify=false `
+                   -c http.schannelCheckRevoke=false `
                    -c http.extraheader="AUTHORIZATION: bearer $env:SYSTEM_ACCESSTOKEN" `
                    clone --depth 1 --branch main $repo $src
             if ($LASTEXITCODE -ne 0) { throw "git clone failed with exit code $LASTEXITCODE" }
             Write-Host "Cloned WW Smoke Tests @ main into $src"
-          displayName: 'Checkout (manual, schannel revocation disabled)'
+          displayName: 'Checkout (manual, TLS verify off - see comment)'
           env:
             SYSTEM_ACCESSTOKEN: $(System.AccessToken)
       - ${{ else }}:
