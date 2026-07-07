@@ -167,11 +167,28 @@ jobs:
           DbSettings__DbUserId: $(DbSettings__DbUserId)
           DbSettings__DbPassword: $(DbSettings__DbPassword)
 
-      - task: UseDotNet@2
-        displayName: 'Install .NET 8 SDK'
-        inputs:
-          packageType: 'sdk'
-          version: '8.x'
+      # .NET SDK. Non-prod downloads it via UseDotNet@2. PROD agents sit behind a
+      # TLS-inspecting proxy that blocks the Microsoft SDK download ("self-signed
+      # certificate in certificate chain"), so PROD uses a PRE-INSTALLED .NET 8
+      # SDK on the VM (see ci/agent-register-cloud.md, "Pre-provision") and only
+      # verifies it's present.
+      - ${{ if ne(parameters.testEnv, 'PROD') }}:
+        - task: UseDotNet@2
+          displayName: 'Install .NET 8 SDK'
+          inputs:
+            packageType: 'sdk'
+            version: '8.x'
+      - ${{ if eq(parameters.testEnv, 'PROD') }}:
+        - powershell: |
+            $v = (& dotnet --version) 2>$null
+            if (-not $v) {
+              Write-Host "##vso[task.logissue type=error]No .NET SDK found on this PROD agent. Pre-provision the VM with the .NET 8 SDK (see ci/agent-register-cloud.md)."
+              exit 1
+            }
+            Write-Host "Using pre-installed .NET SDK $v"
+            & dotnet --list-sdks
+            exit 0
+          displayName: 'Verify pre-installed .NET 8 SDK (PROD)'
 
       - task: DotNetCoreCLI@2
         displayName: 'Restore'
