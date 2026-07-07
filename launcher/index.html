@@ -7,7 +7,7 @@
 <style>
   :root{
     --bg:#0f1420; --card:#171f2e; --card2:#1d2738; --ink:#e8edf5; --muted:#9aa7bd;
-    --line:#2a3650; --accent:#3b82f6; --accent2:#2563eb;
+    --line:#2a3650; --accent:#3b82f6; --accent2:#2563eb; --warn:#ffd591;
   }
   *{box-sizing:border-box}
   body{margin:0;font:15px/1.5 -apple-system,Segoe UI,Roboto,Helvetica,Arial,sans-serif;
@@ -16,7 +16,7 @@
   header h1{margin:0;font-size:24px;letter-spacing:.2px}
   header p{margin:6px 0 0;color:var(--muted)}
   main{max-width:980px;margin:0 auto;padding:16px 24px 64px}
-  .grid{display:grid;grid-template-columns:1.4fr 1fr;gap:20px}
+  .grid{display:grid;grid-template-columns:1.1fr 1fr;gap:20px}
   @media(max-width:820px){.grid{grid-template-columns:1fr}}
   .card{background:var(--card);border:1px solid var(--line);border-radius:14px;padding:20px}
   .card h2{margin:0 0 14px;font-size:14px;text-transform:uppercase;letter-spacing:.8px;color:var(--muted)}
@@ -24,22 +24,13 @@
   .field{margin-bottom:16px}
   select,input[type=number]{width:100%;padding:11px 12px;border-radius:10px;border:1px solid var(--line);
        background:var(--card2);color:var(--ink);font-size:15px;appearance:none}
-  .bu-grid{display:grid;grid-template-columns:1fr;gap:10px}
-  .bu{cursor:pointer;border:1px solid var(--line);background:var(--card2);border-radius:11px;
-      padding:12px 14px;display:flex;justify-content:space-between;align-items:center;transition:.12s}
-  .bu:hover{border-color:var(--accent)}
-  .bu.sel{border-color:var(--accent);background:#16233d;box-shadow:0 0 0 1px var(--accent) inset}
-  .bu .nm{font-weight:600}
-  .bu .ct{font-size:12px;color:var(--muted)}
-  .toggle{display:flex;align-items:center;gap:10px;cursor:pointer;user-select:none}
-  .toggle input{width:18px;height:18px;accent-color:var(--accent)}
+  .pill{display:inline-block;background:#16233d;border:1px solid var(--line);border-radius:999px;
+        padding:2px 9px;font-size:12px;color:var(--ink)}
   .summary{background:var(--card2);border:1px dashed var(--line);border-radius:11px;padding:14px;margin-top:4px}
   .kv{display:flex;justify-content:space-between;gap:12px;padding:7px 0;border-bottom:1px solid #222c40}
   .kv:last-child{border-bottom:0}
   .kv .k{color:var(--muted)}
   .kv .v{font-weight:600;text-align:right}
-  .pill{display:inline-block;background:#16233d;border:1px solid var(--line);border-radius:999px;
-        padding:2px 9px;font-size:12px;color:var(--ink)}
   .run{display:block;width:100%;margin-top:16px;padding:14px;border:0;border-radius:11px;cursor:pointer;
        background:linear-gradient(180deg,var(--accent),var(--accent2));color:#fff;font-size:16px;font-weight:700;text-align:center;text-decoration:none}
   .run:hover{filter:brightness(1.06)}
@@ -52,28 +43,25 @@
   .links{display:flex;flex-wrap:wrap;gap:10px;margin-top:6px}
   .links a{color:#bcd2ff;text-decoration:none;font-size:13px;border:1px solid var(--line);padding:7px 11px;border-radius:9px}
   .links a:hover{border-color:var(--accent)}
-  .warnbar{display:none;margin:0 0 16px;padding:10px 14px;border-radius:10px;background:#3a2a12;border:1px solid #6b4e16;color:#ffd591;font-size:13px}
+  .warnbar{display:none;margin:12px 0 0;padding:10px 14px;border-radius:10px;background:#3a2a12;border:1px solid #6b4e16;color:var(--warn);font-size:13px}
   code{background:#0c1119;border:1px solid var(--line);border-radius:6px;padding:1px 6px;color:#cfe0ff}
   .footer{max-width:980px;margin:0 auto;padding:0 24px 40px;color:var(--muted);font-size:12px}
+  .val{color:#bcd2ff;font-weight:600}
 </style>
 </head>
 <body>
 <header>
   <h1>🧪 WW Smoke Tests — Launcher</h1>
-  <p>Pick what to run and an environment, then launch in Azure DevOps. You sign in with your normal ADO account — no tokens needed. Results land in the run's <b>Tests</b> tab with failure details and screenshots.</p>
+  <p>Pick an environment and options, then launch in Azure DevOps. You sign in with your normal ADO account — no tokens needed.</p>
 </header>
 
 <main>
-  <div id="cfgWarn" class="warnbar"></div>
   <div class="grid">
     <!-- LEFT: choices -->
     <section class="card">
-      <h2>1 · What to run</h2>
-      <div id="buGrid" class="bu-grid"></div>
-
-      <h2 style="margin-top:22px">2 · Options</h2>
+      <h2>1 · Options</h2>
       <div class="field">
-        <label for="env">Environment <span class="pill">appsettings.&lt;ENV&gt;.json</span></label>
+        <label for="env">Target environment <span class="pill">appsettings.&lt;ENV&gt;.json</span></label>
         <select id="env"></select>
       </div>
       <div class="field">
@@ -84,44 +72,43 @@
         </select>
       </div>
       <div class="field">
-        <label for="agents">Agents (parallel)</label>
-        <input id="agents" type="number" min="1" max="8" value="3" />
+        <label for="parallel">Business-unit legs at once (maxParallel)</label>
+        <input id="parallel" type="number" min="1" max="6" value="3" />
+        <div class="note">3 is the tested-stable value for non-prod. Higher = faster but more load on the app.</div>
       </div>
-      <div class="field">
-        <label class="toggle"><input id="allure" type="checkbox" /> Also generate Allure HTML report</label>
-      </div>
+      <div id="warn" class="warnbar"></div>
     </section>
 
     <!-- RIGHT: summary + launch -->
     <section class="card">
-      <h2>3 · Review &amp; launch</h2>
+      <h2>2 · Review &amp; launch</h2>
       <div class="summary" id="summary"></div>
 
-      <a id="runBtn" class="run" target="_blank" rel="noopener">▶ Open Run dialog in Azure DevOps</a>
+      <a id="runBtn" class="run" target="_blank" rel="noopener">▶ Open the Run dialog in Azure DevOps</a>
 
-      <p class="note">Azure DevOps doesn't pre-fill the form from a link, so in the dialog that opens, set these values:</p>
+      <p class="note">Azure DevOps doesn't pre-fill the form from a link, so in the dialog that opens, click <b>Run pipeline</b> and set:</p>
       <ol class="steps">
-        <li>Click <b>Run pipeline</b> (top-right).</li>
-        <li>Set <b>Which tests to run</b> = <span id="s-scope">—</span></li>
-        <li>Set <b>Target environment</b> = <span id="s-env">—</span></li>
-        <li>Set <b>Browser</b> = <span id="s-browser">—</span>, <b>Agents</b> = <span id="s-agents">—</span><span id="s-allure"></span></li>
-        <li>Click <b>Run</b>. Open the <b>Tests</b> tab for per-test failures + screenshots.</li>
+        <li>Target environment = <span class="val" id="s-env">—</span></li>
+        <li>Browser = <span class="val" id="s-browser">—</span></li>
+        <li>Business-unit legs at once = <span class="val" id="s-parallel">—</span></li>
+        <li>Click <b>Run</b>.</li>
       </ol>
 
-      <h2 style="margin-top:22px">Results &amp; reports</h2>
+      <h2 style="margin-top:22px">Results</h2>
       <div class="links" id="links"></div>
+      <p class="note" id="resultsNote"></p>
     </section>
   </div>
 </main>
 
 <footer class="footer">
-  WW Smoke — Playwright/NUnit, run by category filter (no Test Plan needed). Runs on the self-hosted <code>AppSvcs-OnPrem-SQA</code> pool against internal <code>*.dqtest.ad</code> hosts.
+  Runs the <code>WW Smoke Tests</code> pipeline (definition 697). Non-prod runs on the self-hosted <code>AppSvcs-OnPrem-SQA</code> pool; PROD runs on <code>Production SQA Agents</code>. See <code>ci/README-Run-Tests-Playbook.md</code>.
 </footer>
 
 <script>
 /* ──────────────────────────────────────────────────────────────────────────
-   CONFIG — set PIPELINE_DEFINITION_ID once (Pipelines → WW Smoke Tests → the
-   number after ?definitionId= in the URL). Everything else is wired up.
+   CONFIG — set once. definitionId is the number after ?definitionId= in the
+   pipeline URL (WW Smoke Tests = 697).
    ────────────────────────────────────────────────────────────────────────── */
 const CONFIG = {
   org:     "EnterpriseRepo",
@@ -129,37 +116,11 @@ const CONFIG = {
   PIPELINE_DEFINITION_ID: "697",
 };
 
-/* testScope options (keep in sync with azure-pipelines.yml). prodOnly suites
-   prompt a reminder to use the PROD environment. */
-const SCOPES = [
-  { key:"Smoke (TestEnv)",  label:"Smoke (TestEnv)",  hint:"main smoke set",     prodOnly:false },
-  { key:"WebServer (Prod)", label:"WebServer (Prod)", hint:"prod web servers",   prodOnly:true  },
-  { key:"Regression",       label:"Regression",       hint:"regression suite",   prodOnly:false },
-  { key:"All (no Delta)",   label:"All (no Delta)",    hint:"everything but Delta",prodOnly:false },
-];
-
-const ENVS = ["TS06","DS01","DS10","QAR","TSHF","TSNB5","TSNB6","TSNB7","TSSLADJ","PROD"];
+/* Environments — keep in sync with the pipeline's testEnv parameter values. */
+const ENVS = ["TS06","DS01","DS10","QAR","PROD","TSHF","TSNB5","TSNB6","TSNB7","TSSLADJ"];
 
 const enc = encodeURIComponent;
 const orgUrl = `https://dev.azure.com/${enc(CONFIG.org)}/${enc(CONFIG.project)}`;
-
-let selected = SCOPES[0];
-
-/* Build scope cards */
-const buGrid = document.getElementById("buGrid");
-SCOPES.forEach(s => {
-  const el = document.createElement("div");
-  el.className = "bu" + (s === selected ? " sel" : "");
-  el.innerHTML = `<span class="nm">${s.label}</span><span class="ct">${s.hint}</span>`;
-  el.onclick = () => {
-    selected = s;
-    document.querySelectorAll(".bu").forEach(n => n.classList.remove("sel"));
-    el.classList.add("sel");
-    if (s.prodOnly) document.getElementById("env").value = "PROD";
-    render();
-  };
-  buGrid.appendChild(el);
-});
 
 /* Env dropdown */
 const envSel = document.getElementById("env");
@@ -173,8 +134,8 @@ ENVS.forEach(e => {
 const links = document.getElementById("links");
 [
   ["▶ Pipeline runs", () => pipelineUrl()],
-  ["🧪 Latest Tests tab", () => pipelineUrl()],
-  ["📈 Analytics – test results", `${orgUrl}/_analytics/view`],
+  ["🧪 Tests tab (non-prod)", () => pipelineUrl()],
+  ["📈 Analytics", `${orgUrl}/_analytics/view`],
 ].forEach(([txt, href]) => {
   const a = document.createElement("a");
   a.textContent = txt; a.target = "_blank"; a.rel = "noopener";
@@ -184,48 +145,51 @@ const links = document.getElementById("links");
 
 function pipelineUrl(){
   const id = CONFIG.PIPELINE_DEFINITION_ID;
-  return id && id !== "REPLACE_ME"
-    ? `${orgUrl}/_build?definitionId=${enc(id)}`
-    : `${orgUrl}/_build`;
+  return `${orgUrl}/_build?definitionId=${enc(id)}`;
 }
 
 function render(){
-  const env     = envSel.value;
-  const browser = document.getElementById("browser").value;
-  const agents  = Math.max(1, parseInt(document.getElementById("agents").value || "1", 10));
-  const allure  = document.getElementById("allure").checked;
+  const env        = envSel.value;
+  const browser    = document.getElementById("browser").value;
+  const parallelEl = document.getElementById("parallel");
+  const isProd     = env === "PROD";
+
+  // PROD runs as a single leg on one agent — force parallel 1 and lock it.
+  if (isProd){ parallelEl.value = 1; parallelEl.disabled = true; }
+  else if (parallelEl.disabled){ parallelEl.disabled = false; parallelEl.value = 3; }
+
+  const parallel = Math.max(1, parseInt(parallelEl.value || "1", 10));
 
   document.getElementById("summary").innerHTML = `
-    <div class="kv"><span class="k">Scope</span><span class="v">${selected.key}</span></div>
     <div class="kv"><span class="k">Environment</span><span class="v">${env}</span></div>
     <div class="kv"><span class="k">Browser</span><span class="v">${browser}</span></div>
-    <div class="kv"><span class="k">Agents</span><span class="v">${agents}</span></div>
-    <div class="kv"><span class="k">Allure report</span><span class="v">${allure ? "Yes" : "No"}</span></div>`;
+    <div class="kv"><span class="k">Legs at once</span><span class="v">${parallel}</span></div>`;
 
-  document.getElementById("s-scope").textContent   = selected.key;
-  document.getElementById("s-env").textContent     = env;
-  document.getElementById("s-browser").textContent = browser;
-  document.getElementById("s-agents").textContent  = agents;
-  document.getElementById("s-allure").textContent  = allure ? ", Allure report = on" : "";
+  document.getElementById("s-env").textContent      = env;
+  document.getElementById("s-browser").textContent  = browser;
+  document.getElementById("s-parallel").textContent = parallel;
 
-  if (selected.prodOnly && env !== "PROD"){
-    showWarn(`<b>${selected.label}</b> is prod-only — set Environment to <code>PROD</code>.`);
-  } else { hideWarn(); }
+  const warn  = document.getElementById("warn");
+  const rnote = document.getElementById("resultsNote");
+  if (isProd){
+    warn.style.display = "block";
+    warn.innerHTML = "⚠️ <b>PROD</b> runs as a single leg (~40 min on the current one agent) and includes the WebServer checks. Results are in the <code>WW-Smoke-Report-PROD</code> artifact — PROD has no Tests tab.";
+    rnote.innerHTML = "For <b>PROD</b>: open the run → <b>Artifacts</b> → <code>WW-Smoke-Report-PROD</code> → <code>WW-Smoke-Report.html</code>. Live progress is in the <b>Run Smoke tests</b> step.";
+  } else {
+    warn.style.display = "none";
+    rnote.innerHTML = "For non-prod: results appear in the run's <b>Tests</b> tab (per-test detail + screenshots) and the <code>WW-Smoke-Report-&lt;ENV&gt;</code> artifact.";
+  }
 
   document.getElementById("runBtn").href = pipelineUrl();
 }
 
-function showWarn(html){ const w=document.getElementById("cfgWarn"); if(w.dataset.cfg) return; w.innerHTML="⚠️ "+html; w.style.display="block"; }
-function hideWarn(){ const w=document.getElementById("cfgWarn"); if(!w.dataset.cfg) w.style.display="none"; }
-
-["change","input"].forEach(ev=>{
-  ["env","browser","agents","allure"].forEach(id=>document.getElementById(id).addEventListener(ev,render));
-});
+["change","input"].forEach(ev =>
+  ["env","browser","parallel"].forEach(id => document.getElementById(id).addEventListener(ev, render)));
 
 if (CONFIG.PIPELINE_DEFINITION_ID === "REPLACE_ME"){
-  const w=document.getElementById("cfgWarn");
+  const w=document.getElementById("warn");
   w.innerHTML = "⚙️ One-time setup: set <code>CONFIG.PIPELINE_DEFINITION_ID</code> in index.html.";
-  w.style.display="block"; w.dataset.cfg="1";
+  w.style.display="block";
 }
 
 render();

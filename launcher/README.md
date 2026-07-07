@@ -1,32 +1,32 @@
 # WW Smoke Tests — Launcher page
 
 A zero-secret, static self-service page so any tester can kick off the WW Smoke
-pipeline. The tester picks a **business unit** + **environment**, and the page
-hands them off to the pipeline's **own Run dialog in Azure DevOps**, where they
-sign in with their normal ADO account. No PAT, no backend, no credentials live
-in the page.
+pipeline. The tester picks an **environment**, **browser**, and **legs at once**,
+and the page hands them off to the pipeline's **own Run dialog in Azure DevOps**,
+where they sign in with their normal ADO account. No PAT, no backend, no
+credentials live in the page.
+
+> Prefer a CLI that also **emails results**? See `runner/` (`wwsmoke`) — it
+> queues the run, waits, and emails the report.
 
 ## Files
 - `index.html` — the launcher (self-contained: HTML + CSS + JS, no dependencies).
 - `staticwebapp.config.json` — Azure Static Web Apps routing/caching.
 
 ## One-time setup
-Open `index.html` and set **one** value near the top:
+Already wired for this pipeline. If you ever move it, set the values near the top
+of `index.html`:
 
 ```js
 const CONFIG = {
-  ...
-  PIPELINE_DEFINITION_ID: "REPLACE_ME",   // ← your pipeline id
+  org:     "EnterpriseRepo",
+  project: "Application Services",
+  PIPELINE_DEFINITION_ID: "697",   // Pipelines → WW Smoke Tests → ?definitionId=
 };
 ```
 
-Find the id in Azure DevOps: **Pipelines → WW Smoke Tests** → the number after
-`?definitionId=` in the browser URL. Until it's set, the page still works but the
-button opens the Pipelines list instead of the specific pipeline.
-
-The business-unit → suite-id map in `index.html` (`BUS`) mirrors the
-`testSuite` parameter in `azure-pipelines.yml`. If you add/rename a BU suite,
-update both.
+The `ENVS` list mirrors the pipeline's `testEnv` parameter values — keep them in
+sync if you add/rename an environment.
 
 ## Deploy to Azure Static Web Apps
 **Portal:** Create a Static Web App → source = this repo → **App location** =
@@ -44,11 +44,15 @@ Restrict access (so only testers/staff see it) via the Static Web App's
 public HTML.
 
 ## How a tester uses it
-1. Open the page, click a **business unit**, set **environment / browser /
-   agents / Allure**.
-2. Click **Open Run dialog in Azure DevOps** (new tab, ADO sign-in).
-3. In ADO: **Run pipeline** → set the shown parameter values → **Run**.
-4. Results land in the run's **Tests** tab and in **Test Plans**.
+1. Open the page, pick **environment / browser / legs at once**.
+2. Click **Open the Run dialog in Azure DevOps** (new tab, ADO sign-in).
+3. In ADO: **Run pipeline** → set the three shown values → **Run**.
+4. **Non-prod:** results in the run's **Tests** tab + the `WW-Smoke-Report-<ENV>`
+   artifact. **PROD:** the `WW-Smoke-Report-PROD` artifact (no Tests tab), with
+   live progress in the *Run Smoke tests* step.
 
-> Note: ADO does not support pre-filling pipeline parameters from a URL, so the
-> page shows the exact values to select rather than auto-filling them.
+> Notes:
+> - ADO does not support pre-filling pipeline parameters from a URL, so the page
+>   shows the exact values to select rather than auto-filling them.
+> - Selecting **PROD** locks *legs at once* to 1 (PROD runs as a single leg on
+>   one agent, ~40 min). Register more `Production SQA Agents` to parallelize.
