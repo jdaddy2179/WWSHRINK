@@ -58,19 +58,6 @@ variables:
   # are quarantined pending valid TS06 data (Commercial, MassHealth).
   - name: smokeFilter
     value: '&TestCategory=TestEnv&FullyQualifiedName!~Delta&FullyQualifiedName!~ClaimImage&FullyQualifiedName!~NavigateToIncrementalRateChangeLog&FullyQualifiedName!~NavigateToRetroactivitySubmitter&FullyQualifiedName!~NavigateToBillingConfigPreview&FullyQualifiedName!~NavigateToClientUpdateTools&FullyQualifiedName!~NavigateToReferenceValues&FullyQualifiedName!~NavigateToWw2PaymentandBack&FullyQualifiedName!~ComNavigation.PeformFindAProviderSearch&FullyQualifiedName!~MassHealthSearches.PeformFindAProviderSearch'
-  # PROD only: the prod agent VMs can't reach the TLS cert revocation servers
-  # (CRL/OCSP), so git-for-windows (schannel) aborts the clone with
-  # CRYPT_E_NO_REVOCATION_CHECK. These GIT_CONFIG_* env vars are git's native,
-  # PATH-independent way to inject `http.schannelCheckRevoke=false` into the
-  # built-in checkout's git (git >= 2.31). Durable fix is `git config --system`
-  # on each VM (ci/agent-register-cloud.md); this keeps PROD green until then.
-  - ${{ if eq(parameters.testEnv, 'PROD') }}:
-    - name: GIT_CONFIG_COUNT
-      value: '1'
-    - name: GIT_CONFIG_KEY_0
-      value: 'http.schannelCheckRevoke'
-    - name: GIT_CONFIG_VALUE_0
-      value: 'false'
 
 jobs:
   - job: PlaywrightTests
@@ -117,28 +104,38 @@ jobs:
             BUFilter: 'TestCategory=WebServer'
       maxParallel: ${{ parameters.maxParallel }}
     steps:
-      # Backup to the GIT_CONFIG_* env vars above: write schannelCheckRevoke
-      # straight into the agent user's global .gitconfig so the checkout's git
-      # skips the cert revocation check. Pure file I/O - git is NOT on PATH in
-      # this task, so we never invoke it. This runs before the explicit
-      # `checkout: self` and CANNOT fail the job (it must not skip checkout).
-      - powershell: |
-          $ErrorActionPreference = 'SilentlyContinue'
-          try {
-            $cfg = Join-Path $env:USERPROFILE '.gitconfig'
-            $cur = if (Test-Path $cfg) { Get-Content $cfg -Raw } else { '' }
-            if ($cur -notmatch 'schannelCheckRevoke') {
-              Add-Content -Path $cfg -Value "[http]`r`n`tschannelCheckRevoke = false"
-            }
-            Write-Host "Ensured schannelCheckRevoke=false in $cfg"
-          } catch { Write-Host "non-fatal: $_" }
-          exit 0
-        displayName: 'Disable git TLS revocation check (schannel)'
-        errorActionPreference: 'continue'
-
-      - checkout: self
-        clean: true
-        fetchDepth: 1
+      # Checkout. Non-prod uses the built-in checkout. PROD agent VMs sit on a
+      # locked-down network and can't reach the TLS cert revocation servers
+      # (CRL/OCSP), so the built-in checkout's git aborts with
+      # CRYPT_E_NO_REVOCATION_CHECK. Global config / GIT_CONFIG_* env did not
+      # reach that git, so on PROD we clone MANUALLY and pass
+      # `-c http.schannelCheckRevoke=false` directly to the git invocation, where
+      # it is guaranteed to apply. Auth uses the pipeline's System.AccessToken
+      # (same identity the built-in checkout uses). Durable fix is
+      # `git config --system http.schannelCheckRevoke false` on each VM
+      # (ci/agent-register-cloud.md); this keeps PROD green until then.
+      - ${{ if eq(parameters.testEnv, 'PROD') }}:
+        - checkout: none
+        - powershell: |
+            $ErrorActionPreference = 'Stop'
+            $git = Join-Path $env:AGENT_HOMEDIRECTORY 'externals\git\cmd\git.exe'
+            if (-not (Test-Path $git)) { $git = 'git' }
+            $src = "$(Build.SourcesDirectory)"
+            if (Test-Path $src) { Remove-Item "$src\*" -Recurse -Force -ErrorAction SilentlyContinue }
+            New-Item -ItemType Directory -Force -Path $src | Out-Null
+            $repo = "https://dev.azure.com/EnterpriseRepo/Application%20Services/_git/WW%20Smoke%20Tests"
+            & $git -c http.schannelCheckRevoke=false `
+                   -c http.extraheader="AUTHORIZATION: bearer $env:SYSTEM_ACCESSTOKEN" `
+                   clone --depth 1 --branch main $repo $src
+            if ($LASTEXITCODE -ne 0) { throw "git clone failed with exit code $LASTEXITCODE" }
+            Write-Host "Cloned WW Smoke Tests @ main into $src"
+          displayName: 'Checkout (manual, schannel revocation disabled)'
+          env:
+            SYSTEM_ACCESSTOKEN: $(System.AccessToken)
+      - ${{ else }}:
+        - checkout: self
+          clean: true
+          fetchDepth: 1
 
       # Reclaim disk before the heavy restore/build. Best-effort. NOTE: do NOT
       # delete %LOCALAPPDATA%\ms-playwright (holds ffmpeg), and do NOT clear the
