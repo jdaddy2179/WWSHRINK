@@ -1,0 +1,24 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <OutputType>Exe</OutputType>
+    <TargetFramework>net8.0</TargetFramework>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <Nullable>enable</Nullable>
+    <AssemblyName>wwsmoke</AssemblyName>
+    <RootNamespace>WWSmokeRunner</RootNamespace>
+    <InvariantGlobalization>true</InvariantGlobalization>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <!-- appsettings.json ships next to the exe so it's easy to edit per site. -->
+    <None Update="appsettings.json">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </None>
+  </ItemGroup>
+
+  <!-- No external NuGet packages: uses only the .NET BCL (HttpClient,
+       System.Net.Mail, System.Text.Json, System.IO.Compression) so it builds
+       and runs offline with just the .NET 8 SDK. -->
+
+</Project>
