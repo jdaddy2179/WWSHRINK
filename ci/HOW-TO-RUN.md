@@ -15,6 +15,19 @@
 - **PROD:** the **`WW-Smoke-Report-PROD`** artifact → `WW-Smoke-Report.html` (PROD has no Tests tab). Live progress is in the **Run Smoke tests** step.
 - **Green/Red** = the ≥ 98 % pass-rate gate (1–3 rotating flaky timeouts stay green; a real regression goes red).
 
+## 📧 Get results emailed to you
+**Option A — subscribe yourself in Azure DevOps (no tooling):**
+1. Go to **[Notification settings](https://dev.azure.com/EnterpriseRepo/_settings/notifications)** (avatar → **User settings → Notifications**).
+2. **New subscription** → **Build** → **A build completes**.
+3. Filter: **Build pipeline = WW Smoke Tests** (optionally **Status = Failed** only).
+4. Deliver to your email → **Save**. You'll get an email each time a run finishes.
+
+**Option B — run + email in one command (`wwsmoke` CLI, repo `runner/`):**
+```
+wwsmoke --env TS06 --to you@company.com
+```
+It queues the run, waits, and emails you the report (HTML attached). See `runner/README.md`.
+
 ## Test cases & scenarios (for reference)
 - **Test Plan — [WW Smoke](https://dev.azure.com/EnterpriseRepo/Application%20Services/_testPlans/define?planId=79388)** (scenarios by environment):
   [Env – TS06](https://dev.azure.com/EnterpriseRepo/Application%20Services/_testPlans/define?planId=79388&suiteId=79808) ·
