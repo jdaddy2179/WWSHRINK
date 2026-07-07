@@ -285,6 +285,10 @@ jobs:
           # already allowlists *.dq.ad for integrated auth.
           # DB still uses SQL auth with the prod service account.
           ${{ if eq(parameters.testEnv, 'PROD') }}:
+            # Speed: drop the 300ms per-action SlowMo delay on PROD (Playwright
+            # auto-waits, so the artificial delay isn't needed). Overrides
+            # BrowserSettings.SlowMo from appsettings. Bump to 50-100 if flaky.
+            BrowserSettings__SlowMo: '0'
             DbSettings__DbUserId: $(PLAYWRIGHT_USERNAME_PROD)
             DbSettings__DbPassword: $(PLAYWRIGHT_PASSWORD_PROD)
           ${{ else }}:
