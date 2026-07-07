@@ -58,6 +58,19 @@ variables:
   # are quarantined pending valid TS06 data (Commercial, MassHealth).
   - name: smokeFilter
     value: '&TestCategory=TestEnv&FullyQualifiedName!~Delta&FullyQualifiedName!~ClaimImage&FullyQualifiedName!~NavigateToIncrementalRateChangeLog&FullyQualifiedName!~NavigateToRetroactivitySubmitter&FullyQualifiedName!~NavigateToBillingConfigPreview&FullyQualifiedName!~NavigateToClientUpdateTools&FullyQualifiedName!~NavigateToReferenceValues&FullyQualifiedName!~NavigateToWw2PaymentandBack&FullyQualifiedName!~ComNavigation.PeformFindAProviderSearch&FullyQualifiedName!~MassHealthSearches.PeformFindAProviderSearch'
+  # PROD only: the prod agent VMs can't reach the TLS cert revocation servers
+  # (CRL/OCSP), so git-for-windows (schannel) aborts the clone with
+  # CRYPT_E_NO_REVOCATION_CHECK. These GIT_CONFIG_* env vars are git's native,
+  # PATH-independent way to inject `http.schannelCheckRevoke=false` into the
+  # built-in checkout's git (git >= 2.31). Durable fix is `git config --system`
+  # on each VM (ci/agent-register-cloud.md); this keeps PROD green until then.
+  - ${{ if eq(parameters.testEnv, 'PROD') }}:
+    - name: GIT_CONFIG_COUNT
+      value: '1'
+    - name: GIT_CONFIG_KEY_0
+      value: 'http.schannelCheckRevoke'
+    - name: GIT_CONFIG_VALUE_0
+      value: 'false'
 
 jobs:
   - job: PlaywrightTests
@@ -104,20 +117,24 @@ jobs:
             BUFilter: 'TestCategory=WebServer'
       maxParallel: ${{ parameters.maxParallel }}
     steps:
-      # Prod agent VMs sit on a locked-down network and can't reach the TLS
-      # certificate revocation servers (CRL/OCSP), so git-for-windows (schannel)
-      # aborts the clone with CRYPT_E_NO_REVOCATION_CHECK (0x80092012). Disable
-      # the revocation hard-fail for the agent's git BEFORE checkout. Running
-      # this step before the explicit `checkout: self` makes it execute first.
-      # Durable fix is `git config --system http.schannelCheckRevoke false` on
-      # each VM (see ci/agent-register-cloud.md); this keeps the pipeline green
-      # until that's applied everywhere.
+      # Backup to the GIT_CONFIG_* env vars above: write schannelCheckRevoke
+      # straight into the agent user's global .gitconfig so the checkout's git
+      # skips the cert revocation check. Pure file I/O - git is NOT on PATH in
+      # this task, so we never invoke it. This runs before the explicit
+      # `checkout: self` and CANNOT fail the job (it must not skip checkout).
       - powershell: |
-          git config --system http.schannelCheckRevoke false 2>$null
-          git config --global http.schannelCheckRevoke false
-          Write-Host "http.schannelCheckRevoke (global) = $(git config --global --get http.schannelCheckRevoke)"
+          $ErrorActionPreference = 'SilentlyContinue'
+          try {
+            $cfg = Join-Path $env:USERPROFILE '.gitconfig'
+            $cur = if (Test-Path $cfg) { Get-Content $cfg -Raw } else { '' }
+            if ($cur -notmatch 'schannelCheckRevoke') {
+              Add-Content -Path $cfg -Value "[http]`r`n`tschannelCheckRevoke = false"
+            }
+            Write-Host "Ensured schannelCheckRevoke=false in $cfg"
+          } catch { Write-Host "non-fatal: $_" }
           exit 0
         displayName: 'Disable git TLS revocation check (schannel)'
+        errorActionPreference: 'continue'
 
       - checkout: self
         clean: true
