@@ -17,6 +17,19 @@
     </None>
   </ItemGroup>
 
+  <!-- When publishing with a runtime id (e.g. `dotnet publish -r win-x64`),
+       produce ONE self-contained, compressed exe that needs no .NET install on
+       the target machine. Plain `dotnet build`/`dotnet run` (no RID) is
+       unaffected, so day-to-day dev still works cross-platform. -->
+  <PropertyGroup Condition="'$(RuntimeIdentifier)' != ''">
+    <SelfContained>true</SelfContained>
+    <PublishSingleFile>true</PublishSingleFile>
+    <IncludeNativeLibrariesForSelfExtract>true</IncludeNativeLibrariesForSelfExtract>
+    <EnableCompressionInSingleFile>true</EnableCompressionInSingleFile>
+    <PublishTrimmed>false</PublishTrimmed>
+    <DebugType>none</DebugType>
+  </PropertyGroup>
+
   <!-- No external NuGet packages: uses only the .NET BCL (HttpClient,
        System.Net.Mail, System.Text.Json, System.IO.Compression) so it builds
        and runs offline with just the .NET 8 SDK. -->

@@ -33,6 +33,27 @@ builds and runs anywhere the **.NET 8 SDK** is installed.
 
 ---
 
+## 1a. Get a single-file `wwsmoke.exe` (no .NET needed to run)
+
+For non-developers, ship a **self-contained single-file exe** — testers just need
+the two files `wwsmoke.exe` + `appsettings.json`, no .NET install.
+
+**Option A — build it (needs the .NET 8 SDK on the build machine):**
+```powershell
+./publish.ps1            # or: publish.cmd     (Windows)
+./publish.ps1 -Rid linux-x64   # other platforms
+```
+Output lands in `runner/publish/` — distribute `wwsmoke.exe` + `appsettings.json`.
+
+**Option B — get it from a pipeline (no local SDK):**
+Create a pipeline from `runner/azure-pipelines-runner.yml` (Pipelines → New →
+Existing YAML), run it, and download the **`wwsmoke-exe`** artifact.
+
+Then testers just run `wwsmoke.exe` (Section 2 shows the flags); they only need
+the PAT env var and to edit `appsettings.json`.
+
+---
+
 ## 2. Run it
 
 ```bash

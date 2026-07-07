@@ -1,0 +1,45 @@
+# ============================================================================
+# Builds the wwsmoke single-file exe and publishes it as a pipeline artifact,
+# so anyone can download a ready-to-run wwsmoke.exe without a local .NET SDK.
+#
+# One-time setup: Pipelines -> New pipeline -> Azure Repos Git -> WW Smoke Tests
+# -> Existing YAML file -> /runner/azure-pipelines-runner.yml. Run it, then grab
+# the `wwsmoke-exe` artifact from the run.
+# ============================================================================
+trigger: none
+pr: none
+
+pool:
+  name: 'AppSvcs-OnPrem-SQA'
+
+variables:
+  - name: runnerProj
+    value: 'runner/WWSmokeRunner.csproj'
+
+steps:
+  - checkout: self
+    fetchDepth: 1
+
+  - task: UseDotNet@2
+    displayName: 'Install .NET 8 SDK'
+    inputs:
+      packageType: 'sdk'
+      version: '8.x'
+
+  # Self-contained, single-file, compressed (settings come from the csproj when
+  # a runtime id is supplied). --ignore-failed-sources tolerates an unreachable
+  # nuget.org the same way the main pipeline does.
+  - powershell: |
+      dotnet publish "$(runnerProj)" -c Release -r win-x64 `
+        --ignore-failed-sources `
+        -o "$(Build.ArtifactStagingDirectory)/wwsmoke"
+      if ($LASTEXITCODE -ne 0) { exit 1 }
+      Get-ChildItem "$(Build.ArtifactStagingDirectory)/wwsmoke" | Select-Object Name,Length
+    displayName: 'Publish single-file wwsmoke.exe'
+
+  - task: PublishPipelineArtifact@1
+    displayName: 'Publish wwsmoke.exe artifact'
+    inputs:
+      targetPath: '$(Build.ArtifactStagingDirectory)/wwsmoke'
+      artifact: 'wwsmoke-exe'
+      publishLocation: 'pipeline'
