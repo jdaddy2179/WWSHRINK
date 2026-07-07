@@ -58,6 +58,18 @@ variables:
   # are quarantined pending valid TS06 data (Commercial, MassHealth).
   - name: smokeFilter
     value: '&TestCategory=TestEnv&FullyQualifiedName!~Delta&FullyQualifiedName!~ClaimImage&FullyQualifiedName!~NavigateToIncrementalRateChangeLog&FullyQualifiedName!~NavigateToRetroactivitySubmitter&FullyQualifiedName!~NavigateToBillingConfigPreview&FullyQualifiedName!~NavigateToClientUpdateTools&FullyQualifiedName!~NavigateToReferenceValues&FullyQualifiedName!~NavigateToWw2PaymentandBack&FullyQualifiedName!~ComNavigation.PeformFindAProviderSearch&FullyQualifiedName!~MassHealthSearches.PeformFindAProviderSearch'
+  # PROD ONLY: the prod agent VMs egress through a TLS-inspecting proxy whose
+  # root CA the machine doesn't trust, so the Node-based pipeline tasks
+  # (UseDotNet, DotNetCoreCLI restore/build, Publish/Download*) fail with
+  # "self-signed certificate in certificate chain". Disabling Node TLS
+  # verification for the PROD run lets those tasks reach through the proxy.
+  # This is a deliberate, scoped workaround (Option B); the clean fix is to
+  # trust the proxy root CA on the VMs (ci/agent-register-cloud.md), after which
+  # this and the git sslVerify workaround can be removed. git uses schannel (not
+  # Node), so the manual clone with http.sslVerify=false handles checkout.
+  - ${{ if eq(parameters.testEnv, 'PROD') }}:
+    - name: NODE_TLS_REJECT_UNAUTHORIZED
+      value: '0'
 
 jobs:
   - job: PlaywrightTests
@@ -167,28 +179,11 @@ jobs:
           DbSettings__DbUserId: $(DbSettings__DbUserId)
           DbSettings__DbPassword: $(DbSettings__DbPassword)
 
-      # .NET SDK. Non-prod downloads it via UseDotNet@2. PROD agents sit behind a
-      # TLS-inspecting proxy that blocks the Microsoft SDK download ("self-signed
-      # certificate in certificate chain"), so PROD uses a PRE-INSTALLED .NET 8
-      # SDK on the VM (see ci/agent-register-cloud.md, "Pre-provision") and only
-      # verifies it's present.
-      - ${{ if ne(parameters.testEnv, 'PROD') }}:
-        - task: UseDotNet@2
-          displayName: 'Install .NET 8 SDK'
-          inputs:
-            packageType: 'sdk'
-            version: '8.x'
-      - ${{ if eq(parameters.testEnv, 'PROD') }}:
-        - powershell: |
-            $v = (& dotnet --version) 2>$null
-            if (-not $v) {
-              Write-Host "##vso[task.logissue type=error]No .NET SDK found on this PROD agent. Pre-provision the VM with the .NET 8 SDK (see ci/agent-register-cloud.md)."
-              exit 1
-            }
-            Write-Host "Using pre-installed .NET SDK $v"
-            & dotnet --list-sdks
-            exit 0
-          displayName: 'Verify pre-installed .NET 8 SDK (PROD)'
+      - task: UseDotNet@2
+        displayName: 'Install .NET 8 SDK'
+        inputs:
+          packageType: 'sdk'
+          version: '8.x'
 
       - task: DotNetCoreCLI@2
         displayName: 'Restore'

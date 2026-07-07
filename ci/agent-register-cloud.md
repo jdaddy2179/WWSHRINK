@@ -96,34 +96,35 @@ safety net, but the VM-level fix is the durable one and helps all pipelines.)
 
 ---
 
-## 2c. Pre-provision the VM (behind the TLS-inspecting proxy)
+## 2c. PROD behind the TLS-inspecting proxy (how the pipeline copes)
 
 The prod VMs egress through a **TLS-inspecting proxy** whose root CA the machine
-doesn't trust, so **runtime HTTPS downloads from the internet fail** (git clone,
-the .NET SDK download, any nuget.org package, Playwright browser download). The
-WW Smoke pipeline avoids those downloads on PROD by using what's already on the
-box, so install these **once per VM**:
+doesn't trust, so **every internet HTTPS operation fails** on them (git clone →
+`CRYPT_E_NO_REVOCATION_CHECK`; .NET SDK download, NuGet, and other Node tasks →
+`self-signed certificate in certificate chain`). The pipeline handles this on
+PROD **without any VM changes** (Option B) by disabling TLS verification for the
+affected tools:
 
-1. **.NET 8 SDK** — install system-wide so `dotnet` is on PATH. Verify:
-   ```powershell
-   dotnet --list-sdks    # must list an 8.0.x SDK
-   ```
-   (The pipeline no longer downloads the SDK on PROD; it errors if this is
-   missing.)
-2. **Microsoft Edge** — the tests use the system Edge. Verify it exists at
-   `C:\Program Files (x86)\Microsoft\Edge\Application\msedge.exe` (or Program
-   Files). If present, the pipeline uses it and never downloads a browser.
-3. **NuGet packages** — restore comes from the **on-prem `DQ` feed**
-   (`http://CHTFS02PV.DQ.AD/nuget/`, plain HTTP, not proxied), so it should work
-   as-is. To be safe, warm the cache once by cloning the repo and running
-   `dotnet restore PlaywrightAutomation.sln` on the VM.
+- **git checkout** → PROD does a manual clone with `-c http.sslVerify=false`.
+- **Node-based tasks** (UseDotNet, DotNetCoreCLI restore/build, Publish/Download)
+  → PROD sets `NODE_TLS_REJECT_UNAUTHORIZED=0` for the run.
+- **NuGet** → primary feed is the on-prem `DQ` feed
+  (`http://CHTFS02PV.DQ.AD/nuget/`, plain HTTP, not proxied).
+- **Playwright** → uses the system Edge (no browser download).
 
-> **Best fix (removes all of this):** install the corporate proxy's **root CA**
+No per-VM install is required for these. (Observed: `PROD-SQA-P001` already has
+the .NET 8 SDK and Edge.)
+
+> ⚠️ These bypasses disable TLS certificate verification for those operations on
+> PROD. It's scoped to the PROD run and the traffic is to trusted internal hosts,
+> but it is a security downgrade that exists only because the proxy CA isn't
+> trusted.
+>
+> **Clean fix (removes every bypass):** install the corporate proxy's **root CA**
 > into the VM's *LocalMachine → Trusted Root Certification Authorities* store and
-> set a machine `NODE_EXTRA_CA_CERTS` to it. Then git, .NET, NuGet, and Node
-> tasks all trust the inspected chain, runtime downloads work, and the pipeline's
-> PROD-specific workarounds (manual clone with `sslVerify=false`, pre-installed
-> SDK) can be removed.
+> set a machine `NODE_EXTRA_CA_CERTS` pointing to it. Then git, .NET, NuGet, and
+> Node all trust the inspected chain, and the `sslVerify=false` /
+> `NODE_TLS_REJECT_UNAUTHORIZED` workarounds can be deleted from the pipeline.
 
 ---
 
