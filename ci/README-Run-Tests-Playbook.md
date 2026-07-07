@@ -112,43 +112,71 @@ Pipeline → **Analytics** tab → test pass-rate trend, flaky tests, etc.
 
 ---
 
-## 7a. Running against PROD (wired to the prod pool)
+## 7a. Running against PROD
 
-**Status:** PROD now targets the cloud pool **`Production SQA Agents`**, whose
-agents run as prod-provisioned `DQ\Svc-sqa-p0xx` accounts — so IIS Integrated
-Windows Auth to `windward.dq.ad` uses a valid prod identity (no password in the
-pipeline). Non-prod environments stay on `AppSvcs-OnPrem-SQA`. As more prod VMs
-are registered to that pool, PROD parallelism scales up; with a single agent,
-run PROD with `maxParallel: 1` (legs run sequentially).
+PROD is fully runnable. It differs from the test environments in a few ways
+worth knowing before you run it.
 
+### How to run PROD
+1. **Pipelines → WW Smoke Tests → Run pipeline.**
+2. Set **Target environment = `PROD`**.
+3. Set **Business-unit legs at once (`maxParallel`) = `1`** (there is currently
+   one prod agent — see "Speed" below).
+4. Browser `msedge`, then **Run**.
 
+That's it — no passwords or tokens. The **WebServer validation** tests run
+automatically on PROD (they don't run on other envs).
 
-PROD (`windward.dq.ad`) uses **IIS Integrated Windows Auth** — there is no
-username/password form. The browser authenticates with the **agent's Windows
-identity**, which must be a **provisioned Windward PROD app user**. The
-`AppSvcs-OnPrem-SQA` agents run as `svc-tfsbuild`, which is *not* a prod app
-user, so PROD scheduled on this pool fails app auth
-(`ERR_INVALID_AUTH_CREDENTIALS`).
+### How PROD authenticates (no password)
+PROD (`windward.dq.ad`) uses **IIS Integrated Windows Auth** — there's no login
+form. The browser authenticates as the **agent's Windows identity**. PROD runs
+on the **`Production SQA Agents`** pool, whose agent runs as a prod-provisioned
+**`DQ\Svc-sqa-p0xx`** account, so that identity is a valid Windward PROD user.
+Nothing secret is in the pipeline. (Non-prod envs run on `AppSvcs-OnPrem-SQA`
+with the test-env forms login.)
 
-**PROD is therefore not yet runnable from this cloud pipeline.** Non-prod
-environments (TS06, DS10, …) run normally today.
+### Where to see results (important: NOT the Tests tab)
+On PROD the native **Tests tab is intentionally skipped** — uploading results to
+it hangs through the prod agents' proxy. Instead:
+- **Live progress:** open the run → **WW Smoke Smoke** job → **Run Smoke tests**
+  step. Each test streams `Passed/Failed` in real time.
+- **Final results (management view):** run → **Artifacts** → **`WW-Smoke-Report-PROD`**
+  → `WW-Smoke-Report.html` — verdict, pass rate, and every failure with its
+  reason. This is the source of truth for a PROD run.
+- **Build status:** the same **≥ 98 % pass-rate gate** as other envs.
 
-**Plan to enable PROD (move off-prem):** the on-prem `SQA Production Agents`
-VMs (`Production01…15`) already run the prod smoke on-prem and each run as a
-prod-provisioned `DQ\Svc-sqa-p0xx` service account. Register a **second, cloud
-agent instance** on each of those VMs against this org, in a cloud pool
-`SQA Production Agents`, with the service logged on as the **same**
-`DQ\Svc-sqa-p0xx` account. Then PROD points at that pool. Requirements:
+### Run shape & speed
+- PROD runs as a **single leg** (all business units + WebServer in one
+  checkout/build), because there is one prod agent — parallel legs wouldn't help
+  and one leg avoids repeating setup. Typical time **~20–25 min**; job timeout is
+  90 min.
+- **To make PROD faster:** register more of the prod VMs to the `Production SQA
+  Agents` pool. With more agents, PROD can fan out per-business-unit like the
+  test envs (~12 min). See `ci/agent-register-cloud.md` and
+  `ci/PROD-Cloud-Agent-Onboarding.md`.
 
-- Each VM needs **outbound HTTPS to `dev.azure.com`** (they currently only talk
-  to on-prem `tfs.dq.ad`).
-- Install a **current v3/v4 agent** (the on-prem ones are v2.x) in a *separate*
-  folder from the existing agent so both coexist.
-- Keep the VMs **domain-joined** (needed to reach `windward.dq.ad` and
-  authenticate).
+### The proxy workarounds (why PROD's YAML looks different)
+The prod VMs egress through a **TLS-inspecting proxy** they don't trust, which
+breaks every internet TLS call. The pipeline works around it **on PROD only**,
+transparently to you:
+- git checkout → manual clone with `http.sslVerify=false`
+- .NET / Node tasks → `NODE_TLS_REJECT_UNAUTHORIZED=0`
+- NuGet restore → `--ignore-failed-sources` (uses the on-prem `DQ` feed; tolerates
+  an unreachable nuget.org)
 
-Once that pool exists, PROD's `pool:` is switched to it (all agents in it are
-prod-capable, so no per-agent capability/demand is needed).
+> **Clean fix that removes all of the above:** have the VM/network team install
+> the corporate proxy's **root CA** into each VM's trust store (+ a machine
+> `NODE_EXTRA_CA_CERTS`). Then git/.NET/NuGet all trust the inspected chain and
+> the PROD-only workarounds can be deleted. Details in
+> `ci/agent-register-cloud.md`.
+
+### PROD troubleshooting
+| Symptom | Cause / fix |
+|---|---|
+| Run **stuck queued** | No online agent in `Production SQA Agents`. Check the agent/pool. |
+| **0 tests / gate fails** right after restore | A NuGet source was unreachable — already mitigated with `--ignore-failed-sources`; re-run. |
+| **All** tests fail at first navigation | Agent isn't running as a prod `DQ\Svc-sqa-p0xx` account (auth). |
+| Report counts look **inflated** | Stale trx from a prior run — the report job now cleans its folder first; re-run. |
 
 ---
 
