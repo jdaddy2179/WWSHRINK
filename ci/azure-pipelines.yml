@@ -16,6 +16,10 @@
 # hosted agents cannot reach.
 # ============================================================================
 
+# Run name (the "#..." shown in the Runs list) includes the target environment
+# and browser, so each run is self-describing at a glance.
+name: '$(Date:yyyyMMdd)$(Rev:.r) - ${{ parameters.testEnv }} (${{ parameters.browserChannel }})'
+
 trigger: none
 pr: none
 
