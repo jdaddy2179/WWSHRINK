@@ -15,6 +15,11 @@
 - **PROD:** the **`WW-Smoke-Report-PROD`** artifact → `WW-Smoke-Report.html` (PROD has no Tests tab). Live progress is in the **Run Smoke tests** step.
 - **Green/Red** = the ≥ 98 % pass-rate gate (1–3 rotating flaky timeouts stay green; a real regression goes red).
 
+## Test cases (for reference)
+- **Browse the tests (source):** [WW Smoke Tests repo → `PlaywrightAutomation/Tests`](https://dev.azure.com/EnterpriseRepo/Application%20Services/_git/WW%20Smoke%20Tests?path=/PlaywrightAutomation/Tests)
+- **Executed cases from a run:** open a non-prod run → **Tests** tab (every test with pass/fail, duration, error + screenshot).
+- The smoke run is a curated subset (~170) via the `TestEnv` category filter; the repo also holds regression/claims tests that the smoke run excludes.
+
 ## Good to know
 - **PROD** takes ~40 min (single agent) and includes the WebServer checks. Non-prod (`maxParallel 3`) is ~8–15 min.
 - Prefer a command that also **emails the report**? Use the `wwsmoke` CLI (repo `runner/`).
