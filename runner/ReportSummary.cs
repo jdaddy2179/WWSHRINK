@@ -2,9 +2,9 @@ using System.Text.RegularExpressions;
 
 namespace WWSmokeRunner;
 
-// Pulls the headline numbers out of the consolidated HTML report so we can put
-// them in the email subject/body. Falls back to the build result if the report
-// artifact isn't available.
+// Pulls the headline numbers (and the list of failing tests) out of the
+// consolidated HTML report so we can print them in the console. Falls back to
+// the build result if the report artifact isn't available.
 internal sealed class ReportSummary
 {
     public required string Environment { get; init; }
@@ -12,6 +12,7 @@ internal sealed class ReportSummary
     public string PassRate { get; init; } = "";      // e.g. "98.2%"
     public string Counts { get; init; } = "";        // e.g. "168 of 171 tests"
     public bool HasReport { get; init; }
+    public IReadOnlyList<(string Bu, string Test)> Failures { get; init; } = Array.Empty<(string, string)>();
 
     public string Line =>
         HasReport
@@ -34,7 +35,7 @@ internal sealed class ReportSummary
 
         var verdict = Match(html, @"class=['""]verdict['""][^>]*>([^<]+)<") ?? (buildResult ?? "unknown").ToUpperInvariant();
         var pct = Match(html, @"([\d.]+%)\s*passed");
-        var counts = Match(html, @"(\d+)\s+of\s+(\d+)\s+tests", groups => $"{groups[1].Value} of {groups[2].Value} tests");
+        var counts = Match(html, @"(\d+)\s+of\s+(\d+)\s+tests", g => $"{g[1].Value} of {g[2].Value} tests");
 
         return new ReportSummary
         {
@@ -43,8 +44,30 @@ internal sealed class ReportSummary
             PassRate = pct ?? "",
             Counts = counts ?? "",
             HasReport = true,
+            Failures = ParseFailures(html),
         };
     }
+
+    // The report's "Failed tests" table rows are: <tr><td>BU</td><td>Test</td><td><pre>reason</pre></td></tr>
+    private static IReadOnlyList<(string, string)> ParseFailures(string html)
+    {
+        var i = html.IndexOf("Failed tests", StringComparison.OrdinalIgnoreCase);
+        if (i < 0) return Array.Empty<(string, string)>();
+        var section = html[i..];
+
+        var list = new List<(string, string)>();
+        foreach (Match m in Regex.Matches(section, @"<tr><td>(?<bu>[^<]*)</td><td>(?<test>[^<]*)</td><td>", RegexOptions.IgnoreCase))
+        {
+            var bu = Decode(m.Groups["bu"].Value).Trim();
+            var test = Decode(m.Groups["test"].Value).Trim();
+            if (test.Length == 0 || bu.StartsWith("colspan", StringComparison.OrdinalIgnoreCase)) continue;
+            list.Add((bu, test));
+        }
+        return list;
+    }
+
+    private static string Decode(string s) =>
+        s.Replace("&amp;", "&").Replace("&lt;", "<").Replace("&gt;", ">").Replace("&quot;", "\"");
 
     private static string? Match(string s, string pattern, Func<GroupCollection, string>? project = null)
     {

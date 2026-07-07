@@ -25,11 +25,11 @@
 3. Filter: **Build pipeline = WW Smoke Tests** (optionally **Status = Failed** only).
 4. Deliver to your email → **Save**. You'll get an email each time a run finishes.
 
-**Option B — run + email in one command (`wwsmoke` CLI, repo `runner/`):**
+**Option B — run it and read results in the console (`wwsmoke` CLI, repo `runner/`):**
 ```
-wwsmoke --env TS06 --to you@company.com
+wwsmoke --env TS06
 ```
-It queues the run, waits, and emails you the report (HTML attached). See `runner/README.md`.
+Queues the run, waits, and prints the verdict, pass rate, run link, and failing tests. (Email is optional — off by default; enable it in `appsettings.json`.) See `runner/README.md`.
 
 ## Test cases & scenarios (for reference)
 - **Test Plan — [WW Smoke](https://dev.azure.com/EnterpriseRepo/Application%20Services/_testPlans/define?planId=79388)** (scenarios by environment):

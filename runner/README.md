@@ -1,12 +1,17 @@
 # WW Smoke Runner (`wwsmoke`)
 
 A small .NET 8 console app testers run to **kick off the WW Smoke pipeline, wait
-for it, and email the results** — no digging around in Azure DevOps.
+for it, and see the results right in the console** — no digging around in Azure
+DevOps.
 
 It queues the `WW Smoke Tests` pipeline (definition 697) in
 `dev.azure.com/EnterpriseRepo`, watches the run to completion, downloads the
-consolidated report artifact, and emails a summary (with the full HTML report
-attached).
+consolidated report, and prints the **verdict, pass rate, run link, and any
+failing tests** to the terminal.
+
+> **Email is off by default** (so you can just run and read results). To also
+> email the report, set `Email.Enabled: true` in `appsettings.json` and fill in
+> the SMTP block. See "Optional: email" below.
 
 No external NuGet packages — it uses only the .NET base class library, so it
 builds and runs anywhere the **.NET 8 SDK** is installed.
@@ -58,7 +63,7 @@ the PAT env var and to edit `appsettings.json`.
 
 ```bash
 # From the runner folder:
-dotnet run -- --env TS06 --browser msedge --parallel 3 --to you@company.com
+dotnet run -- --env TS06 --browser msedge --parallel 3
 ```
 
 Or build once and run the exe:
@@ -74,16 +79,27 @@ With **no flags** it prompts you for environment and browser:
 dotnet run
 ```
 
+### What you'll see
+```
+==================== RESULTS ====================
+  TS06: PASS  (98.2% passed, 168 of 171 tests)
+  Run: https://dev.azure.com/EnterpriseRepo/.../_build/results?buildId=NNNNNN
+  Failing tests (3):
+    - [Commercial] Navigate To Member Info
+    ...
+  Full report: C:\Users\you\AppData\Local\Temp\WW-Smoke-Report-TS06-NNNNNN.html
+=================================================
+```
+
 ### Options
 | Flag | Meaning |
 |---|---|
 | `--env <ENV>` | Target environment (`TS06`, `DS10`, `PROD`, …). Prompted if omitted. |
 | `--browser <b>` | `msedge` or `chrome`. Prompted if omitted. |
 | `--parallel <n>` | Business-unit legs at once. **PROD is always forced to 1.** |
-| `--to <addr>` | Email recipient(s), comma-separated. Defaults to `appsettings.json`. |
-| `--no-email` | Run and wait, but don't email. |
-| `--no-wait` | Queue the run and exit immediately (no wait, no email). |
+| `--no-wait` | Queue the run and exit immediately (no waiting). |
 | `--timeout <min>` | Max minutes to wait (default 90). |
+| `--to <addr>` | Email recipient(s) — only used if email is enabled in `appsettings.json`. |
 | `-h`, `--help` | Help. |
 
 ---
@@ -92,11 +108,16 @@ dotnet run
 
 1. Queues the pipeline with your parameters and prints the run URL.
 2. Polls until the run completes (or `--timeout`).
-3. Downloads the `WW-Smoke-Report-<ENV>` artifact and reads the verdict + pass
-   rate.
-4. Emails a summary to the recipient with the full `WW-Smoke-Report.html`
-   attached.
+3. Downloads the `WW-Smoke-Report-<ENV>` artifact and reads the verdict, pass
+   rate, and failing tests.
+4. **Prints the results to the console** (verdict, pass rate, run link, failures,
+   and the local path to the full HTML report).
 5. Exits `0` if the build passed, non-zero otherwise (handy for scheduling).
+
+### Optional: email
+Off by default. To also email the report: set `Email.Enabled: true` in
+`appsettings.json`, fill in `SmtpHost` / `From` / `DefaultTo` (and
+`WWSMOKE_SMTP_PASSWORD` if your relay needs auth), then pass `--to <addr>`.
 
 > **PROD note:** PROD runs as a single leg and takes ~20–25 min; the tool forces
 > `--parallel 1`. See the run playbook (`ci/README-Run-Tests-Playbook.md`, §7a)

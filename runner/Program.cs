@@ -50,21 +50,39 @@ internal static class Program
             // Download + parse the consolidated report for this environment.
             var report = await ado.TryDownloadReportAsync(build.Id, opt.Environment);
             var summary = ReportSummary.From(report?.Html, final.Result, opt.Environment);
-            Console.WriteLine($"\n{summary.Line}");
+            var passed = string.Equals(final.Result, "succeeded", StringComparison.OrdinalIgnoreCase);
 
+            // Results, right in the console.
+            Console.WriteLine();
+            Console.WriteLine("==================== RESULTS ====================");
+            var prev = Console.ForegroundColor;
+            Console.ForegroundColor = passed ? ConsoleColor.Green : ConsoleColor.Red;
+            Console.WriteLine($"  {opt.Environment}: {summary.Verdict}" + (summary.HasReport ? $"  ({summary.PassRate} passed, {summary.Counts})" : ""));
+            Console.ForegroundColor = prev;
+            Console.WriteLine($"  Run: {build.WebUrl}");
+            if (summary.Failures.Count > 0)
+            {
+                Console.WriteLine($"  Failing tests ({summary.Failures.Count}):");
+                foreach (var (bu, test) in summary.Failures.Take(50))
+                    Console.WriteLine($"    - [{bu}] {test}");
+            }
+            if (report is not null)
+                Console.WriteLine($"  Full report: {report.HtmlPath}");
+            else
+                Console.WriteLine($"  (No report artifact found — open the run for details.)");
+            Console.WriteLine("=================================================");
+
+            // Email is off by default (Email.Enabled=false in appsettings.json).
+            // Flip it back on there to also email the report.
             if (cfg.EmailEnabled && !opt.NoEmail)
             {
                 var to = string.IsNullOrWhiteSpace(opt.To) ? cfg.DefaultTo : opt.To;
                 Email.Send(cfg, to, summary, build.WebUrl, report?.Html, report?.HtmlPath);
                 Console.WriteLine($"Emailed results to {to}.");
             }
-            else
-            {
-                Console.WriteLine("Email skipped.");
-            }
 
             // Exit code mirrors the build result so this is CI-friendly too.
-            return string.Equals(final.Result, "succeeded", StringComparison.OrdinalIgnoreCase) ? 0 : 1;
+            return passed ? 0 : 1;
         }
         catch (Exception ex)
         {
