@@ -77,7 +77,10 @@ jobs:
     # PROD runs the WHOLE smoke set (all BUs) + WebServer in ONE leg on a single
     # agent, so it needs a long timeout (~40 min of tests). Non-prod legs are one
     # BU each and finish quickly, so keep the tight 20-min cap there.
-    timeoutInMinutes: ${{ if eq(parameters.testEnv, 'PROD') }}90${{ else }}20
+    ${{ if eq(parameters.testEnv, 'PROD') }}:
+      timeoutInMinutes: 90
+    ${{ else }}:
+      timeoutInMinutes: 20
     # Self-hosted pools registered to this cloud org. The machines stay on-prem
     # and domain-joined because the apps under test are internal:
     #   - PROD     -> 'Production SQA Agents' (agents run as a prod-provisioned
