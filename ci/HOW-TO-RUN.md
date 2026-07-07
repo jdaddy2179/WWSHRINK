@@ -10,10 +10,13 @@
    - **Business-unit legs at once** — `3` for non-prod · **`1` for PROD**
 3. Click **Run**.
 
-## See results
-- **Non-prod (TS06, DS10, …):** open the run → **Tests** tab (per-test pass/fail, error + screenshot) — plus the **`WW-Smoke-Report-<ENV>`** artifact.
-- **PROD:** the **`WW-Smoke-Report-PROD`** artifact → `WW-Smoke-Report.html` (PROD has no Tests tab). Live progress is in the **Run Smoke tests** step.
-- **Green/Red** = the ≥ 98 % pass-rate gate (1–3 rotating flaky timeouts stay green; a real regression goes red).
+## View results (after the run completes)
+1. **Find the run:** Pipelines → **WW Smoke Tests** → click your run (top of the list). The header shows **green** (passed the ≥ 98 % pass-rate gate) or **red** (a real regression, or 0 tests).
+2. **Per-test detail — non-prod (TS06, DS10, …):** open the **Tests** tab → every test with pass/fail, duration, and on failure the **error message + attached screenshot/trace**. Download a trace and open it at <https://trace.playwright.dev> to replay the failure click-by-click.
+3. **Consolidated report — any env (best for sharing):** run → **Artifacts** (or the run summary) → **`WW-Smoke-Report-<ENV>`** → open `WW-Smoke-Report.html` — **verdict, pass rate, per-business-unit breakdown, and each failure with its reason**.
+4. **PROD** has **no Tests tab** → use the report artifact above. Failures also print in the **Consolidated test report** step log, and live per-test output streams in the **Run Smoke tests** step while it runs.
+
+> **Green/Red** = the ≥ 98 % pass-rate gate — 1–3 rotating flaky timeouts stay green; a real regression (or zero tests) goes red. Every failure still shows in the Tests tab / report regardless.
 
 ## 📧 Get results emailed to you
 **Option A — subscribe yourself in Azure DevOps (no tooling):**
