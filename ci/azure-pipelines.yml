@@ -104,6 +104,21 @@ jobs:
             BUFilter: 'TestCategory=WebServer'
       maxParallel: ${{ parameters.maxParallel }}
     steps:
+      # Prod agent VMs sit on a locked-down network and can't reach the TLS
+      # certificate revocation servers (CRL/OCSP), so git-for-windows (schannel)
+      # aborts the clone with CRYPT_E_NO_REVOCATION_CHECK (0x80092012). Disable
+      # the revocation hard-fail for the agent's git BEFORE checkout. Running
+      # this step before the explicit `checkout: self` makes it execute first.
+      # Durable fix is `git config --system http.schannelCheckRevoke false` on
+      # each VM (see ci/agent-register-cloud.md); this keeps the pipeline green
+      # until that's applied everywhere.
+      - powershell: |
+          git config --system http.schannelCheckRevoke false 2>$null
+          git config --global http.schannelCheckRevoke false
+          Write-Host "http.schannelCheckRevoke (global) = $(git config --global --get http.schannelCheckRevoke)"
+          exit 0
+        displayName: 'Disable git TLS revocation check (schannel)'
+
       - checkout: self
         clean: true
         fetchDepth: 1

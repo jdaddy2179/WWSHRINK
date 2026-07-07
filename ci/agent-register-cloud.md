@@ -79,6 +79,23 @@ What the flags do:
 
 ---
 
+## 2b. Fix git TLS revocation check (locked-down VMs)
+
+Hardened/offline VMs often can't reach the certificate **revocation** servers
+(CRL/OCSP), so git-for-windows (schannel) aborts the repo clone with
+`CRYPT_E_NO_REVOCATION_CHECK (0x80092012)` and the build fails at checkout.
+Run once per VM, **as administrator**:
+
+```powershell
+git config --system http.schannelCheckRevoke false
+```
+
+`--system` applies to the agent service account and every pipeline on the box.
+No restart needed. (The WW Smoke pipeline also disables this per-run as a
+safety net, but the VM-level fix is the durable one and helps all pipelines.)
+
+---
+
 ## 3. Verify
 
 - **On the VM:** `Get-Service vstsagent.*` → Status `Running`.
