@@ -264,18 +264,28 @@ jobs:
             DbSettings__DbUserId: $(DbSettings__DbUserId)
             DbSettings__DbPassword: $(DbSettings__DbPassword)
 
-      - task: PublishTestResults@2
-        displayName: 'Publish $(BU) results to Tests tab'
-        condition: always()
-        inputs:
-          testResultsFormat: 'VSTest'
-          testResultsFiles: '$(Build.ArtifactStagingDirectory)/TestResults/$(BU).trx'
-          testRunTitle: 'WW Smoke - $(BU) - ${{ parameters.testEnv }}'
-          failTaskOnFailedTests: false
+      # Tests-tab publish. NON-PROD only: on PROD, TestResultsPublisher.exe hangs
+      # uploading to the ADO test service through the inspecting proxy (it never
+      # returns and the job times out). PROD instead relies on the trx ARTIFACT
+      # below + the consolidated HTML report, which parses the trx locally with
+      # no API upload. Re-enable for PROD once the proxy CA is trusted on the VMs.
+      - ${{ if ne(parameters.testEnv, 'PROD') }}:
+        - task: PublishTestResults@2
+          displayName: 'Publish $(BU) results to Tests tab'
+          condition: always()
+          inputs:
+            testResultsFormat: 'VSTest'
+            testResultsFiles: '$(Build.ArtifactStagingDirectory)/TestResults/$(BU).trx'
+            testRunTitle: 'WW Smoke - $(BU) - ${{ parameters.testEnv }}'
+            failTaskOnFailedTests: false
 
+      # Publish the trx as a pipeline artifact (feeds the consolidated report).
+      # timeout+continueOnError so a slow/hanging upload can't stall the leg.
       - task: PublishPipelineArtifact@1
         displayName: 'Publish $(BU) trx'
         condition: always()
+        continueOnError: true
+        timeoutInMinutes: 5
         inputs:
           targetPath: '$(Build.ArtifactStagingDirectory)/TestResults'
           artifact: 'trx-$(BU)'
