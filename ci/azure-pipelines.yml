@@ -90,30 +90,35 @@ jobs:
     workspace:
       clean: all
     strategy:
-      # One leg per business unit. The BU's name doubles as its .trx file name
-      # so the report job can attribute results without parsing class metadata.
       matrix:
-        Government:
-          BU: 'Government'
-          BUFilter: 'FullyQualifiedName~Tests.Gov'
-        Commercial:
-          BU: 'Commercial'
-          BUFilter: 'FullyQualifiedName~Tests.Com'
-        BCBSM:
-          BU: 'BCBSM'
-          BUFilter: 'FullyQualifiedName~Tests.Bcbsm'
-        WW2:
-          BU: 'WW2'
-          BUFilter: 'FullyQualifiedName~Tests.Ww2'
-        MassHealth:
-          BU: 'MassHealth'
-          BUFilter: 'FullyQualifiedName~Tests.MassHealth'
-        # WebServer validation tests run ONLY on PROD (they target the prod
-        # WebServer01-13 hosts). Conditionally add the leg for testEnv=PROD.
         ${{ if eq(parameters.testEnv, 'PROD') }}:
-          WebServer:
-            BU: 'WebServer'
-            BUFilter: 'TestCategory=WebServer'
+          # PROD runs on a single agent, so use ONE leg (one checkout/restore/
+          # build) that runs the whole smoke set across all business units, then
+          # a WebServer pass in the same leg (see the Run step). Much faster than
+          # six sequential legs each repeating checkout+build. Empty BUFilter =
+          # "all BUs" (the Run step applies just the smoke filter).
+          Smoke:
+            BU: 'Smoke'
+            BUFilter: ''
+        ${{ else }}:
+          # Non-prod parallelizes across agents: one leg per business unit. The
+          # BU name doubles as its .trx file name so the report can attribute
+          # results without parsing class metadata.
+          Government:
+            BU: 'Government'
+            BUFilter: 'FullyQualifiedName~Tests.Gov'
+          Commercial:
+            BU: 'Commercial'
+            BUFilter: 'FullyQualifiedName~Tests.Com'
+          BCBSM:
+            BU: 'BCBSM'
+            BUFilter: 'FullyQualifiedName~Tests.Bcbsm'
+          WW2:
+            BU: 'WW2'
+            BUFilter: 'FullyQualifiedName~Tests.Ww2'
+          MassHealth:
+            BU: 'MassHealth'
+            BUFilter: 'FullyQualifiedName~Tests.MassHealth'
       maxParallel: ${{ parameters.maxParallel }}
     steps:
       # Checkout. Non-prod uses the built-in checkout. PROD agent VMs sit on a
@@ -229,16 +234,29 @@ jobs:
       - powershell: |
           $results = "$(Build.ArtifactStagingDirectory)\TestResults"
           New-Item -ItemType Directory -Force -Path $results | Out-Null
-          # WebServer leg runs its category as-is; BU legs append the smoke filter
-          # (TestEnv minus Delta/quarantined/etc.).
-          if ("$(BU)" -eq "WebServer") { $filter = "$(BUFilter)" } else { $filter = "$(BUFilter)$(smokeFilter)" }
-          Write-Host "Business unit : $(BU)"
-          Write-Host "Filter        : $filter"
+          # Build this leg's filter:
+          #   - empty BUFilter (PROD 'Smoke' leg) -> whole smoke set, all BUs
+          #     (just the smoke filter, minus its leading '&').
+          #   - non-prod BU leg -> BU filter + smoke filter.
+          if ([string]::IsNullOrEmpty("$(BUFilter)")) { $filter = "$(smokeFilter)".TrimStart('&') }
+          else { $filter = "$(BUFilter)$(smokeFilter)" }
+          Write-Host "Leg    : $(BU)"
+          Write-Host "Filter : $filter"
           dotnet test "$(solution)" --no-build --configuration $(buildConfiguration) `
             --filter "$filter" `
             --logger "trx;LogFileName=$(BU).trx" `
             --results-directory "$results"
           if ($LASTEXITCODE -ne 0) { Write-Host "##[warning]$(BU): some tests failed - the pass-rate gate decides the build." }
+          # PROD is a single leg, so run the prod-only WebServer validation pass
+          # here too (shares the one checkout/build); it writes its own trx.
+          if ($env:TEST_ENV -eq "PROD") {
+            Write-Host "Running WebServer validation pass (PROD)"
+            dotnet test "$(solution)" --no-build --configuration $(buildConfiguration) `
+              --filter "TestCategory=WebServer" `
+              --logger "trx;LogFileName=WebServer.trx" `
+              --results-directory "$results"
+            if ($LASTEXITCODE -ne 0) { Write-Host "##[warning]WebServer: some tests failed - the pass-rate gate decides the build." }
+          }
           exit 0
         displayName: 'Run $(BU) tests'
         env:
