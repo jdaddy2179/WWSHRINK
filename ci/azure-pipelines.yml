@@ -339,6 +339,16 @@ jobs:
     steps:
       - checkout: none
 
+      # The report job has no clean workspace, and $(Pipeline.Workspace) is
+      # reused across builds on a self-hosted agent - so stale trx from a PRIOR
+      # run (e.g. a different env's report job on the same agent) can linger and
+      # get merged into this report, inflating the counts. Wipe the folder first
+      # so the report reflects ONLY this build's results.
+      - powershell: |
+          Remove-Item "$(Pipeline.Workspace)\trx" -Recurse -Force -ErrorAction SilentlyContinue
+          exit 0
+        displayName: 'Clean stale trx from prior runs'
+
       - task: DownloadPipelineArtifact@2
         displayName: 'Download all BU trx'
         inputs:
