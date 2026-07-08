@@ -354,24 +354,25 @@ jobs:
       # no API upload. Re-enable for PROD once the proxy CA is trusted on the VMs.
       - ${{ if ne(parameters.testEnv, 'PROD') }}:
         - task: PublishTestResults@2
-          displayName: 'Publish $(BU) results to Tests tab'
+          displayName: 'Publish shard $(SHARD_INDEX) results to Tests tab'
           condition: always()
           inputs:
             testResultsFormat: 'VSTest'
-            testResultsFiles: '$(Build.ArtifactStagingDirectory)/TestResults/$(BU).trx'
-            testRunTitle: 'WW Smoke - $(BU) - ${{ parameters.testEnv }}'
+            testResultsFiles: '$(Build.ArtifactStagingDirectory)/TestResults/*.trx'
+            testRunTitle: 'WW Smoke - Shard $(SHARD_INDEX) - ${{ parameters.testEnv }}'
             failTaskOnFailedTests: false
 
       # Publish the trx as a pipeline artifact (feeds the consolidated report).
+      # One artifact per shard (unique name) so the shards don't collide.
       # timeout+continueOnError so a slow/hanging upload can't stall the leg.
       - task: PublishPipelineArtifact@1
-        displayName: 'Publish $(BU) trx'
+        displayName: 'Publish shard $(SHARD_INDEX) trx'
         condition: always()
         continueOnError: true
         timeoutInMinutes: 5
         inputs:
           targetPath: '$(Build.ArtifactStagingDirectory)/TestResults'
-          artifact: 'trx-$(BU)'
+          artifact: 'trx-shard$(SHARD_INDEX)'
           publishLocation: 'pipeline'
 
   # ==========================================================================
@@ -522,7 +523,18 @@ jobs:
           $col  = "$(System.CollectionUri)".TrimEnd('/')
           $proj = [uri]::EscapeDataString("$(System.TeamProject)")
           $base = "$col/$proj/_apis/test"
-          $hdr  = @{ Authorization = "Bearer $env:SYSTEM_ACCESSTOKEN" }
+          # Auth: prefer a PAT if one is provided as the secret variable
+          # TESTPLAN_PAT (the build-service identity can create a run but is often
+          # denied read/patch on test results -> ADO returns 404). Falls back to
+          # the build's SYSTEM_ACCESSTOKEN when no PAT is set.
+          if ($env:TESTPLAN_PAT -and $env:TESTPLAN_PAT -notmatch '^\$\(') {
+            $b64 = [Convert]::ToBase64String([Text.Encoding]::ASCII.GetBytes(":$($env:TESTPLAN_PAT)"))
+            $hdr = @{ Authorization = "Basic $b64" }
+            Write-Host "Test Plan auth: PAT (TESTPLAN_PAT)"
+          } else {
+            $hdr = @{ Authorization = "Bearer $env:SYSTEM_ACCESSTOKEN" }
+            Write-Host "Test Plan auth: build SYSTEM_ACCESSTOKEN (set TESTPLAN_PAT secret if results 404)"
+          }
 
           # Small retry wrapper - REST from these agents is occasionally flaky, and
           # freshly-created runs/results are eventually consistent (transient 404s).
@@ -623,6 +635,7 @@ jobs:
         timeoutInMinutes: 5
         env:
           SYSTEM_ACCESSTOKEN: $(System.AccessToken)
+          TESTPLAN_PAT: $(TESTPLAN_PAT)
 
       # Pass-rate gate: the single source of build success. Uses the pass% the
       # report step computed from the local trx (no REST). Fails the build only
