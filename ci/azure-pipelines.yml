@@ -495,20 +495,29 @@ jobs:
           if ($fqnOutcome.Count -eq 0) { Write-Host "No trx outcomes parsed - skipping publish."; exit 0 }
 
           try {
-            # suite test points: testCaseId -> pointId
-            $pts = Invoke-RestMethod -Uri "$base/Plans/$planId/Suites/$suiteId/points?api-version=7.0" -Headers $hdr -TimeoutSec 60
+            # suite test points: testCaseId -> pointId. Ids are normalized to
+            # STRING because the run-result testPoint.id comes back as a string
+            # while the points endpoint returns point.id as an int - matching them
+            # as ints-vs-strings silently misses and leaves everything NotExecuted.
+            $pts = $null
+            for ($t=0; $t -lt 6 -and -not $pts; $t++) {
+              try { $pts = Invoke-RestMethod -Uri "$base/Plans/$planId/Suites/$suiteId/points?api-version=7.0" -Headers $hdr -TimeoutSec 60 }
+              catch { Start-Sleep -Seconds 3 }
+            }
+            if (-not $pts) { throw "could not read suite points for suite $suiteId" }
             $tcToPoint = @{}
-            foreach ($p in $pts.value) { if ($p.testCase -and $p.testCase.id) { $tcToPoint[[int]$p.testCase.id] = $p.id } }
+            foreach ($p in $pts.value) { if ($p.testCase -and $p.testCase.id) { $tcToPoint[[string]$p.testCase.id] = [string]$p.id } }
 
-            # pointId -> outcome  (FQN -> testCaseId -> pointId)
+            # pointId(string) -> outcome  (FQN -> testCaseId -> pointId)
             $pointOutcome = @{}
             foreach ($fqn in $fqnOutcome.Keys) {
               if (-not $fqnToTc.ContainsKey($fqn)) { continue }
-              $tc = $fqnToTc[$fqn]
+              $tc = [string]$fqnToTc[$fqn]
               if (-not $tcToPoint.ContainsKey($tc)) { continue }
               $pointOutcome[$tcToPoint[$tc]] = $fqnOutcome[$fqn]
             }
-            $pointIds = @($pointOutcome.Keys)
+            # the create-run body needs integer pointIds
+            $pointIds = @($pointOutcome.Keys | ForEach-Object { [int]$_ })
             if ($pointIds.Count -eq 0) { Write-Host "No matching test points for this run - skipping publish."; exit 0 }
 
             # create a run against those points
@@ -518,20 +527,28 @@ jobs:
             $runId = $run.id
             Write-Host "Created test run $runId for $($pointIds.Count) point(s)."
 
+            # the auto-created results are eventually consistent - retry the GET
+            # so we don't 404 in the split second right after creating the run.
+            $res = $null
+            for ($t=0; $t -lt 8 -and -not $res; $t++) {
+              try { $res = Invoke-RestMethod -Uri "$base/runs/$runId/results?api-version=7.0" -Headers $hdr -TimeoutSec 60 }
+              catch { Start-Sleep -Seconds 3 }
+            }
+            if (-not $res) { throw "results not available for run $runId after retries" }
+
             # set outcomes on the auto-created results, then complete the run
-            $res = Invoke-RestMethod -Uri "$base/runs/$runId/results?api-version=7.0" -Headers $hdr -TimeoutSec 60
-            $patch = @()
+            $patch = @(); $setCount = 0
             foreach ($r in $res.value) {
-              $ptId = $r.testPoint.id
-              $oc = if ($pointOutcome.ContainsKey($ptId)) { $pointOutcome[$ptId] } else { 'NotExecuted' }
+              $ptId = [string]$r.testPoint.id
+              if ($pointOutcome.ContainsKey($ptId)) { $oc = $pointOutcome[$ptId]; $setCount++ } else { $oc = 'NotExecuted' }
               $patch += @{ id = $r.id; outcome = $oc; state = 'Completed' }
             }
             if ($patch.Count -gt 0) {
               $pbody = ConvertTo-Json -Depth 5 -InputObject @($patch)
-              Invoke-RestMethod -Uri "$base/runs/$runId/results?api-version=7.0" -Method Patch -Headers $hdr -ContentType 'application/json' -Body $pbody -TimeoutSec 90 | Out-Null
+              Invoke-RestMethod -Uri "$base/runs/$runId/results?api-version=7.0" -Method Patch -Headers $hdr -ContentType 'application/json' -Body $pbody -TimeoutSec 120 | Out-Null
             }
             Invoke-RestMethod -Uri "$base/runs/$runId?api-version=7.0" -Method Patch -Headers $hdr -ContentType 'application/json' -Body (@{ state = 'Completed' } | ConvertTo-Json) -TimeoutSec 60 | Out-Null
-            Write-Host "Published $($patch.Count) result(s) to Test Plan $planId / suite $suiteId (run $runId)."
+            Write-Host "Published $setCount result(s) with outcomes to Test Plan $planId / suite $suiteId (run $runId)."
           } catch {
             Write-Host "##[warning]Test Plan publish failed (non-fatal): $($_.Exception.Message)"
           }
