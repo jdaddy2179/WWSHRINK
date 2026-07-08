@@ -556,9 +556,9 @@ jobs:
             $mapPath = "$(Build.SourcesDirectory)/$($set.m)"
             if (Test-Path $mapPath) {
               (Get-Content -Raw $mapPath | ConvertFrom-Json).PSObject.Properties | ForEach-Object { $fqnToTc[$_.Name] = [int]$_.Value }
-            } else { Write-Host "##[warning]map file not found: $mapPath" }
+            } else { Write-Host "map file not found: $mapPath" }
           }
-          if ($fqnToTc.Count -eq 0) { Write-Host "##[warning]no testcase maps found - skipping publish."; exit 0 }
+          if ($fqnToTc.Count -eq 0) { Write-Host "no testcase maps found - skipping publish."; exit 0 }
 
           # trx -> FQN -> outcome (last result wins; anything not Passed => Failed)
           $trxFiles = Get-ChildItem -Path "$(Pipeline.Workspace)\trx" -Recurse -Filter *.trx -ErrorAction SilentlyContinue
@@ -626,7 +626,10 @@ jobs:
             Invoke-Ado "$base/runs/$runId?api-version=7.0" 'Patch' (@{ state = 'Completed' } | ConvertTo-Json) | Out-Null
             Write-Host "Published $setCount result(s) with outcomes to Test Plan $planId (run $runId, suites $suiteList)."
           } catch {
-            Write-Host "##[warning]Test Plan publish failed (non-fatal): $($_.Exception.Message)"
+            # Plain log (not ##[warning]) so this best-effort step never turns the
+            # build yellow - the pass-rate gate is the only thing that fails a build.
+            Write-Host "Test Plan publish skipped (non-fatal): $($_.Exception.Message)"
+            Write-Host "  (set the TESTPLAN_PAT secret if this is a 404 - the build identity can't patch test results)"
           }
           exit 0
         displayName: 'Publish results to Test Plan (best-effort)'
