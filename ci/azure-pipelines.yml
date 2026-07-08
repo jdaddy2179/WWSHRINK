@@ -1,10 +1,9 @@
 # ============================================================================
-# WW Smoke — Playwright tests via `dotnet test` (balanced shard matrix)
+# WW Smoke — Playwright tests via `dotnet test` (build once, business-unit legs)
 # ----------------------------------------------------------------------------
-# The curated smoke set is split into N balanced shards (round-robin over the
-# discovered test list) - one matrix leg per shard, each running `dotnet test`
-# with an exact-FQN filter for its slice and writing a
-# .trx to a KNOWN folder (--results-directory). Results publish to the native
+# The app is built ONCE, then each business unit runs as its own matrix leg
+# against the prebuilt binaries with `dotnet vstest` (no rebuild), writing a
+# .trx to a KNOWN folder (--ResultsDirectory). Results publish to the native
 # Azure DevOps "Tests" tab, the .trx files publish as artifacts, and a final
 # job downloads those trx files (local read - no REST API) and builds ONE
 # consolidated HTML report for management / release.
@@ -36,16 +35,10 @@ parameters:
     type: string
     default: msedge
     values: [msedge, chrome]
-  - name: shardCount
-    displayName: 'Non-prod: parallel shards (agents to use; pool has 6)'
+  - name: maxParallel
+    displayName: 'Business-unit legs to run at once (pool has 6 agents)'
     type: number
     default: 6
-    values: [1, 2, 3, 4, 5, 6]
-  - name: prodShards
-    displayName: 'PROD: parallel shards (set to # of prod agents; 1 today)'
-    type: number
-    default: 1
-    values: [1, 2, 3, 4, 5, 6]
   - name: minPassPercent
     displayName: 'Fail the build only if pass %% is below this'
     type: number
@@ -57,17 +50,6 @@ variables:
   - group: PlaywrightAutomation-Secrets
   - name: buildConfiguration
     value: 'Release'
-  # Sharding: SHARD_TOTAL is the active shard count for this env; each leg gets a
-  # SHARD_INDEX from the matrix. INCLUDE_WEBSERVER folds the PROD-only WebServer
-  # tests into the shard split so they parallelize too.
-  - name: INCLUDE_WEBSERVER
-    value: ${{ eq(parameters.testEnv, 'PROD') }}
-  - ${{ if eq(parameters.testEnv, 'PROD') }}:
-    - name: SHARD_TOTAL
-      value: ${{ parameters.prodShards }}
-  - ${{ else }}:
-    - name: SHARD_TOTAL
-      value: ${{ parameters.shardCount }}
   - name: solution
     value: 'PlaywrightAutomation.sln'
   # Give each agent its OWN NuGet HTTP cache (under the agent's isolated temp).
@@ -95,21 +77,18 @@ variables:
       value: '0'
 
 jobs:
-  - job: PlaywrightTests
-    displayName: 'WW Smoke'
-    # PROD has one agent today (prodShards defaults to 1), so a single shard runs
-    # the whole smoke set + WebServer (~40 min) - keep the long timeout. Non-prod
-    # shards are ~1/6 of the set and finish quickly, so keep the tight 20-min cap.
+  # ==========================================================================
+  # BUILD ONCE. Checkout + restore + build + fetch the browser a single time,
+  # then publish the compiled output. The per-business-unit Test legs download
+  # it and run with NO rebuild, so meaningful per-BU reporting doesn't cost a
+  # rebuild per leg.
+  # ==========================================================================
+  - job: Build
+    displayName: 'Build'
     ${{ if eq(parameters.testEnv, 'PROD') }}:
-      timeoutInMinutes: 90
+      timeoutInMinutes: 40
     ${{ else }}:
       timeoutInMinutes: 20
-    # Self-hosted pools registered to this cloud org. The machines stay on-prem
-    # and domain-joined because the apps under test are internal:
-    #   - PROD     -> 'Production SQA Agents' (agents run as a prod-provisioned
-    #                 DQ\Svc-sqa-p0xx identity, so IIS Integrated Windows Auth to
-    #                 windward.dq.ad succeeds - no password needed in the pipeline)
-    #   - non-prod -> 'AppSvcs-OnPrem-SQA'    (reaches *.dqtest.ad, on-prem SQL/NuGet)
     pool:
       ${{ if eq(parameters.testEnv, 'PROD') }}:
         name: 'Production SQA Agents'
@@ -117,55 +96,13 @@ jobs:
         name: 'AppSvcs-OnPrem-SQA'
     workspace:
       clean: all
-    # Tests are split into N balanced shards (round-robin over the discovered
-    # test list) rather than by business unit, so every agent gets an even slice
-    # and they finish together. Non-prod fans out across the whole pool
-    # (shardCount, default 6); PROD uses prodShards (1 today - bump it as prod
-    # agents are registered and the split kicks in automatically).
-    strategy:
-      ${{ if eq(parameters.testEnv, 'PROD') }}:
-        maxParallel: ${{ parameters.prodShards }}
-        matrix:
-          ${{ if ge(parameters.prodShards, 1) }}:
-            Shard1: { SHARD_INDEX: '1' }
-          ${{ if ge(parameters.prodShards, 2) }}:
-            Shard2: { SHARD_INDEX: '2' }
-          ${{ if ge(parameters.prodShards, 3) }}:
-            Shard3: { SHARD_INDEX: '3' }
-          ${{ if ge(parameters.prodShards, 4) }}:
-            Shard4: { SHARD_INDEX: '4' }
-          ${{ if ge(parameters.prodShards, 5) }}:
-            Shard5: { SHARD_INDEX: '5' }
-          ${{ if ge(parameters.prodShards, 6) }}:
-            Shard6: { SHARD_INDEX: '6' }
-      ${{ else }}:
-        maxParallel: ${{ parameters.shardCount }}
-        matrix:
-          ${{ if ge(parameters.shardCount, 1) }}:
-            Shard1: { SHARD_INDEX: '1' }
-          ${{ if ge(parameters.shardCount, 2) }}:
-            Shard2: { SHARD_INDEX: '2' }
-          ${{ if ge(parameters.shardCount, 3) }}:
-            Shard3: { SHARD_INDEX: '3' }
-          ${{ if ge(parameters.shardCount, 4) }}:
-            Shard4: { SHARD_INDEX: '4' }
-          ${{ if ge(parameters.shardCount, 5) }}:
-            Shard5: { SHARD_INDEX: '5' }
-          ${{ if ge(parameters.shardCount, 6) }}:
-            Shard6: { SHARD_INDEX: '6' }
     steps:
       # Checkout. Non-prod uses the built-in checkout. PROD agent VMs sit on a
       # locked-down network and can't reach the TLS cert revocation servers
       # (CRL/OCSP), so git (schannel) aborts with CRYPT_E_NO_REVOCATION_CHECK.
-      # We proved that neither global config, GIT_CONFIG_* env, nor an inline
-      # `-c http.schannelCheckRevoke=false` is honored by this git build - the
-      # revocation check still hard-fails. So on PROD we clone MANUALLY with
-      # `-c http.sslVerify=false`, which skips certificate verification (and thus
-      # the revocation check) for this one clone. This is a deliberate, scoped
-      # workaround: the clone is from the trusted internal dev.azure.com host and
-      # git still verifies every object by hash. The PROPER fix is on the VM -
-      # `git config --system http.schannelCheckRevoke false` (or open CRL/OCSP
-      # egress) - after which this block can be deleted (ci/agent-register-cloud.md).
+      # On PROD we clone MANUALLY with http.sslVerify=false (deliberate, scoped:
+      # the clone is from the trusted internal dev.azure.com and git still
+      # verifies every object by hash). Proper fix: trust CA / open CRL on the VM.
       - ${{ if eq(parameters.testEnv, 'PROD') }}:
         - checkout: none
         - powershell: |
@@ -190,17 +127,13 @@ jobs:
           clean: true
           fetchDepth: 1
 
-      # Reclaim disk before the heavy restore/build. Best-effort. NOTE: do NOT
-      # delete %LOCALAPPDATA%\ms-playwright (holds ffmpeg), and do NOT clear the
-      # NuGet http-cache here - clearing the shared cache mid-restore corrupts a
-      # concurrent leg on the same box. Each leg now uses its own isolated cache
-      # (NUGET_HTTP_CACHE_PATH) so there's nothing to clear.
       - powershell: |
           $ErrorActionPreference = 'SilentlyContinue'
-          Remove-Item "$env:TEMP\*"               -Recurse -Force -Exclude 'nuget-httpcache'
+          Remove-Item "$env:TEMP\*" -Recurse -Force -Exclude 'nuget-httpcache'
           exit 0
         displayName: 'Reclaim disk space'
 
+      # Fail fast if the test secrets aren't wired (the Test legs need them).
       - powershell: |
           $missing = @()
           if ([string]::IsNullOrWhiteSpace($env:PLAYWRIGHT_USERNAME))   { $missing += 'PLAYWRIGHT_USERNAME' }
@@ -223,12 +156,9 @@ jobs:
           packageType: 'sdk'
           version: '8.x'
 
-      # Restore with --ignore-failed-sources so an unreachable source doesn't
-      # fail the build. NuGet.Config lists the on-prem DQ feed (HTTP, reachable)
-      # AND nuget.org (HTTPS, which the prod agents' TLS-inspecting proxy makes
-      # unreliable -> intermittent NU1301). The DQ feed carries the packages, so
-      # tolerating a failed nuget.org keeps restore green. (dotnet uses the
-      # Windows cert store, so NODE_TLS_REJECT_UNAUTHORIZED doesn't help it.)
+      # Restore with --ignore-failed-sources so an unreachable source (nuget.org
+      # through the prod TLS-inspecting proxy) doesn't fail the build; the on-prem
+      # DQ feed carries the packages.
       - powershell: |
           dotnet restore "$(solution)" --configfile "NuGet.Config" --ignore-failed-sources
           exit $LASTEXITCODE
@@ -262,83 +192,114 @@ jobs:
           exit 0
         displayName: 'Ensure Playwright browser (${{ parameters.browserChannel }})'
 
-      # Run this business unit's tests. The .trx is named after the BU and lands
-      # in a known folder. Individual test failures do NOT fail the leg - the
-      # pass-rate gate in the report job decides the build (so a single rotating
-      # flaky test doesn't turn the build red). Real failures still show in the
-      # Tests tab + report, and a regression trips the gate.
+      # Publish the compiled test app for the Test legs to consume (no rebuild).
+      - task: PublishPipelineArtifact@1
+        displayName: 'Publish build output'
+        inputs:
+          targetPath: '$(Build.SourcesDirectory)/PlaywrightAutomation/bin/$(buildConfiguration)/net8.0'
+          artifact: 'app-build'
+          publishLocation: 'pipeline'
+
+  # ==========================================================================
+  # TEST (fan-out by business unit). Each leg downloads the prebuilt app and
+  # runs vstest for its BU - no checkout/restore/build. maxParallel spreads the
+  # legs across the pool. The .trx is named after the BU so the report can
+  # attribute results per business unit. PROD adds a WebServer leg.
+  # ==========================================================================
+  - job: Test
+    displayName: 'WW Smoke'
+    dependsOn: Build
+    ${{ if eq(parameters.testEnv, 'PROD') }}:
+      timeoutInMinutes: 90
+    ${{ else }}:
+      timeoutInMinutes: 30
+    pool:
+      ${{ if eq(parameters.testEnv, 'PROD') }}:
+        name: 'Production SQA Agents'
+      ${{ else }}:
+        name: 'AppSvcs-OnPrem-SQA'
+    strategy:
+      matrix:
+        Government:
+          BU: 'Government'
+          BUFilter: 'FullyQualifiedName~Tests.Gov'
+        Commercial:
+          BU: 'Commercial'
+          BUFilter: 'FullyQualifiedName~Tests.Com'
+        BCBSM:
+          BU: 'BCBSM'
+          BUFilter: 'FullyQualifiedName~Tests.Bcbsm'
+        WW2:
+          BU: 'WW2'
+          BUFilter: 'FullyQualifiedName~Tests.Ww2'
+        MassHealth:
+          BU: 'MassHealth'
+          BUFilter: 'FullyQualifiedName~Tests.MassHealth'
+        ${{ if eq(parameters.testEnv, 'PROD') }}:
+          WebServer:
+            BU: 'WebServer'
+            BUFilter: 'TestCategory=WebServer'
+      maxParallel: ${{ parameters.maxParallel }}
+    steps:
+      - checkout: none
+      - task: DownloadPipelineArtifact@2
+        displayName: 'Download build output'
+        inputs:
+          artifact: 'app-build'
+          path: '$(Pipeline.Workspace)/app-build'
+
+      - task: UseDotNet@2
+        displayName: 'Install .NET 8 SDK'
+        inputs:
+          packageType: 'sdk'
+          version: '8.x'
+
+      # Ensure the browser is available on THIS agent (uses the downloaded
+      # playwright.ps1; prefers a system-installed browser).
+      - powershell: |
+          $ErrorActionPreference = 'Continue'
+          $channel = "${{ parameters.browserChannel }}"
+          $env:PLAYWRIGHT_BROWSERS_PATH = '0'
+          $script = Get-ChildItem -Path "$(Pipeline.Workspace)\app-build" -Recurse -Filter "playwright.ps1" | Select-Object -First 1
+          $systemPaths = @{
+            'msedge' = @("$Env:ProgramFiles\Microsoft\Edge\Application\msedge.exe","${Env:ProgramFiles(x86)}\Microsoft\Edge\Application\msedge.exe")
+            'chrome' = @("$Env:ProgramFiles\Google\Chrome\Application\chrome.exe","${Env:ProgramFiles(x86)}\Google\Chrome\Application\chrome.exe")
+          }
+          if ($systemPaths[$channel] | Where-Object { Test-Path $_ }) { Write-Host "System '$channel' found; will use it." }
+          elseif ($script) { Write-Host "Installing '$channel' via Playwright."; & $script.FullName install $channel }
+          else { Write-Host "##[warning]playwright.ps1 not found in artifact; relying on system browser." }
+          exit 0
+        displayName: 'Ensure Playwright browser (${{ parameters.browserChannel }})'
+
+      # Run this BU's tests against the prebuilt dll (no rebuild). vstest runs the
+      # assembly directly. Individual failures don't fail the leg - the pass-rate
+      # gate in the report job decides the build.
       - powershell: |
           $ErrorActionPreference = 'Stop'
           $results = "$(Build.ArtifactStagingDirectory)\TestResults"
           New-Item -ItemType Directory -Force -Path $results | Out-Null
-          $idx = [int]"$(SHARD_INDEX)"; $tot = [int]"$(SHARD_TOTAL)"
-
-          # Enumerate the smoke test FQNs straight from source so the shard split
-          # stays in sync with the tests (no stale lists). A test is in the set if
-          # its [Test ...] attribute carries the wanted category; the excludes come
-          # from the smokeFilter var (its FullyQualifiedName!~ terms), keeping that
-          # variable the single source of truth for what the smoke run covers.
-          $sf = "$(smokeFilter)"
-          $excludes = [regex]::Matches($sf, 'FullyQualifiedName!~([^&]+)') | ForEach-Object { $_.Groups[1].Value }
-          function Get-Tests([string]$category) {
-            $list = New-Object System.Collections.Generic.List[string]
-            Get-ChildItem "$(Build.SourcesDirectory)\PlaywrightAutomation\Tests" -Recurse -Filter *.cs | ForEach-Object {
-              $txt = Get-Content -Raw $_.FullName
-              $ns  = [regex]::Match($txt, 'namespace\s+([\w.]+)').Groups[1].Value
-              $cls = [regex]::Match($txt, 'class\s+(\w+)\s*:').Groups[1].Value
-              if (-not $ns -or -not $cls) { return }
-              foreach ($mm in [regex]::Matches($txt, '\[Test\b[^\]]*\](?:\s*\[[^\]]*\])*\s*public\s+async\s+Task\s+(\w+)\s*\(')) {
-                if ($mm.Value -notmatch [regex]::Escape("Category(""$category"")")) { continue }
-                $fqn = "$ns.$cls.$($mm.Groups[1].Value)"
-                $skip = $false
-                foreach ($e in $excludes) { if ($fqn -like "*$e*") { $skip = $true; break } }
-                if (-not $skip) { $list.Add($fqn) }
-              }
-            }
-            return @($list | Sort-Object -Unique)
-          }
-          # Round-robin this shard's slice, then run it as an exact-FQN filter
-          # (pure '|' of FullyQualifiedName= terms - no '&', so no filter-grammar
-          # ambiguity). The console logger streams live progress; the trx feeds
-          # the report. Individual failures don't fail the leg - the pass-rate
-          # gate in the report job decides the build.
-          function Invoke-Shard([string[]]$all, [string]$name) {
-            $mine = @(); for ($i = 0; $i -lt $all.Count; $i++) { if (($i % $tot) -eq ($idx - 1)) { $mine += $all[$i] } }
-            Write-Host "Leg $name : $($mine.Count) of $($all.Count) test(s) (shard $idx/$tot)"
-            if ($mine.Count -eq 0) { return }
-            $filter = ($mine | ForEach-Object { "FullyQualifiedName=$_" }) -join '|'
-            dotnet test "$(solution)" --no-build --configuration $(buildConfiguration) `
-              --filter "$filter" `
-              --logger "console;verbosity=detailed" `
-              --logger "trx;LogFileName=$name.trx" `
-              --results-directory "$results"
-            if ($LASTEXITCODE -ne 0) { Write-Host "##[warning]${name}: some tests failed - the pass-rate gate decides the build." }
-          }
-
-          Invoke-Shard (Get-Tests 'TestEnv') "Shard$idx"
-          # PROD also runs the WebServer node checks - shard those too.
-          if ('$(INCLUDE_WEBSERVER)' -eq 'true') { Invoke-Shard (Get-Tests 'WebServer') "Shard$idx-WebServer" }
+          $dll = Get-ChildItem -Path "$(Pipeline.Workspace)\app-build" -Recurse -Filter 'PlaywrightAutomation.dll' | Select-Object -First 1
+          if (-not $dll) { throw "PlaywrightAutomation.dll not found in the build artifact" }
+          # WebServer leg runs the raw category; BU legs add the smoke filter.
+          if ('$(BU)' -eq 'WebServer') { $filter = "$(BUFilter)" } else { $filter = "$(BUFilter)$(smokeFilter)" }
+          Write-Host "Leg    : $(BU)"
+          Write-Host "Filter : $filter"
+          dotnet vstest "$($dll.FullName)" `
+            /TestCaseFilter:"$filter" `
+            /logger:"trx;LogFileName=$(BU).trx" `
+            /logger:"console;verbosity=normal" `
+            /ResultsDirectory:"$results"
+          if ($LASTEXITCODE -ne 0) { Write-Host "##[warning]$(BU): some tests failed - the pass-rate gate decides the build." }
           exit 0
-        displayName: 'Run shard $(SHARD_INDEX)'
+        displayName: 'Run $(BU) tests'
         env:
           TEST_ENV: ${{ parameters.testEnv }}
           PLAYWRIGHT_BROWSER_CHANNEL: ${{ parameters.browserChannel }}
           PLAYWRIGHT_RECORD_VIDEO: ''
           BrowserSettings__Headless: 'true'
-          # PROD authenticates to the app via INTEGRATED Windows auth (the prod
-          # app uses IIS Windows auth, not the test-env forms login). The browser
-          # silently sends the AGENT's current Windows identity - so the agent
-          # must run as an account with PROD access, and the agent box must have
-          # "Automatic logon with current user name and password" enabled for the
-          # zone (Internet Options -> Security). We therefore do NOT pass
-          # PLAYWRIGHT_PASSWORD here: an HttpCredentials password would override
-          # integrated auth and gets rejected (the 401 we saw). The fixture
-          # already allowlists *.dq.ad for integrated auth.
-          # DB still uses SQL auth with the prod service account.
+          # PROD authenticates to the app via INTEGRATED Windows auth (the browser
+          # sends the agent's Windows identity), so we do NOT pass a password.
           ${{ if eq(parameters.testEnv, 'PROD') }}:
-            # Speed: drop the 300ms per-action SlowMo delay on PROD (Playwright
-            # auto-waits, so the artificial delay isn't needed). Overrides
-            # BrowserSettings.SlowMo from appsettings. Bump to 50-100 if flaky.
             BrowserSettings__SlowMo: '0'
             DbSettings__DbUserId: $(PLAYWRIGHT_USERNAME_PROD)
             DbSettings__DbPassword: $(PLAYWRIGHT_PASSWORD_PROD)
@@ -348,31 +309,28 @@ jobs:
             DbSettings__DbPassword: $(DbSettings__DbPassword)
 
       # Tests-tab publish. NON-PROD only: on PROD, TestResultsPublisher.exe hangs
-      # uploading to the ADO test service through the inspecting proxy (it never
-      # returns and the job times out). PROD instead relies on the trx ARTIFACT
-      # below + the consolidated HTML report, which parses the trx locally with
-      # no API upload. Re-enable for PROD once the proxy CA is trusted on the VMs.
+      # uploading through the inspecting proxy. PROD relies on the trx artifact +
+      # consolidated report instead.
       - ${{ if ne(parameters.testEnv, 'PROD') }}:
         - task: PublishTestResults@2
-          displayName: 'Publish shard $(SHARD_INDEX) results to Tests tab'
+          displayName: 'Publish $(BU) results to Tests tab'
           condition: always()
           inputs:
             testResultsFormat: 'VSTest'
-            testResultsFiles: '$(Build.ArtifactStagingDirectory)/TestResults/*.trx'
-            testRunTitle: 'WW Smoke - Shard $(SHARD_INDEX) - ${{ parameters.testEnv }}'
+            testResultsFiles: '$(Build.ArtifactStagingDirectory)/TestResults/$(BU).trx'
+            testRunTitle: 'WW Smoke - $(BU) - ${{ parameters.testEnv }}'
             failTaskOnFailedTests: false
 
-      # Publish the trx as a pipeline artifact (feeds the consolidated report).
-      # One artifact per shard (unique name) so the shards don't collide.
-      # timeout+continueOnError so a slow/hanging upload can't stall the leg.
+      # Publish the trx as a pipeline artifact (feeds the consolidated report),
+      # one per BU. timeout+continueOnError so a slow upload can't stall the leg.
       - task: PublishPipelineArtifact@1
-        displayName: 'Publish shard $(SHARD_INDEX) trx'
+        displayName: 'Publish $(BU) trx'
         condition: always()
         continueOnError: true
         timeoutInMinutes: 5
         inputs:
           targetPath: '$(Build.ArtifactStagingDirectory)/TestResults'
-          artifact: 'trx-shard$(SHARD_INDEX)'
+          artifact: 'trx-$(BU)'
           publishLocation: 'pipeline'
 
   # ==========================================================================
@@ -383,7 +341,7 @@ jobs:
   # ==========================================================================
   - job: ConsolidatedReport
     displayName: 'Consolidated test report'
-    dependsOn: PlaywrightTests
+    dependsOn: Test
     condition: succeededOrFailed()
     timeoutInMinutes: 10
     pool:
@@ -472,11 +430,11 @@ jobs:
             "<div class='card'><div class='n' style='color:#1e8e3e'>$pass</div><div class='l'>Passed</div></div>" +
             "<div class='card'><div class='n' style='color:#c0392b'>$fail</div><div class='l'>Failed</div></div>" +
             "<div class='card'><div class='n' style='color:$vcol'>$pct%</div><div class='l'>Pass rate</div></div></div>" +
-            "<h2>Results by shard</h2><table><tr><th>Shard</th><th style='text-align:right'>Tests</th><th style='text-align:right'>Passed</th><th style='text-align:right'>Failed</th><th style='text-align:right'>Pass rate</th></tr>$buRows</table>" +
+            "<h2>Results by business unit</h2><table><tr><th>Business unit</th><th style='text-align:right'>Tests</th><th style='text-align:right'>Passed</th><th style='text-align:right'>Failed</th><th style='text-align:right'>Pass rate</th></tr>$buRows</table>" +
             "<h2>Failed tests</h2><details open><summary style='cursor:pointer;color:#2563eb;margin:0 0 10px'>Show $fail failed tests</summary>" +
-            "<table><tr><th>Shard</th><th>Test</th><th>Reason</th></tr>$failRows</table></details>" +
+            "<table><tr><th>Business unit</th><th>Test</th><th>Reason</th></tr>$failRows</table></details>" +
             "<h2>Passed tests</h2><details><summary style='cursor:pointer;color:#2563eb;margin:0 0 10px'>Show $pass passed tests</summary>" +
-            "<table><tr><th>Shard</th><th>Test</th><th style='text-align:right'>Duration</th></tr>$passRows</table></details>" +
+            "<table><tr><th>Business unit</th><th>Test</th><th style='text-align:right'>Duration</th></tr>$passRows</table></details>" +
             "<a class='btn' href='$link'>Open full results in Azure DevOps</a>" +
             "<p class='foot'>Generated by the WW Smoke pipeline. 2 provider-search tests (Commercial, MassHealth) are quarantined pending valid TS06 data. Per-test screenshots/traces are on the run's Tests tab.</p>" +
             "</div></body></html>"
@@ -513,9 +471,16 @@ jobs:
           # FQN->caseId map file. PROD also publishes the WebServer suite (79889)
           # using webserver-testcase-map.json.
           $suiteSets = @{
-            'TS06' = @( @{ s = 79808; m = 'testcase-map.json' } )
-            'DS10' = @( @{ s = 79807; m = 'testcase-map.json' } )
-            'PROD' = @( @{ s = 79809; m = 'testcase-map.json' }, @{ s = 79889; m = 'webserver-testcase-map.json' } )
+            'TS06'    = @( @{ s = 79808; m = 'testcase-map.json' } )
+            'DS10'    = @( @{ s = 79807; m = 'testcase-map.json' } )
+            'DS01'    = @( @{ s = 80038; m = 'testcase-map.json' } )
+            'QAR'     = @( @{ s = 80039; m = 'testcase-map.json' } )
+            'TSHF'    = @( @{ s = 80040; m = 'testcase-map.json' } )
+            'TSNB5'   = @( @{ s = 80041; m = 'testcase-map.json' } )
+            'TSNB6'   = @( @{ s = 80042; m = 'testcase-map.json' } )
+            'TSNB7'   = @( @{ s = 80043; m = 'testcase-map.json' } )
+            'TSSLADJ' = @( @{ s = 80044; m = 'testcase-map.json' } )
+            'PROD'    = @( @{ s = 79809; m = 'testcase-map.json' }, @{ s = 79889; m = 'webserver-testcase-map.json' } )
           }
           if (-not $suiteSets.ContainsKey($te)) { Write-Host "No Test Plan suite mapped for '$te' - skipping publish."; exit 0 }
           $sets = $suiteSets[$te]
