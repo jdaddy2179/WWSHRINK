@@ -463,19 +463,46 @@ jobs:
       - powershell: |
           $ErrorActionPreference = 'Continue'
           $te = '${{ parameters.testEnv }}'
-          $suiteMap = @{ 'TS06' = 79808; 'DS10' = 79807; 'PROD' = 79809 }
-          if (-not $suiteMap.ContainsKey($te)) { Write-Host "No Test Plan suite mapped for '$te' - skipping publish."; exit 0 }
-          $suiteId = $suiteMap[$te]
-          $planId  = 79388
+          $planId = 79388
+          # Per-env: which plan suite(s) to publish into, each paired with the
+          # FQN->caseId map file. PROD also publishes the WebServer suite (79889)
+          # using webserver-testcase-map.json.
+          $suiteSets = @{
+            'TS06' = @( @{ s = 79808; m = 'testcase-map.json' } )
+            'DS10' = @( @{ s = 79807; m = 'testcase-map.json' } )
+            'PROD' = @( @{ s = 79809; m = 'testcase-map.json' }, @{ s = 79889; m = 'webserver-testcase-map.json' } )
+          }
+          if (-not $suiteSets.ContainsKey($te)) { Write-Host "No Test Plan suite mapped for '$te' - skipping publish."; exit 0 }
+          $sets = $suiteSets[$te]
+          $suiteList = ($sets | ForEach-Object { $_.s }) -join ', '
           $col  = "$(System.CollectionUri)".TrimEnd('/')
           $proj = [uri]::EscapeDataString("$(System.TeamProject)")
           $base = "$col/$proj/_apis/test"
           $hdr  = @{ Authorization = "Bearer $env:SYSTEM_ACCESSTOKEN" }
 
-          $mapPath = "$(Build.SourcesDirectory)/testcase-map.json"
-          if (-not (Test-Path $mapPath)) { Write-Host "##[warning]testcase-map.json not found at $mapPath - skipping publish."; exit 0 }
+          # Small retry wrapper - REST from these agents is occasionally flaky, and
+          # freshly-created runs/results are eventually consistent (transient 404s).
+          function Invoke-Ado($uri, $method = 'Get', $body = $null) {
+            for ($i = 0; $i -lt 6; $i++) {
+              try {
+                if ($body) { return Invoke-RestMethod -Uri $uri -Method $method -Headers $hdr -ContentType 'application/json' -Body $body -TimeoutSec 90 }
+                else       { return Invoke-RestMethod -Uri $uri -Method $method -Headers $hdr -TimeoutSec 60 }
+              } catch {
+                if ($i -eq 5) { throw }
+                Start-Sleep -Seconds 4
+              }
+            }
+          }
+
+          # FQN -> caseId, merged across every map file for this env.
           $fqnToTc = @{}
-          (Get-Content -Raw $mapPath | ConvertFrom-Json).PSObject.Properties | ForEach-Object { $fqnToTc[$_.Name] = [int]$_.Value }
+          foreach ($set in $sets) {
+            $mapPath = "$(Build.SourcesDirectory)/$($set.m)"
+            if (Test-Path $mapPath) {
+              (Get-Content -Raw $mapPath | ConvertFrom-Json).PSObject.Properties | ForEach-Object { $fqnToTc[$_.Name] = [int]$_.Value }
+            } else { Write-Host "##[warning]map file not found: $mapPath" }
+          }
+          if ($fqnToTc.Count -eq 0) { Write-Host "##[warning]no testcase maps found - skipping publish."; exit 0 }
 
           # trx -> FQN -> outcome (last result wins; anything not Passed => Failed)
           $trxFiles = Get-ChildItem -Path "$(Pipeline.Workspace)\trx" -Recurse -Filter *.trx -ErrorAction SilentlyContinue
@@ -495,18 +522,15 @@ jobs:
           if ($fqnOutcome.Count -eq 0) { Write-Host "No trx outcomes parsed - skipping publish."; exit 0 }
 
           try {
-            # suite test points: testCaseId -> pointId. Ids are normalized to
-            # STRING because the run-result testPoint.id comes back as a string
-            # while the points endpoint returns point.id as an int - matching them
-            # as ints-vs-strings silently misses and leaves everything NotExecuted.
-            $pts = $null
-            for ($t=0; $t -lt 6 -and -not $pts; $t++) {
-              try { $pts = Invoke-RestMethod -Uri "$base/Plans/$planId/Suites/$suiteId/points?api-version=7.0" -Headers $hdr -TimeoutSec 60 }
-              catch { Start-Sleep -Seconds 3 }
-            }
-            if (-not $pts) { throw "could not read suite points for suite $suiteId" }
+            # testCaseId(string) -> pointId(string), gathered from every suite in
+            # this env. Ids are normalized to STRING: the points endpoint returns
+            # int ids but run-result testPoint.id comes back as a string - matching
+            # across types silently misses and leaves everything NotExecuted.
             $tcToPoint = @{}
-            foreach ($p in $pts.value) { if ($p.testCase -and $p.testCase.id) { $tcToPoint[[string]$p.testCase.id] = [string]$p.id } }
+            foreach ($set in $sets) {
+              $pts = Invoke-Ado "$base/Plans/$planId/Suites/$($set.s)/points?api-version=7.0"
+              foreach ($p in $pts.value) { if ($p.testCase -and $p.testCase.id) { $tcToPoint[[string]$p.testCase.id] = [string]$p.id } }
+            }
 
             # pointId(string) -> outcome  (FQN -> testCaseId -> pointId)
             $pointOutcome = @{}
@@ -523,18 +547,14 @@ jobs:
             # create a run against those points
             $runName = "WW Smoke $te - build $(Build.BuildId)"
             $body = @{ name = $runName; plan = @{ id = "$planId" }; pointIds = $pointIds } | ConvertTo-Json -Depth 5
-            $run = Invoke-RestMethod -Uri "$base/runs?api-version=7.0" -Method Post -Headers $hdr -ContentType 'application/json' -Body $body -TimeoutSec 60
+            $run = Invoke-Ado "$base/runs?api-version=7.0" 'Post' $body
             $runId = $run.id
             Write-Host "Created test run $runId for $($pointIds.Count) point(s)."
 
-            # the auto-created results are eventually consistent - retry the GET
-            # so we don't 404 in the split second right after creating the run.
-            $res = $null
-            for ($t=0; $t -lt 8 -and -not $res; $t++) {
-              try { $res = Invoke-RestMethod -Uri "$base/runs/$runId/results?api-version=7.0" -Headers $hdr -TimeoutSec 60 }
-              catch { Start-Sleep -Seconds 3 }
-            }
-            if (-not $res) { throw "results not available for run $runId after retries" }
+            # let the auto-created results settle, then read them (Invoke-Ado also
+            # retries transient 404s from eventual consistency).
+            Start-Sleep -Seconds 5
+            $res = Invoke-Ado "$base/runs/$runId/results?api-version=7.0"
 
             # set outcomes on the auto-created results, then complete the run
             $patch = @(); $setCount = 0
@@ -545,10 +565,10 @@ jobs:
             }
             if ($patch.Count -gt 0) {
               $pbody = ConvertTo-Json -Depth 5 -InputObject @($patch)
-              Invoke-RestMethod -Uri "$base/runs/$runId/results?api-version=7.0" -Method Patch -Headers $hdr -ContentType 'application/json' -Body $pbody -TimeoutSec 120 | Out-Null
+              Invoke-Ado "$base/runs/$runId/results?api-version=7.0" 'Patch' $pbody | Out-Null
             }
-            Invoke-RestMethod -Uri "$base/runs/$runId?api-version=7.0" -Method Patch -Headers $hdr -ContentType 'application/json' -Body (@{ state = 'Completed' } | ConvertTo-Json) -TimeoutSec 60 | Out-Null
-            Write-Host "Published $setCount result(s) with outcomes to Test Plan $planId / suite $suiteId (run $runId)."
+            Invoke-Ado "$base/runs/$runId?api-version=7.0" 'Patch' (@{ state = 'Completed' } | ConvertTo-Json) | Out-Null
+            Write-Host "Published $setCount result(s) with outcomes to Test Plan $planId (run $runId, suites $suiteList)."
           } catch {
             Write-Host "##[warning]Test Plan publish failed (non-fatal): $($_.Exception.Message)"
           }
