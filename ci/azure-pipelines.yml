@@ -344,7 +344,12 @@ jobs:
     pool:
       name: 'AppSvcs-OnPrem-SQA'
     steps:
-      - checkout: none
+      # Check out so the Test Plan publisher can read testcase-map.json. This job
+      # always runs on AppSvcs-OnPrem-SQA (never the prod pool), where git works
+      # natively - no proxy workaround needed.
+      - checkout: self
+        clean: true
+        fetchDepth: 1
 
       # The report job has no clean workspace, and $(Pipeline.Workspace) is
       # reused across builds on a self-hosted agent - so stale trx from a PRIOR
@@ -423,7 +428,8 @@ jobs:
             "<div class='card'><div class='n' style='color:#c0392b'>$fail</div><div class='l'>Failed</div></div>" +
             "<div class='card'><div class='n' style='color:$vcol'>$pct%</div><div class='l'>Pass rate</div></div></div>" +
             "<h2>Results by business unit</h2><table><tr><th>Business unit</th><th style='text-align:right'>Tests</th><th style='text-align:right'>Passed</th><th style='text-align:right'>Failed</th><th style='text-align:right'>Pass rate</th></tr>$buRows</table>" +
-            "<h2>Failed tests</h2><table><tr><th>Business unit</th><th>Test</th><th>Reason</th></tr>$failRows</table>" +
+            "<h2>Failed tests</h2><details open><summary style='cursor:pointer;color:#2563eb;margin:0 0 10px'>Show $fail failed tests</summary>" +
+            "<table><tr><th>Business unit</th><th>Test</th><th>Reason</th></tr>$failRows</table></details>" +
             "<h2>Passed tests</h2><details><summary style='cursor:pointer;color:#2563eb;margin:0 0 10px'>Show $pass passed tests</summary>" +
             "<table><tr><th>Business unit</th><th>Test</th><th style='text-align:right'>Duration</th></tr>$passRows</table></details>" +
             "<a class='btn' href='$link'>Open full results in Azure DevOps</a>" +
@@ -448,6 +454,94 @@ jobs:
           targetPath: '$(Build.ArtifactStagingDirectory)/report'
           artifact: 'WW-Smoke-Report-${{ parameters.testEnv }}'
           publishLocation: 'pipeline'
+
+      # Best-effort Test Plan publisher: mirror this run's outcomes onto the ADO
+      # Test Plan so the plan/suite shows executed results keyed by the 79xxx
+      # test-case ids (testcase-map.json maps test FQN -> case id). Runs on
+      # AppSvcs-OnPrem-SQA where REST works. Purely additive - continueOnError so
+      # it never affects build success; the pass-rate gate stays the source of truth.
+      - powershell: |
+          $ErrorActionPreference = 'Continue'
+          $te = '${{ parameters.testEnv }}'
+          $suiteMap = @{ 'TS06' = 79808; 'DS10' = 79807; 'PROD' = 79809 }
+          if (-not $suiteMap.ContainsKey($te)) { Write-Host "No Test Plan suite mapped for '$te' - skipping publish."; exit 0 }
+          $suiteId = $suiteMap[$te]
+          $planId  = 79388
+          $col  = "$(System.CollectionUri)".TrimEnd('/')
+          $proj = [uri]::EscapeDataString("$(System.TeamProject)")
+          $base = "$col/$proj/_apis/test"
+          $hdr  = @{ Authorization = "Bearer $env:SYSTEM_ACCESSTOKEN" }
+
+          $mapPath = "$(Build.SourcesDirectory)/testcase-map.json"
+          if (-not (Test-Path $mapPath)) { Write-Host "##[warning]testcase-map.json not found at $mapPath - skipping publish."; exit 0 }
+          $fqnToTc = @{}
+          (Get-Content -Raw $mapPath | ConvertFrom-Json).PSObject.Properties | ForEach-Object { $fqnToTc[$_.Name] = [int]$_.Value }
+
+          # trx -> FQN -> outcome (last result wins; anything not Passed => Failed)
+          $trxFiles = Get-ChildItem -Path "$(Pipeline.Workspace)\trx" -Recurse -Filter *.trx -ErrorAction SilentlyContinue
+          $fqnOutcome = @{}
+          foreach ($f in $trxFiles) {
+            [xml]$x = Get-Content -LiteralPath $f.FullName
+            $idToFqn = @{}
+            foreach ($u in $x.TestRun.TestDefinitions.UnitTest) {
+              if ($u.TestMethod) { $idToFqn[$u.id] = "$($u.TestMethod.className).$($u.TestMethod.name)" }
+            }
+            foreach ($r in $x.TestRun.Results.UnitTestResult) {
+              $fqn = $idToFqn[$r.testId]
+              if (-not $fqn) { continue }
+              $fqnOutcome[$fqn] = if ($r.outcome -eq 'Passed') { 'Passed' } else { 'Failed' }
+            }
+          }
+          if ($fqnOutcome.Count -eq 0) { Write-Host "No trx outcomes parsed - skipping publish."; exit 0 }
+
+          try {
+            # suite test points: testCaseId -> pointId
+            $pts = Invoke-RestMethod -Uri "$base/Plans/$planId/Suites/$suiteId/points?api-version=7.0" -Headers $hdr -TimeoutSec 60
+            $tcToPoint = @{}
+            foreach ($p in $pts.value) { if ($p.testCase -and $p.testCase.id) { $tcToPoint[[int]$p.testCase.id] = $p.id } }
+
+            # pointId -> outcome  (FQN -> testCaseId -> pointId)
+            $pointOutcome = @{}
+            foreach ($fqn in $fqnOutcome.Keys) {
+              if (-not $fqnToTc.ContainsKey($fqn)) { continue }
+              $tc = $fqnToTc[$fqn]
+              if (-not $tcToPoint.ContainsKey($tc)) { continue }
+              $pointOutcome[$tcToPoint[$tc]] = $fqnOutcome[$fqn]
+            }
+            $pointIds = @($pointOutcome.Keys)
+            if ($pointIds.Count -eq 0) { Write-Host "No matching test points for this run - skipping publish."; exit 0 }
+
+            # create a run against those points
+            $runName = "WW Smoke $te - build $(Build.BuildId)"
+            $body = @{ name = $runName; plan = @{ id = "$planId" }; pointIds = $pointIds } | ConvertTo-Json -Depth 5
+            $run = Invoke-RestMethod -Uri "$base/runs?api-version=7.0" -Method Post -Headers $hdr -ContentType 'application/json' -Body $body -TimeoutSec 60
+            $runId = $run.id
+            Write-Host "Created test run $runId for $($pointIds.Count) point(s)."
+
+            # set outcomes on the auto-created results, then complete the run
+            $res = Invoke-RestMethod -Uri "$base/runs/$runId/results?api-version=7.0" -Headers $hdr -TimeoutSec 60
+            $patch = @()
+            foreach ($r in $res.value) {
+              $ptId = $r.testPoint.id
+              $oc = if ($pointOutcome.ContainsKey($ptId)) { $pointOutcome[$ptId] } else { 'NotExecuted' }
+              $patch += @{ id = $r.id; outcome = $oc; state = 'Completed' }
+            }
+            if ($patch.Count -gt 0) {
+              $pbody = ConvertTo-Json -Depth 5 -InputObject @($patch)
+              Invoke-RestMethod -Uri "$base/runs/$runId/results?api-version=7.0" -Method Patch -Headers $hdr -ContentType 'application/json' -Body $pbody -TimeoutSec 90 | Out-Null
+            }
+            Invoke-RestMethod -Uri "$base/runs/$runId?api-version=7.0" -Method Patch -Headers $hdr -ContentType 'application/json' -Body (@{ state = 'Completed' } | ConvertTo-Json) -TimeoutSec 60 | Out-Null
+            Write-Host "Published $($patch.Count) result(s) to Test Plan $planId / suite $suiteId (run $runId)."
+          } catch {
+            Write-Host "##[warning]Test Plan publish failed (non-fatal): $($_.Exception.Message)"
+          }
+          exit 0
+        displayName: 'Publish results to Test Plan (best-effort)'
+        condition: succeededOrFailed()
+        continueOnError: true
+        timeoutInMinutes: 5
+        env:
+          SYSTEM_ACCESSTOKEN: $(System.AccessToken)
 
       # Pass-rate gate: the single source of build success. Uses the pass% the
       # report step computed from the local trx (no REST). Fails the build only
