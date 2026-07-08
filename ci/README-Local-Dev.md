@@ -180,7 +180,58 @@ is great for test failures. Select the failing code or paste the error, then ask
 
 ---
 
-## 8. Reference
+## 8. Reproduce a **failed CI test** locally (run it by hand)
+
+When the pipeline reports a failure, re-run **that one test** on your machine to
+see it fail live, step through it, and confirm your fix — before pushing.
+
+### a) Get the failing test's name + the environment it ran in
+- **Environment:** the run name shows it, e.g. `20260708.4 - TS06 (msedge)` → env `TS06`, browser `msedge`.
+- **Test name — pick any source:**
+  - **Consolidated report** artifact `WW-Smoke-Report-<ENV>` → **Failed tests** table (Business unit + Test).
+  - **Non-prod runs:** the run's **Tests** tab → click the red test → copy its full name.
+  - **Any env:** the **Consolidated test report** step log lists each failure as
+    `##[warning]FAIL [<BU>] <TestName> - <first line of error>`.
+
+### b) Point local config at the **same** environment
+```powershell
+$env:TEST_ENV                  = "TS06"      # match the run name
+$env:PLAYWRIGHT_BROWSER_CHANNEL = "msedge"   # match the run name
+$env:PLAYWRIGHT_USERNAME       = "your-test-user"
+$env:DbSettings__DbUserId      = "your-db-user"
+$env:DbSettings__DbPassword    = "your-db-password"
+$env:BrowserSettings__Headless = "false"     # watch it happen
+```
+(See Section 3 for details. PROD failures need prod creds/agent — reproduce on **TS06** first if you can.)
+
+### c) Run just that test — headed, with live output
+```powershell
+# Use the exact method name from step (a). Partial match is fine.
+dotnet test --filter "FullyQualifiedName~NavigateToMemberInfo" `
+            --logger "console;verbosity=detailed"
+```
+Narrow further if the name isn't unique across BUs:
+```powershell
+dotnet test --filter "FullyQualifiedName~Tests.Gov.NavigateToMemberInfo"
+```
+
+### d) Step through / inspect when it fails
+- **Playwright Inspector** (pause on each action): `$env:PWDEBUG = "1"` then run the `dotnet test` above.
+- **Debugger:** set a breakpoint in the test and run it under VS / VS Code.
+- **Compare against CI:** open the CI failure's **trace** (`trace.zip` on the Tests
+  tab) at <https://trace.playwright.dev> and watch where it stalled vs. your local run.
+
+### e) Passes locally but failed in CI?
+Usually **timing/flake** or **env data**, not a code bug:
+- Re-run it 2–3 times locally — intermittent = flaky (fix with web-first
+  `Expect(...)` assertions, never `Task.Delay`; see Section 7).
+- Confirm you're on the **same env** and on the **corp network/VPN**.
+- 1–3 rotating flaky timeouts are expected and stay **green** under the ≥ 98 %
+  gate — only a repeatable failure is a real regression worth chasing.
+
+---
+
+## 9. Reference
 - **How to run in CI / read results:** `ci/README-Run-Tests-Playbook.md`
 - **Run it (one-pager):** `ci/HOW-TO-RUN.md`
 - **Pipeline:** `azure-pipelines.yml`
