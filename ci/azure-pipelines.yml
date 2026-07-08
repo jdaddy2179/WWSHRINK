@@ -1,7 +1,9 @@
 # ============================================================================
-# WW Smoke — Playwright tests via `dotnet test` (business-unit matrix)
+# WW Smoke — Playwright tests via `dotnet test` (balanced shard matrix)
 # ----------------------------------------------------------------------------
-# Each business unit runs as its own matrix leg with `dotnet test`, writing a
+# The curated smoke set is split into N balanced shards (round-robin over the
+# discovered test list) - one matrix leg per shard, each running `dotnet test`
+# with an exact-FQN filter for its slice and writing a
 # .trx to a KNOWN folder (--results-directory). Results publish to the native
 # Azure DevOps "Tests" tab, the .trx files publish as artifacts, and a final
 # job downloads those trx files (local read - no REST API) and builds ONE
@@ -34,10 +36,16 @@ parameters:
     type: string
     default: msedge
     values: [msedge, chrome]
-  - name: maxParallel
-    displayName: 'Business-unit legs to run at once (limits load on the app)'
+  - name: shardCount
+    displayName: 'Non-prod: parallel shards (agents to use; pool has 6)'
     type: number
-    default: 3
+    default: 6
+    values: [1, 2, 3, 4, 5, 6]
+  - name: prodShards
+    displayName: 'PROD: parallel shards (set to # of prod agents; 1 today)'
+    type: number
+    default: 1
+    values: [1, 2, 3, 4, 5, 6]
   - name: minPassPercent
     displayName: 'Fail the build only if pass %% is below this'
     type: number
@@ -49,6 +57,17 @@ variables:
   - group: PlaywrightAutomation-Secrets
   - name: buildConfiguration
     value: 'Release'
+  # Sharding: SHARD_TOTAL is the active shard count for this env; each leg gets a
+  # SHARD_INDEX from the matrix. INCLUDE_WEBSERVER folds the PROD-only WebServer
+  # tests into the shard split so they parallelize too.
+  - name: INCLUDE_WEBSERVER
+    value: ${{ eq(parameters.testEnv, 'PROD') }}
+  - ${{ if eq(parameters.testEnv, 'PROD') }}:
+    - name: SHARD_TOTAL
+      value: ${{ parameters.prodShards }}
+  - ${{ else }}:
+    - name: SHARD_TOTAL
+      value: ${{ parameters.shardCount }}
   - name: solution
     value: 'PlaywrightAutomation.sln'
   # Give each agent its OWN NuGet HTTP cache (under the agent's isolated temp).
@@ -78,9 +97,9 @@ variables:
 jobs:
   - job: PlaywrightTests
     displayName: 'WW Smoke'
-    # PROD runs the WHOLE smoke set (all BUs) + WebServer in ONE leg on a single
-    # agent, so it needs a long timeout (~40 min of tests). Non-prod legs are one
-    # BU each and finish quickly, so keep the tight 20-min cap there.
+    # PROD has one agent today (prodShards defaults to 1), so a single shard runs
+    # the whole smoke set + WebServer (~40 min) - keep the long timeout. Non-prod
+    # shards are ~1/6 of the set and finish quickly, so keep the tight 20-min cap.
     ${{ if eq(parameters.testEnv, 'PROD') }}:
       timeoutInMinutes: 90
     ${{ else }}:
@@ -98,37 +117,42 @@ jobs:
         name: 'AppSvcs-OnPrem-SQA'
     workspace:
       clean: all
+    # Tests are split into N balanced shards (round-robin over the discovered
+    # test list) rather than by business unit, so every agent gets an even slice
+    # and they finish together. Non-prod fans out across the whole pool
+    # (shardCount, default 6); PROD uses prodShards (1 today - bump it as prod
+    # agents are registered and the split kicks in automatically).
     strategy:
-      matrix:
-        ${{ if eq(parameters.testEnv, 'PROD') }}:
-          # PROD runs on a single agent, so use ONE leg (one checkout/restore/
-          # build) that runs the whole smoke set across all business units, then
-          # a WebServer pass in the same leg (see the Run step). Much faster than
-          # six sequential legs each repeating checkout+build. Empty BUFilter =
-          # "all BUs" (the Run step applies just the smoke filter).
-          Smoke:
-            BU: 'Smoke'
-            BUFilter: ''
-        ${{ else }}:
-          # Non-prod parallelizes across agents: one leg per business unit. The
-          # BU name doubles as its .trx file name so the report can attribute
-          # results without parsing class metadata.
-          Government:
-            BU: 'Government'
-            BUFilter: 'FullyQualifiedName~Tests.Gov'
-          Commercial:
-            BU: 'Commercial'
-            BUFilter: 'FullyQualifiedName~Tests.Com'
-          BCBSM:
-            BU: 'BCBSM'
-            BUFilter: 'FullyQualifiedName~Tests.Bcbsm'
-          WW2:
-            BU: 'WW2'
-            BUFilter: 'FullyQualifiedName~Tests.Ww2'
-          MassHealth:
-            BU: 'MassHealth'
-            BUFilter: 'FullyQualifiedName~Tests.MassHealth'
-      maxParallel: ${{ parameters.maxParallel }}
+      ${{ if eq(parameters.testEnv, 'PROD') }}:
+        maxParallel: ${{ parameters.prodShards }}
+        matrix:
+          ${{ if ge(parameters.prodShards, 1) }}:
+            Shard1: { SHARD_INDEX: '1' }
+          ${{ if ge(parameters.prodShards, 2) }}:
+            Shard2: { SHARD_INDEX: '2' }
+          ${{ if ge(parameters.prodShards, 3) }}:
+            Shard3: { SHARD_INDEX: '3' }
+          ${{ if ge(parameters.prodShards, 4) }}:
+            Shard4: { SHARD_INDEX: '4' }
+          ${{ if ge(parameters.prodShards, 5) }}:
+            Shard5: { SHARD_INDEX: '5' }
+          ${{ if ge(parameters.prodShards, 6) }}:
+            Shard6: { SHARD_INDEX: '6' }
+      ${{ else }}:
+        maxParallel: ${{ parameters.shardCount }}
+        matrix:
+          ${{ if ge(parameters.shardCount, 1) }}:
+            Shard1: { SHARD_INDEX: '1' }
+          ${{ if ge(parameters.shardCount, 2) }}:
+            Shard2: { SHARD_INDEX: '2' }
+          ${{ if ge(parameters.shardCount, 3) }}:
+            Shard3: { SHARD_INDEX: '3' }
+          ${{ if ge(parameters.shardCount, 4) }}:
+            Shard4: { SHARD_INDEX: '4' }
+          ${{ if ge(parameters.shardCount, 5) }}:
+            Shard5: { SHARD_INDEX: '5' }
+          ${{ if ge(parameters.shardCount, 6) }}:
+            Shard6: { SHARD_INDEX: '6' }
     steps:
       # Checkout. Non-prod uses the built-in checkout. PROD agent VMs sit on a
       # locked-down network and can't reach the TLS cert revocation servers
@@ -244,38 +268,58 @@ jobs:
       # flaky test doesn't turn the build red). Real failures still show in the
       # Tests tab + report, and a regression trips the gate.
       - powershell: |
+          $ErrorActionPreference = 'Stop'
           $results = "$(Build.ArtifactStagingDirectory)\TestResults"
           New-Item -ItemType Directory -Force -Path $results | Out-Null
-          # Build this leg's filter:
-          #   - empty BUFilter (PROD 'Smoke' leg) -> whole smoke set, all BUs
-          #     (just the smoke filter, minus its leading '&').
-          #   - non-prod BU leg -> BU filter + smoke filter.
-          if ([string]::IsNullOrEmpty("$(BUFilter)")) { $filter = "$(smokeFilter)".TrimStart('&') }
-          else { $filter = "$(BUFilter)$(smokeFilter)" }
-          Write-Host "Leg    : $(BU)"
-          Write-Host "Filter : $filter"
-          # The console logger (verbosity=normal) streams each test's pass/fail to
-          # this step's live log so progress is visible in real time; the trx
-          # logger feeds the report.
-          dotnet test "$(solution)" --no-build --configuration $(buildConfiguration) `
-            --filter "$filter" `
-            --logger "console;verbosity=detailed" `
-            --logger "trx;LogFileName=$(BU).trx" `
-            --results-directory "$results"
-          if ($LASTEXITCODE -ne 0) { Write-Host "##[warning]$(BU): some tests failed - the pass-rate gate decides the build." }
-          # PROD is a single leg, so run the prod-only WebServer validation pass
-          # here too (shares the one checkout/build); it writes its own trx.
-          if ($env:TEST_ENV -eq "PROD") {
-            Write-Host "Running WebServer validation pass (PROD)"
-            dotnet test "$(solution)" --no-build --configuration $(buildConfiguration) `
-              --filter "TestCategory=WebServer" `
-              --logger "console;verbosity=detailed" `
-              --logger "trx;LogFileName=WebServer.trx" `
-              --results-directory "$results"
-            if ($LASTEXITCODE -ne 0) { Write-Host "##[warning]WebServer: some tests failed - the pass-rate gate decides the build." }
+          $idx = [int]"$(SHARD_INDEX)"; $tot = [int]"$(SHARD_TOTAL)"
+
+          # Enumerate the smoke test FQNs straight from source so the shard split
+          # stays in sync with the tests (no stale lists). A test is in the set if
+          # its [Test ...] attribute carries the wanted category; the excludes come
+          # from the smokeFilter var (its FullyQualifiedName!~ terms), keeping that
+          # variable the single source of truth for what the smoke run covers.
+          $sf = "$(smokeFilter)"
+          $excludes = [regex]::Matches($sf, 'FullyQualifiedName!~([^&]+)') | ForEach-Object { $_.Groups[1].Value }
+          function Get-Tests([string]$category) {
+            $list = New-Object System.Collections.Generic.List[string]
+            Get-ChildItem "$(Build.SourcesDirectory)\PlaywrightAutomation\Tests" -Recurse -Filter *.cs | ForEach-Object {
+              $txt = Get-Content -Raw $_.FullName
+              $ns  = [regex]::Match($txt, 'namespace\s+([\w.]+)').Groups[1].Value
+              $cls = [regex]::Match($txt, 'class\s+(\w+)\s*:').Groups[1].Value
+              if (-not $ns -or -not $cls) { return }
+              foreach ($mm in [regex]::Matches($txt, '\[Test\b[^\]]*\](?:\s*\[[^\]]*\])*\s*public\s+async\s+Task\s+(\w+)\s*\(')) {
+                if ($mm.Value -notmatch [regex]::Escape("Category(""$category"")")) { continue }
+                $fqn = "$ns.$cls.$($mm.Groups[1].Value)"
+                $skip = $false
+                foreach ($e in $excludes) { if ($fqn -like "*$e*") { $skip = $true; break } }
+                if (-not $skip) { $list.Add($fqn) }
+              }
+            }
+            return @($list | Sort-Object -Unique)
           }
+          # Round-robin this shard's slice, then run it as an exact-FQN filter
+          # (pure '|' of FullyQualifiedName= terms - no '&', so no filter-grammar
+          # ambiguity). The console logger streams live progress; the trx feeds
+          # the report. Individual failures don't fail the leg - the pass-rate
+          # gate in the report job decides the build.
+          function Invoke-Shard([string[]]$all, [string]$name) {
+            $mine = @(); for ($i = 0; $i -lt $all.Count; $i++) { if (($i % $tot) -eq ($idx - 1)) { $mine += $all[$i] } }
+            Write-Host "Leg $name : $($mine.Count) of $($all.Count) test(s) (shard $idx/$tot)"
+            if ($mine.Count -eq 0) { return }
+            $filter = ($mine | ForEach-Object { "FullyQualifiedName=$_" }) -join '|'
+            dotnet test "$(solution)" --no-build --configuration $(buildConfiguration) `
+              --filter "$filter" `
+              --logger "console;verbosity=detailed" `
+              --logger "trx;LogFileName=$name.trx" `
+              --results-directory "$results"
+            if ($LASTEXITCODE -ne 0) { Write-Host "##[warning]$name: some tests failed - the pass-rate gate decides the build." }
+          }
+
+          Invoke-Shard (Get-Tests 'TestEnv') "Shard$idx"
+          # PROD also runs the WebServer node checks - shard those too.
+          if ('$(INCLUDE_WEBSERVER)' -eq 'true') { Invoke-Shard (Get-Tests 'WebServer') "Shard$idx-WebServer" }
           exit 0
-        displayName: 'Run $(BU) tests'
+        displayName: 'Run shard $(SHARD_INDEX)'
         env:
           TEST_ENV: ${{ parameters.testEnv }}
           PLAYWRIGHT_BROWSER_CHANNEL: ${{ parameters.browserChannel }}
@@ -427,11 +471,11 @@ jobs:
             "<div class='card'><div class='n' style='color:#1e8e3e'>$pass</div><div class='l'>Passed</div></div>" +
             "<div class='card'><div class='n' style='color:#c0392b'>$fail</div><div class='l'>Failed</div></div>" +
             "<div class='card'><div class='n' style='color:$vcol'>$pct%</div><div class='l'>Pass rate</div></div></div>" +
-            "<h2>Results by business unit</h2><table><tr><th>Business unit</th><th style='text-align:right'>Tests</th><th style='text-align:right'>Passed</th><th style='text-align:right'>Failed</th><th style='text-align:right'>Pass rate</th></tr>$buRows</table>" +
+            "<h2>Results by shard</h2><table><tr><th>Shard</th><th style='text-align:right'>Tests</th><th style='text-align:right'>Passed</th><th style='text-align:right'>Failed</th><th style='text-align:right'>Pass rate</th></tr>$buRows</table>" +
             "<h2>Failed tests</h2><details open><summary style='cursor:pointer;color:#2563eb;margin:0 0 10px'>Show $fail failed tests</summary>" +
-            "<table><tr><th>Business unit</th><th>Test</th><th>Reason</th></tr>$failRows</table></details>" +
+            "<table><tr><th>Shard</th><th>Test</th><th>Reason</th></tr>$failRows</table></details>" +
             "<h2>Passed tests</h2><details><summary style='cursor:pointer;color:#2563eb;margin:0 0 10px'>Show $pass passed tests</summary>" +
-            "<table><tr><th>Business unit</th><th>Test</th><th style='text-align:right'>Duration</th></tr>$passRows</table></details>" +
+            "<table><tr><th>Shard</th><th>Test</th><th style='text-align:right'>Duration</th></tr>$passRows</table></details>" +
             "<a class='btn' href='$link'>Open full results in Azure DevOps</a>" +
             "<p class='foot'>Generated by the WW Smoke pipeline. 2 provider-search tests (Commercial, MassHealth) are quarantined pending valid TS06 data. Per-test screenshots/traces are on the run's Tests tab.</p>" +
             "</div></body></html>"
