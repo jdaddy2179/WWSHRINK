@@ -312,7 +312,7 @@ jobs:
               --logger "console;verbosity=detailed" `
               --logger "trx;LogFileName=$name.trx" `
               --results-directory "$results"
-            if ($LASTEXITCODE -ne 0) { Write-Host "##[warning]$name: some tests failed - the pass-rate gate decides the build." }
+            if ($LASTEXITCODE -ne 0) { Write-Host "##[warning]${name}: some tests failed - the pass-rate gate decides the build." }
           }
 
           Invoke-Shard (Get-Tests 'TestEnv') "Shard$idx"
