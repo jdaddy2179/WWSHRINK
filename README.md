@@ -28,6 +28,7 @@ BCBSM, WW2, MassHealth, plus PROD WebServer checks).
 | Doc | What it covers |
 |---|---|
 | [`ci/HOW-TO-RUN.md`](ci/HOW-TO-RUN.md) | One-page run + email + test-plan links (paste into a dashboard/wiki) |
+| [`ci/WW-UI-Directory.md`](ci/WW-UI-Directory.md) | UI test directory by business unit + **database names/servers** per env |
 | [`ci/README-Run-Tests-Playbook.md`](ci/README-Run-Tests-Playbook.md) | Full guide: parameters, results, **PROD**, troubleshooting |
 | [`ci/README-Local-Dev.md`](ci/README-Local-Dev.md) | Run locally, add tests via **codegen**, **Copilot** troubleshooting |
 | [`runner/README.md`](runner/README.md) | `wwsmoke` CLI (queue + wait + console results; optional email) and single-file exe |
