@@ -36,9 +36,9 @@ parameters:
     default: msedge
     values: [msedge, chrome]
   - name: maxParallel
-    displayName: 'Business-unit legs to run at once (pool has 6 agents)'
+    displayName: 'Legs to run at once (>= leg count uses the whole pool; PROD=9 legs, non-prod=6)'
     type: number
-    default: 6
+    default: 9
   - name: minPassPercent
     displayName: 'Fail the build only if pass %% is below this'
     type: number
