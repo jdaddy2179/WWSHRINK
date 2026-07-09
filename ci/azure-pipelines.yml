@@ -229,16 +229,31 @@ jobs:
         BCBSM:
           BU: 'BCBSM'
           BUFilter: 'FullyQualifiedName~Tests.Bcbsm'
-        WW2:
-          BU: 'WW2'
-          BUFilter: 'FullyQualifiedName~Tests.Ww2'
         MassHealth:
           BU: 'MassHealth'
           BUFilter: 'FullyQualifiedName~Tests.MassHealth'
+        # WW2 split into its two apps so neither is a long pole (the Payment
+        # tests are slow). Config ~8 tests, Payment ~14.
+        WW2-Config:
+          BU: 'WW2-Config'
+          BUFilter: 'FullyQualifiedName~Tests.Ww2ConfigNavigation'
+        WW2-Payment:
+          BU: 'WW2-Payment'
+          BUFilter: 'FullyQualifiedName~Tests.Ww2PaymentNavigation'
+        # PROD-only WebServer checks (117), split 3 ways (39 each) so they fan out
+        # across the freed agents instead of one 800s leg. Filters are a pure OR
+        # of exact class prefixes (trailing dot isolates e.g. ...Validation. from
+        # ...Validation1.) - no '&', so no filter-grammar ambiguity.
         ${{ if eq(parameters.testEnv, 'PROD') }}:
-          WebServer:
-            BU: 'WebServer'
-            BUFilter: 'TestCategory=WebServer'
+          WebServer1:
+            BU: 'WebServer1'
+            BUFilter: 'FullyQualifiedName~Tests.WebServerValidation.|FullyQualifiedName~Tests.WebServerValidation1.|FullyQualifiedName~Tests.WebServerValidation2.'
+          WebServer2:
+            BU: 'WebServer2'
+            BUFilter: 'FullyQualifiedName~Tests.WebServerValidation3.|FullyQualifiedName~Tests.WebServerValidation4.|FullyQualifiedName~Tests.WebServerValidation5.'
+          WebServer3:
+            BU: 'WebServer3'
+            BUFilter: 'FullyQualifiedName~Tests.WebServerValidation6.|FullyQualifiedName~Tests.WebServerValidationPCD.|FullyQualifiedName~Tests.WebServerValidationPCDInquiryTrackingServiceGovt.'
       maxParallel: ${{ parameters.maxParallel }}
     steps:
       - checkout: none
@@ -280,8 +295,8 @@ jobs:
           New-Item -ItemType Directory -Force -Path $results | Out-Null
           $dll = Get-ChildItem -Path "$(Pipeline.Workspace)\app-build" -Recurse -Filter 'PlaywrightAutomation.dll' | Select-Object -First 1
           if (-not $dll) { throw "PlaywrightAutomation.dll not found in the build artifact" }
-          # WebServer leg runs the raw category; BU legs add the smoke filter.
-          if ('$(BU)' -eq 'WebServer') { $filter = "$(BUFilter)" } else { $filter = "$(BUFilter)$(smokeFilter)" }
+          # WebServer legs run their raw class filter; BU legs add the smoke filter.
+          if ('$(BU)' -like 'WebServer*') { $filter = "$(BUFilter)" } else { $filter = "$(BUFilter)$(smokeFilter)" }
           Write-Host "Leg    : $(BU)"
           Write-Host "Filter : $filter"
           dotnet vstest "$($dll.FullName)" `
